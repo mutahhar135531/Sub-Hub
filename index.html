@@ -11,7 +11,7 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
   <style>
-    /* ===== NEON THEME (unchanged) ===== */
+    /* ===== NEON THEME ===== */
     * { margin:0; padding:0; box-sizing:border-box; }
     body { background:#0b0b1a; color:#e0e0ff; font-family:'Segoe UI',system-ui,sans-serif; min-height:100vh; scroll-behavior:smooth; }
     ::-webkit-scrollbar { width:6px; }
@@ -337,39 +337,30 @@
 
     // ─── SMART ALLOCATION ALGORITHM (improved) ──────────────
     const allocateScreens = (availableSlots, count, username, whatsapp, requestedScreenId = null) => {
-      // 1. Filter out slots already used by this username OR same whatsapp number
+      // Filter slots already used by this username OR same whatsapp number
       const notUsedByUser = availableSlots.filter(slot => {
         const customers = slot.screen.customers || [];
-        // If any customer has the same username, skip this slot
         if (customers.some(c => c.username === username)) return false;
-        // If any customer has the same whatsapp, skip this slot (to avoid sharing screen with same number)
         if (customers.some(c => c.whatsapp === whatsapp)) return false;
         return true;
       });
 
       if (requestedScreenId) {
-        // User requested a specific screen
         const target = notUsedByUser.find(slot => slot.screen.id === requestedScreenId);
         if (!target) {
-          // requested screen not available (already used by user or whatsapp, or full)
-          // fallback to auto-assign
           const autoResult = allocateBestSlots(notUsedByUser, count);
           if (autoResult) return autoResult;
           return { error: 'not_enough' };
         }
-        // Check if the target screen has capacity
         const currentCount = target.screen.customers ? target.screen.customers.length : 0;
         if (currentCount >= 3) {
-          // screen full, fallback
           const autoResult = allocateBestSlots(notUsedByUser, count);
           if (autoResult) return autoResult;
           return { error: 'full' };
         }
-        // Allocate the target screen
         const allocated = [target];
         const remaining = count - 1;
         if (remaining > 0) {
-          // remove the target slot from the pool
           const remainingSlots = notUsedByUser.filter(slot => slot.screen.id !== requestedScreenId);
           const otherAllocated = allocateBestSlots(remainingSlots, remaining);
           if (!otherAllocated) return { error: 'not_enough' };
@@ -378,23 +369,17 @@
         return allocated;
       }
 
-      // Auto-assign: best fit
       const result = allocateBestSlots(notUsedByUser, count);
       if (result) return result;
       return { error: 'not_enough' };
     };
 
     const allocateBestSlots = (slots, count) => {
-      // Group slots by account, and calculate total free slots per account
       const accountMap = {};
       slots.forEach(slot => {
         const accId = slot.account.id;
         if (!accountMap[accId]) {
-          accountMap[accId] = {
-            account: slot.account,
-            slots: [],
-            totalFree: 0,
-          };
+          accountMap[accId] = { account: slot.account, slots: [], totalFree: 0 };
         }
         const currentCount = slot.screen.customers ? slot.screen.customers.length : 0;
         const free = 3 - currentCount;
@@ -403,16 +388,11 @@
           accountMap[accId].totalFree += free;
         }
       });
-
-      // Sort accounts by totalFree descending (most free first)
       const sortedAccounts = Object.values(accountMap).sort((a, b) => b.totalFree - a.totalFree);
-
       let allocated = [];
       let remaining = count;
-
       for (const acc of sortedAccounts) {
         if (remaining === 0) break;
-        // sort slots within account by free descending (most free first)
         const sortedSlots = acc.slots.sort((a, b) => b.free - a.free);
         for (const slot of sortedSlots) {
           if (remaining === 0) break;
@@ -420,12 +400,11 @@
           remaining--;
         }
       }
-
       if (remaining > 0) return null;
       return allocated;
     };
 
-    // ─── NETFLIX FLOW (uses improved allocation) ────────────
+    // ─── NETFLIX FLOW (with improved allocation) ────────────
     function NetflixFlow({ subscription, onBack, onComplete, validateUser }) {
       const [screens, setScreens] = useState(1);
       const [durationType, setDurationType] = useState('months');
@@ -542,13 +521,9 @@
         }
 
         let requestedId = specificScreen ? selectedScreenId : null;
-        // Pass whatsapp to allocation
         let allocationResult = allocateScreens(allAvailableSlots, screens, username, whatsapp.trim(), requestedId);
         let allocated = null;
-        let fallbackUsed = false;
-
         if (allocationResult.error) {
-          // If requested screen not available, try auto-assign
           if (specificScreen) {
             const autoResult = allocateScreens(allAvailableSlots, screens, username, whatsapp.trim(), null);
             if (autoResult.error) {
@@ -556,7 +531,6 @@
               return;
             }
             allocated = autoResult;
-            fallbackUsed = true;
             addToast('The requested screen is not available. We\'ve assigned you another screen.', 'warning');
           } else {
             addToast('No screens available right now.', 'error');
@@ -712,39 +686,999 @@
       return null;
     }
 
-    // ─── AMAZON FLOW (unchanged) ──────────────────────────────
+    // ─── AMAZON FLOW ──────────────────────────────────────
     function AmazonFlow({ subscription, onBack, onComplete, validateUser }) {
-      // ... keep the existing AmazonFlow code as it is ...
-      // (I'm omitting for brevity, but you should keep your existing implementation)
-      // If you don't have it, you'll need to copy from your previous file.
-      return null; // placeholder
+      const [durationType, setDurationType] = useState('months');
+      const [months, setMonths] = useState(1);
+      const [days, setDays] = useState(30);
+      const [step, setStep] = useState('plan');
+      const [otp, setOtp] = useState(['', '', '', '']);
+      const [otpError, setOtpError] = useState('');
+      const [otpTimer, setOtpTimer] = useState(0);
+      const [name, setName] = useState('');
+      const [username, setUsername] = useState('');
+      const [password, setPassword] = useState('');
+      const [whatsapp, setWhatsapp] = useState('');
+      const [loading, setLoading] = useState(false);
+      const { addToast } = useContext(AppContext);
+      const otpRefs = useRef([]);
+
+      const availableSlots = useMemo(() => {
+        if (!subscription?.accounts) return [];
+        const allSlots = [];
+        subscription.accounts.forEach(acc => {
+          if (acc.screens) {
+            acc.screens.forEach(screen => {
+              const customerCount = screen.customers?.length || 0;
+              if (customerCount < 30) {
+                allSlots.push({ account: acc, screen, used: customerCount });
+              }
+            });
+          }
+        });
+        return allSlots;
+      }, [subscription]);
+
+      const canAllocate = useMemo(() => availableSlots.length >= 1, [availableSlots]);
+
+      const { generateOTPAPI, verifyOTPAPI } = useOTPFlow(setStep, setOtpTimer, addToast, username || 'Amazon User');
+
+      const handleGenerateOTP = async () => {
+        if (!name.trim()) { addToast('Please enter your full name', 'error'); return; }
+        if (!username.trim() || username.trim().length < 8) { addToast('Username must be at least 8 characters', 'error'); return; }
+        if (!password.trim() || password.trim().length < 8) { addToast('Password must be at least 8 characters', 'error'); return; }
+        if (!whatsapp.trim()) { addToast('Please enter your WhatsApp number', 'error'); return; }
+
+        const validation = validateUser(username.trim(), password.trim(), whatsapp.trim());
+        if (!validation.valid) {
+          addToast(validation.error, 'error');
+          return;
+        }
+
+        if (!canAllocate) { addToast('No screens available right now.', 'error'); return; }
+        await generateOTPAPI();
+      };
+
+      useEffect(() => {
+        if (otpTimer > 0) {
+          const timer = setTimeout(() => setOtpTimer(otpTimer - 1), 1000);
+          return () => clearTimeout(timer);
+        }
+      }, [otpTimer]);
+
+      const handleOtpChange = (idx, val) => {
+        if (!/^\d*$/.test(val)) return;
+        const newOtp = [...otp];
+        newOtp[idx] = val.slice(0, 1);
+        setOtp(newOtp);
+        if (val && idx < 3) otpRefs.current[idx + 1]?.focus();
+      };
+
+      const handleVerifyOtp = async () => {
+        const entered = otp.join('');
+        if (entered.length !== 4) { setOtpError('Enter all 4 digits'); return; }
+        const verified = await verifyOTPAPI(entered);
+        if (verified) {
+          setOtpError('');
+          setStep('details');
+        } else {
+          setOtpError('Invalid OTP');
+        }
+      };
+
+      const completePurchase = () => {
+        if (!name.trim() || !username.trim() || !password.trim() || !whatsapp.trim()) {
+          addToast('Please fill all details', 'error');
+          return;
+        }
+        const validation = validateUser(username.trim(), password.trim(), whatsapp.trim());
+        if (!validation.valid) {
+          addToast(validation.error, 'error');
+          return;
+        }
+        if (!canAllocate) { addToast('No screens available right now.', 'error'); return; }
+        setLoading(true);
+        const now = new Date();
+        let totalDays = durationType === 'months' ? months * 30 : days;
+        const expiry = new Date(now);
+        expiry.setDate(expiry.getDate() + totalDays);
+        setTimeout(() => {
+          const allocated = [];
+          if (availableSlots.length > 0) {
+            const slot = availableSlots[0];
+            allocated.push({
+              accountId: slot.account.id,
+              screenId: slot.screen.id,
+              screenName: slot.screen.name,
+              accountEmail: slot.account.email,
+              accountPassword: slot.account.password || '••••••••',
+              screenPin: slot.screen.pin || 'N/A'
+            });
+          }
+          onComplete({
+            subscriptionId: subscription.id,
+            screens: 1,
+            months: durationType === 'months' ? months : 0,
+            days: totalDays,
+            name: name.trim(),
+            username: username.trim(),
+            password: password.trim(),
+            whatsapp: whatsapp.trim(),
+            allocated,
+            expiryDate: expiry.toISOString().split('T')[0]
+          });
+          setLoading(false);
+        }, 1200);
+      };
+
+      if (step === 'plan') {
+        return (
+          <div className="space-y-6">
+            <button onClick={onBack} className="text-purple-400 hover:text-purple-300 text-sm"><i className="fas fa-arrow-left mr-2"></i> Back</button>
+            <h2 className="text-2xl font-bold text-white"><i className="fab fa-amazon text-yellow-400 mr-3"></i> Amazon Prime</h2>
+            <div>
+              <label className="text-white/50 text-sm font-medium">Duration</label>
+              <select value={durationType} onChange={(e) => setDurationType(e.target.value)} className="input-neon mt-1">
+                <option value="months">Months</option>
+                <option value="days">Custom Days</option>
+              </select>
+            </div>
+            {durationType === 'months' ? (
+              <div>
+                <label className="text-white/50 text-sm font-medium">Months</label>
+                <select value={months} onChange={(e) => setMonths(Number(e.target.value))} className="input-neon mt-1">
+                  {[1, 2, 3, 6, 12].map(n => <option key={n} value={n}>{n} {n === 1 ? 'month' : 'months'}</option>)}
+                </select>
+              </div>
+            ) : (
+              <div>
+                <label className="text-white/50 text-sm font-medium">Days</label>
+                <input type="number" value={days} onChange={(e) => setDays(Math.max(1, Number(e.target.value)))} className="input-neon mt-1" min="1" />
+              </div>
+            )}
+            <div className="space-y-3">
+              <div>
+                <label className="text-white/50 text-sm font-medium">Full Name</label>
+                <input type="text" value={name} onChange={(e) => setName(e.target.value)} className="input-neon mt-1" placeholder="Your full name" />
+              </div>
+              <div>
+                <label className="text-white/50 text-sm font-medium">Username (min 8 chars)</label>
+                <input type="text" value={username} onChange={(e) => setUsername(e.target.value)} className="input-neon mt-1" placeholder="Choose a unique username" />
+              </div>
+              <div>
+                <label className="text-white/50 text-sm font-medium">Password (min 8 chars)</label>
+                <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} className="input-neon mt-1" placeholder="Create a password" />
+              </div>
+              <div>
+                <label className="text-white/50 text-sm font-medium">WhatsApp Number</label>
+                <input type="tel" value={whatsapp} onChange={(e) => setWhatsapp(e.target.value)} className="input-neon mt-1" placeholder="+92 300 1234567" />
+              </div>
+            </div>
+            <button onClick={handleGenerateOTP} disabled={!canAllocate} className={`btn-neon w-full py-3 ${!canAllocate ? 'opacity-50 cursor-not-allowed' : ''}`}>
+              <i className="fas fa-key mr-2"></i> Get OTP
+            </button>
+          </div>
+        );
+      }
+      if (step === 'otp') {
+        return (
+          <div className="space-y-6">
+            <button onClick={() => setStep('plan')} className="text-purple-400 hover:text-purple-300 text-sm"><i className="fas fa-arrow-left mr-2"></i> Back</button>
+            <h2 className="text-2xl font-bold text-white">Enter OTP</h2>
+            <p className="text-white/40 text-sm">Enter the 4-digit OTP. Expires in {otpTimer}s</p>
+            <div className="flex gap-3 justify-center">
+              {[0, 1, 2, 3].map(idx => (
+                <input key={idx} ref={el => otpRefs.current[idx] = el} type="text" className="otp-input" maxLength="1" value={otp[idx]} onChange={(e) => handleOtpChange(idx, e.target.value)} onKeyDown={(e) => { if (e.key === 'Backspace' && !otp[idx] && idx > 0) otpRefs.current[idx - 1]?.focus(); }} autoFocus={idx === 0} />
+              ))}
+            </div>
+            {otpError && <p className="text-red-400 text-sm text-center">{otpError}</p>}
+            <button onClick={handleVerifyOtp} className="btn-neon w-full py-3"><i className="fas fa-check mr-2"></i> Verify OTP</button>
+          </div>
+        );
+      }
+      if (step === 'details') {
+        return (
+          <div className="space-y-6">
+            <h2 className="text-2xl font-bold text-white"><i className="fas fa-user-check text-purple-400 mr-3"></i> Confirm Details</h2>
+            <div className="bg-purple-500/5 rounded-xl p-4 border border-purple-500/10 space-y-2">
+              <p><span className="text-white/50">Name:</span> <span className="text-white">{name}</span></p>
+              <p><span className="text-white/50">Username:</span> <span className="text-white">{username}</span></p>
+              <p><span className="text-white/50">WhatsApp:</span> <span className="text-white">{whatsapp}</span></p>
+              <p><span className="text-white/50">Plan:</span> <span className="text-white">1 screen for {durationType === 'months' ? months + ' month(s)' : days + ' day(s)'}</span></p>
+            </div>
+            <button onClick={completePurchase} disabled={loading} className="btn-neon w-full py-3">
+              {loading ? <span className="spinner"></span> : <><i className="fas fa-check-circle mr-2"></i> Complete</>}
+            </button>
+          </div>
+        );
+      }
+      return null;
     }
 
-    // ─── YOUTUBE FLOW (unchanged) ─────────────────────────────
+    // ─── YOUTUBE FLOW ──────────────────────────────────────
     function YouTubeFlow({ subscription, onBack, onComplete, validateUser }) {
-      // ... keep existing ...
+      const [email, setEmail] = useState('');
+      const [password, setPassword] = useState('');
+      const [durationType, setDurationType] = useState('months');
+      const [months, setMonths] = useState(1);
+      const [days, setDays] = useState(30);
+      const [step, setStep] = useState('plan');
+      const [otp, setOtp] = useState(['', '', '', '']);
+      const [otpError, setOtpError] = useState('');
+      const [otpTimer, setOtpTimer] = useState(0);
+      const [name, setName] = useState('');
+      const [username, setUsername] = useState('');
+      const [whatsapp, setWhatsapp] = useState('');
+      const [loading, setLoading] = useState(false);
+      const { addToast } = useContext(AppContext);
+      const otpRefs = useRef([]);
+
+      const { generateOTPAPI, verifyOTPAPI } = useOTPFlow(setStep, setOtpTimer, addToast, username || 'YouTube User');
+
+      const handleGenerateOTP = async () => {
+        if (!name.trim()) { addToast('Please enter your full name', 'error'); return; }
+        if (!username.trim() || username.trim().length < 8) { addToast('Username must be at least 8 characters', 'error'); return; }
+        if (!password.trim() || password.trim().length < 8) { addToast('Password must be at least 8 characters', 'error'); return; }
+        if (!whatsapp.trim()) { addToast('Please enter your WhatsApp number', 'error'); return; }
+        if (!email.trim()) { addToast('Please enter your email', 'error'); return; }
+
+        const validation = validateUser(username.trim(), password.trim(), whatsapp.trim());
+        if (!validation.valid) {
+          addToast(validation.error, 'error');
+          return;
+        }
+        await generateOTPAPI();
+      };
+
+      useEffect(() => {
+        if (otpTimer > 0) {
+          const timer = setTimeout(() => setOtpTimer(otpTimer - 1), 1000);
+          return () => clearTimeout(timer);
+        }
+      }, [otpTimer]);
+
+      const handleOtpChange = (idx, val) => {
+        if (!/^\d*$/.test(val)) return;
+        const newOtp = [...otp];
+        newOtp[idx] = val.slice(0, 1);
+        setOtp(newOtp);
+        if (val && idx < 3) otpRefs.current[idx + 1]?.focus();
+      };
+
+      const handleVerifyOtp = async () => {
+        const entered = otp.join('');
+        if (entered.length !== 4) { setOtpError('Enter all 4 digits'); return; }
+        const verified = await verifyOTPAPI(entered);
+        if (verified) {
+          setOtpError('');
+          setLoading(true);
+          const now = new Date();
+          let totalDays = durationType === 'months' ? months * 30 : days;
+          const expiry = new Date(now);
+          expiry.setDate(expiry.getDate() + totalDays);
+          setTimeout(() => {
+            onComplete({
+              subscriptionId: subscription.id,
+              email: email.trim(),
+              username: username.trim(),
+              password: password.trim(),
+              whatsapp: whatsapp.trim(),
+              name: name.trim(),
+              expiryDate: expiry.toISOString().split('T')[0],
+              months: durationType === 'months' ? months : 0,
+              days: totalDays,
+              screens: 1,
+              allocated: []
+            });
+            setLoading(false);
+          }, 800);
+        } else {
+          setOtpError('Invalid OTP');
+        }
+      };
+
+      if (step === 'plan') {
+        return (
+          <div className="space-y-6">
+            <button onClick={onBack} className="text-purple-400 hover:text-purple-300 text-sm"><i className="fas fa-arrow-left mr-2"></i> Back</button>
+            <h2 className="text-2xl font-bold text-white"><i className="fab fa-youtube text-red-500 mr-3"></i> YouTube Premium</h2>
+            <div className="bg-yellow-500/10 rounded-xl p-4 border border-yellow-500/20">
+              <p className="text-sm text-yellow-200/70">⚠️ Important: Email must not be in a family group.</p>
+            </div>
+            <div>
+              <label className="text-white/50 text-sm font-medium">Email</label>
+              <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className="input-neon mt-1" placeholder="your@email.com" />
+            </div>
+            <div>
+              <label className="text-white/50 text-sm font-medium">Duration</label>
+              <select value={durationType} onChange={(e) => setDurationType(e.target.value)} className="input-neon mt-1">
+                <option value="months">Months</option>
+                <option value="days">Custom Days</option>
+              </select>
+            </div>
+            {durationType === 'months' ? (
+              <div>
+                <label className="text-white/50 text-sm font-medium">Months</label>
+                <select value={months} onChange={(e) => setMonths(Number(e.target.value))} className="input-neon mt-1">
+                  {[1, 2, 3, 6, 12].map(n => <option key={n} value={n}>{n} {n === 1 ? 'month' : 'months'}</option>)}
+                </select>
+              </div>
+            ) : (
+              <div>
+                <label className="text-white/50 text-sm font-medium">Days</label>
+                <input type="number" value={days} onChange={(e) => setDays(Math.max(1, Number(e.target.value)))} className="input-neon mt-1" min="1" />
+              </div>
+            )}
+            <div className="space-y-3">
+              <div>
+                <label className="text-white/50 text-sm font-medium">Full Name</label>
+                <input type="text" value={name} onChange={(e) => setName(e.target.value)} className="input-neon mt-1" placeholder="Your full name" />
+              </div>
+              <div>
+                <label className="text-white/50 text-sm font-medium">Username (min 8 chars)</label>
+                <input type="text" value={username} onChange={(e) => setUsername(e.target.value)} className="input-neon mt-1" placeholder="Choose a unique username" />
+              </div>
+              <div>
+                <label className="text-white/50 text-sm font-medium">Password (min 8 chars)</label>
+                <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} className="input-neon mt-1" placeholder="Create a password" />
+              </div>
+              <div>
+                <label className="text-white/50 text-sm font-medium">WhatsApp Number</label>
+                <input type="tel" value={whatsapp} onChange={(e) => setWhatsapp(e.target.value)} className="input-neon mt-1" placeholder="+92 300 1234567" />
+              </div>
+            </div>
+            <button onClick={handleGenerateOTP} className="btn-neon w-full py-3"><i className="fas fa-key mr-2"></i> Get OTP</button>
+          </div>
+        );
+      }
+      if (step === 'otp') {
+        return (
+          <div className="space-y-6">
+            <button onClick={() => setStep('plan')} className="text-purple-400 hover:text-purple-300 text-sm"><i className="fas fa-arrow-left mr-2"></i> Back</button>
+            <h2 className="text-2xl font-bold text-white">Enter OTP</h2>
+            <p className="text-white/40 text-sm">Expires in {otpTimer}s</p>
+            <div className="flex gap-3 justify-center">
+              {[0, 1, 2, 3].map(idx => (
+                <input key={idx} ref={el => otpRefs.current[idx] = el} type="text" className="otp-input" maxLength="1" value={otp[idx]} onChange={(e) => handleOtpChange(idx, e.target.value)} onKeyDown={(e) => { if (e.key === 'Backspace' && !otp[idx] && idx > 0) otpRefs.current[idx - 1]?.focus(); }} autoFocus={idx === 0} />
+              ))}
+            </div>
+            {otpError && <p className="text-red-400 text-sm text-center">{otpError}</p>}
+            <button onClick={handleVerifyOtp} disabled={loading} className="btn-neon w-full py-3">
+              {loading ? <span className="spinner"></span> : <><i className="fas fa-check mr-2"></i> Verify & Complete</>}
+            </button>
+          </div>
+        );
+      }
       return null;
     }
 
-    // ─── SPOTIFY FLOW (unchanged) ─────────────────────────────
+    // ─── SPOTIFY FLOW ──────────────────────────────────────
     function SpotifyFlow({ subscription, onBack, onComplete, validateUser }) {
-      // ... keep existing ...
+      const [durationType, setDurationType] = useState('months');
+      const [months, setMonths] = useState(1);
+      const [days, setDays] = useState(30);
+      const [step, setStep] = useState('plan');
+      const [otp, setOtp] = useState(['', '', '', '']);
+      const [otpError, setOtpError] = useState('');
+      const [otpTimer, setOtpTimer] = useState(0);
+      const [name, setName] = useState('');
+      const [username, setUsername] = useState('');
+      const [password, setPassword] = useState('');
+      const [whatsapp, setWhatsapp] = useState('');
+      const [loading, setLoading] = useState(false);
+      const { addToast } = useContext(AppContext);
+      const otpRefs = useRef([]);
+
+      const availableSlots = useMemo(() => {
+        if (!subscription?.accounts) return [];
+        const allSlots = [];
+        subscription.accounts.forEach(acc => {
+          if (acc.screens) {
+            acc.screens.forEach(screen => {
+              const customerCount = screen.customers?.length || 0;
+              if (customerCount < 1) {
+                allSlots.push({ account: acc, screen, used: customerCount });
+              }
+            });
+          }
+        });
+        return allSlots;
+      }, [subscription]);
+
+      const canAllocate = useMemo(() => availableSlots.length >= 1, [availableSlots]);
+
+      const { generateOTPAPI, verifyOTPAPI } = useOTPFlow(setStep, setOtpTimer, addToast, username || 'Spotify User');
+
+      const handleGenerateOTP = async () => {
+        if (!name.trim()) { addToast('Please enter your full name', 'error'); return; }
+        if (!username.trim() || username.trim().length < 8) { addToast('Username must be at least 8 characters', 'error'); return; }
+        if (!password.trim() || password.trim().length < 8) { addToast('Password must be at least 8 characters', 'error'); return; }
+        if (!whatsapp.trim()) { addToast('Please enter your WhatsApp number', 'error'); return; }
+
+        const validation = validateUser(username.trim(), password.trim(), whatsapp.trim());
+        if (!validation.valid) {
+          addToast(validation.error, 'error');
+          return;
+        }
+        if (!canAllocate) { addToast('No slots available', 'error'); return; }
+        await generateOTPAPI();
+      };
+
+      useEffect(() => {
+        if (otpTimer > 0) {
+          const timer = setTimeout(() => setOtpTimer(otpTimer - 1), 1000);
+          return () => clearTimeout(timer);
+        }
+      }, [otpTimer]);
+
+      const handleOtpChange = (idx, val) => {
+        if (!/^\d*$/.test(val)) return;
+        const newOtp = [...otp];
+        newOtp[idx] = val.slice(0, 1);
+        setOtp(newOtp);
+        if (val && idx < 3) otpRefs.current[idx + 1]?.focus();
+      };
+
+      const handleVerifyOtp = async () => {
+        const entered = otp.join('');
+        if (entered.length !== 4) { setOtpError('Enter all 4 digits'); return; }
+        const verified = await verifyOTPAPI(entered);
+        if (verified) {
+          setOtpError('');
+          setStep('details');
+        } else {
+          setOtpError('Invalid OTP');
+        }
+      };
+
+      const completePurchase = () => {
+        if (!name.trim() || !username.trim() || !password.trim() || !whatsapp.trim()) {
+          addToast('Fill all details', 'error');
+          return;
+        }
+        const validation = validateUser(username.trim(), password.trim(), whatsapp.trim());
+        if (!validation.valid) {
+          addToast(validation.error, 'error');
+          return;
+        }
+        if (!canAllocate) { addToast('No slots available', 'error'); return; }
+        setLoading(true);
+        const now = new Date();
+        let totalDays = durationType === 'months' ? months * 30 : days;
+        const expiry = new Date(now);
+        expiry.setDate(expiry.getDate() + totalDays);
+        setTimeout(() => {
+          const allocated = [];
+          if (availableSlots.length > 0) {
+            const slot = availableSlots[0];
+            allocated.push({
+              accountId: slot.account.id,
+              screenId: slot.screen.id,
+              screenName: slot.screen.name,
+              accountEmail: slot.account.email,
+              accountPassword: slot.account.password || '••••••••',
+              screenPin: slot.screen.pin || 'N/A'
+            });
+          }
+          onComplete({
+            subscriptionId: subscription.id,
+            screens: 1,
+            months: durationType === 'months' ? months : 0,
+            days: totalDays,
+            name: name.trim(),
+            username: username.trim(),
+            password: password.trim(),
+            whatsapp: whatsapp.trim(),
+            allocated,
+            expiryDate: expiry.toISOString().split('T')[0]
+          });
+          setLoading(false);
+        }, 1200);
+      };
+
+      if (step === 'plan') {
+        return (
+          <div className="space-y-6">
+            <button onClick={onBack} className="text-purple-400 hover:text-purple-300 text-sm"><i className="fas fa-arrow-left mr-2"></i> Back</button>
+            <h2 className="text-2xl font-bold text-white"><i className="fab fa-spotify text-green-400 mr-3"></i> Spotify</h2>
+            <div>
+              <label className="text-white/50 text-sm font-medium">Duration</label>
+              <select value={durationType} onChange={(e) => setDurationType(e.target.value)} className="input-neon mt-1">
+                <option value="months">Months</option>
+                <option value="days">Custom Days</option>
+              </select>
+            </div>
+            {durationType === 'months' ? (
+              <div>
+                <label className="text-white/50 text-sm font-medium">Months</label>
+                <select value={months} onChange={(e) => setMonths(Number(e.target.value))} className="input-neon mt-1">
+                  {[1, 2, 3, 6, 12].map(n => <option key={n} value={n}>{n} {n === 1 ? 'month' : 'months'}</option>)}
+                </select>
+              </div>
+            ) : (
+              <div>
+                <label className="text-white/50 text-sm font-medium">Days</label>
+                <input type="number" value={days} onChange={(e) => setDays(Math.max(1, Number(e.target.value)))} className="input-neon mt-1" min="1" />
+              </div>
+            )}
+            <div className="space-y-3">
+              <div>
+                <label className="text-white/50 text-sm font-medium">Full Name</label>
+                <input type="text" value={name} onChange={(e) => setName(e.target.value)} className="input-neon mt-1" placeholder="Your full name" />
+              </div>
+              <div>
+                <label className="text-white/50 text-sm font-medium">Username (min 8 chars)</label>
+                <input type="text" value={username} onChange={(e) => setUsername(e.target.value)} className="input-neon mt-1" placeholder="Choose a unique username" />
+              </div>
+              <div>
+                <label className="text-white/50 text-sm font-medium">Password (min 8 chars)</label>
+                <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} className="input-neon mt-1" placeholder="Create a password" />
+              </div>
+              <div>
+                <label className="text-white/50 text-sm font-medium">WhatsApp Number</label>
+                <input type="tel" value={whatsapp} onChange={(e) => setWhatsapp(e.target.value)} className="input-neon mt-1" placeholder="+92 300 1234567" />
+              </div>
+            </div>
+            <button onClick={handleGenerateOTP} disabled={!canAllocate} className={`btn-neon w-full py-3 ${!canAllocate ? 'opacity-50 cursor-not-allowed' : ''}`}>
+              <i className="fas fa-key mr-2"></i> Get OTP
+            </button>
+          </div>
+        );
+      }
+      if (step === 'otp') {
+        return (
+          <div className="space-y-6">
+            <button onClick={() => setStep('plan')} className="text-purple-400 hover:text-purple-300 text-sm"><i className="fas fa-arrow-left mr-2"></i> Back</button>
+            <h2 className="text-2xl font-bold text-white">Enter OTP</h2>
+            <p className="text-white/40 text-sm">Expires in {otpTimer}s</p>
+            <div className="flex gap-3 justify-center">
+              {[0, 1, 2, 3].map(idx => (
+                <input key={idx} ref={el => otpRefs.current[idx] = el} type="text" className="otp-input" maxLength="1" value={otp[idx]} onChange={(e) => handleOtpChange(idx, e.target.value)} onKeyDown={(e) => { if (e.key === 'Backspace' && !otp[idx] && idx > 0) otpRefs.current[idx - 1]?.focus(); }} autoFocus={idx === 0} />
+              ))}
+            </div>
+            {otpError && <p className="text-red-400 text-sm text-center">{otpError}</p>}
+            <button onClick={handleVerifyOtp} className="btn-neon w-full py-3"><i className="fas fa-check mr-2"></i> Verify</button>
+          </div>
+        );
+      }
+      if (step === 'details') {
+        return (
+          <div className="space-y-6">
+            <h2 className="text-2xl font-bold text-white"><i className="fas fa-user-check text-purple-400 mr-3"></i> Confirm Details</h2>
+            <div className="bg-purple-500/5 rounded-xl p-4 border border-purple-500/10 space-y-2">
+              <p><span className="text-white/50">Name:</span> <span className="text-white">{name}</span></p>
+              <p><span className="text-white/50">Username:</span> <span className="text-white">{username}</span></p>
+              <p><span className="text-white/50">WhatsApp:</span> <span className="text-white">{whatsapp}</span></p>
+              <p><span className="text-white/50">Plan:</span> <span className="text-white">1 slot for {durationType === 'months' ? months + ' month(s)' : days + ' day(s)'}</span></p>
+            </div>
+            <button onClick={completePurchase} disabled={loading} className="btn-neon w-full py-3">
+              {loading ? <span className="spinner"></span> : <><i className="fas fa-check-circle mr-2"></i> Complete</>}
+            </button>
+          </div>
+        );
+      }
       return null;
     }
 
-    // ─── CHATGPT FLOW (unchanged) ─────────────────────────────
+    // ─── CHATGPT FLOW ──────────────────────────────────────
     function ChatGPTFlow({ subscription, onBack, onComplete, validateUser }) {
-      // ... keep existing ...
+      const [durationType, setDurationType] = useState('months');
+      const [months, setMonths] = useState(1);
+      const [days, setDays] = useState(30);
+      const [step, setStep] = useState('plan');
+      const [otp, setOtp] = useState(['', '', '', '']);
+      const [otpError, setOtpError] = useState('');
+      const [otpTimer, setOtpTimer] = useState(0);
+      const [name, setName] = useState('');
+      const [username, setUsername] = useState('');
+      const [password, setPassword] = useState('');
+      const [whatsapp, setWhatsapp] = useState('');
+      const [loading, setLoading] = useState(false);
+      const { addToast } = useContext(AppContext);
+      const otpRefs = useRef([]);
+
+      const availableSlots = useMemo(() => {
+        if (!subscription?.accounts) return [];
+        const allSlots = [];
+        subscription.accounts.forEach(acc => {
+          if (acc.screens) {
+            acc.screens.forEach(screen => {
+              const customerCount = screen.customers?.length || 0;
+              if (customerCount < 1) {
+                allSlots.push({ account: acc, screen, used: customerCount });
+              }
+            });
+          }
+        });
+        return allSlots;
+      }, [subscription]);
+
+      const canAllocate = useMemo(() => availableSlots.length >= 1, [availableSlots]);
+
+      const { generateOTPAPI, verifyOTPAPI } = useOTPFlow(setStep, setOtpTimer, addToast, username || 'ChatGPT User');
+
+      const handleGenerateOTP = async () => {
+        if (!name.trim()) { addToast('Please enter your full name', 'error'); return; }
+        if (!username.trim() || username.trim().length < 8) { addToast('Username must be at least 8 characters', 'error'); return; }
+        if (!password.trim() || password.trim().length < 8) { addToast('Password must be at least 8 characters', 'error'); return; }
+        if (!whatsapp.trim()) { addToast('Please enter your WhatsApp number', 'error'); return; }
+
+        const validation = validateUser(username.trim(), password.trim(), whatsapp.trim());
+        if (!validation.valid) {
+          addToast(validation.error, 'error');
+          return;
+        }
+        if (!canAllocate) { addToast('No slots available', 'error'); return; }
+        await generateOTPAPI();
+      };
+
+      useEffect(() => {
+        if (otpTimer > 0) {
+          const timer = setTimeout(() => setOtpTimer(otpTimer - 1), 1000);
+          return () => clearTimeout(timer);
+        }
+      }, [otpTimer]);
+
+      const handleOtpChange = (idx, val) => {
+        if (!/^\d*$/.test(val)) return;
+        const newOtp = [...otp];
+        newOtp[idx] = val.slice(0, 1);
+        setOtp(newOtp);
+        if (val && idx < 3) otpRefs.current[idx + 1]?.focus();
+      };
+
+      const handleVerifyOtp = async () => {
+        const entered = otp.join('');
+        if (entered.length !== 4) { setOtpError('Enter all 4 digits'); return; }
+        const verified = await verifyOTPAPI(entered);
+        if (verified) {
+          setOtpError('');
+          setStep('details');
+        } else {
+          setOtpError('Invalid OTP');
+        }
+      };
+
+      const completePurchase = () => {
+        if (!name.trim() || !username.trim() || !password.trim() || !whatsapp.trim()) {
+          addToast('Fill all details', 'error');
+          return;
+        }
+        const validation = validateUser(username.trim(), password.trim(), whatsapp.trim());
+        if (!validation.valid) {
+          addToast(validation.error, 'error');
+          return;
+        }
+        if (!canAllocate) { addToast('No slots available', 'error'); return; }
+        setLoading(true);
+        const now = new Date();
+        let totalDays = durationType === 'months' ? months * 30 : days;
+        const expiry = new Date(now);
+        expiry.setDate(expiry.getDate() + totalDays);
+        setTimeout(() => {
+          const allocated = [];
+          if (availableSlots.length > 0) {
+            const slot = availableSlots[0];
+            allocated.push({
+              accountId: slot.account.id,
+              screenId: slot.screen.id,
+              screenName: slot.screen.name,
+              accountEmail: slot.account.email,
+              accountPassword: slot.account.password || '••••••••',
+              screenPin: slot.screen.pin || 'N/A'
+            });
+          }
+          onComplete({
+            subscriptionId: subscription.id,
+            screens: 1,
+            months: durationType === 'months' ? months : 0,
+            days: totalDays,
+            name: name.trim(),
+            username: username.trim(),
+            password: password.trim(),
+            whatsapp: whatsapp.trim(),
+            allocated,
+            expiryDate: expiry.toISOString().split('T')[0]
+          });
+          setLoading(false);
+        }, 1200);
+      };
+
+      if (step === 'plan') {
+        return (
+          <div className="space-y-6">
+            <button onClick={onBack} className="text-purple-400 hover:text-purple-300 text-sm"><i className="fas fa-arrow-left mr-2"></i> Back</button>
+            <h2 className="text-2xl font-bold text-white"><i className="fas fa-robot text-green-400 mr-3"></i> ChatGPT</h2>
+            <div>
+              <label className="text-white/50 text-sm font-medium">Duration</label>
+              <select value={durationType} onChange={(e) => setDurationType(e.target.value)} className="input-neon mt-1">
+                <option value="months">Months</option>
+                <option value="days">Custom Days</option>
+              </select>
+            </div>
+            {durationType === 'months' ? (
+              <div>
+                <label className="text-white/50 text-sm font-medium">Months</label>
+                <select value={months} onChange={(e) => setMonths(Number(e.target.value))} className="input-neon mt-1">
+                  {[1, 2, 3, 6, 12].map(n => <option key={n} value={n}>{n} {n === 1 ? 'month' : 'months'}</option>)}
+                </select>
+              </div>
+            ) : (
+              <div>
+                <label className="text-white/50 text-sm font-medium">Days</label>
+                <input type="number" value={days} onChange={(e) => setDays(Math.max(1, Number(e.target.value)))} className="input-neon mt-1" min="1" />
+              </div>
+            )}
+            <div className="space-y-3">
+              <div>
+                <label className="text-white/50 text-sm font-medium">Full Name</label>
+                <input type="text" value={name} onChange={(e) => setName(e.target.value)} className="input-neon mt-1" placeholder="Your full name" />
+              </div>
+              <div>
+                <label className="text-white/50 text-sm font-medium">Username (min 8 chars)</label>
+                <input type="text" value={username} onChange={(e) => setUsername(e.target.value)} className="input-neon mt-1" placeholder="Choose a unique username" />
+              </div>
+              <div>
+                <label className="text-white/50 text-sm font-medium">Password (min 8 chars)</label>
+                <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} className="input-neon mt-1" placeholder="Create a password" />
+              </div>
+              <div>
+                <label className="text-white/50 text-sm font-medium">WhatsApp Number</label>
+                <input type="tel" value={whatsapp} onChange={(e) => setWhatsapp(e.target.value)} className="input-neon mt-1" placeholder="+92 300 1234567" />
+              </div>
+            </div>
+            <button onClick={handleGenerateOTP} disabled={!canAllocate} className={`btn-neon w-full py-3 ${!canAllocate ? 'opacity-50 cursor-not-allowed' : ''}`}>
+              <i className="fas fa-key mr-2"></i> Get OTP
+            </button>
+          </div>
+        );
+      }
+      if (step === 'otp') {
+        return (
+          <div className="space-y-6">
+            <button onClick={() => setStep('plan')} className="text-purple-400 hover:text-purple-300 text-sm"><i className="fas fa-arrow-left mr-2"></i> Back</button>
+            <h2 className="text-2xl font-bold text-white">Enter OTP</h2>
+            <p className="text-white/40 text-sm">Expires in {otpTimer}s</p>
+            <div className="flex gap-3 justify-center">
+              {[0, 1, 2, 3].map(idx => (
+                <input key={idx} ref={el => otpRefs.current[idx] = el} type="text" className="otp-input" maxLength="1" value={otp[idx]} onChange={(e) => handleOtpChange(idx, e.target.value)} onKeyDown={(e) => { if (e.key === 'Backspace' && !otp[idx] && idx > 0) otpRefs.current[idx - 1]?.focus(); }} autoFocus={idx === 0} />
+              ))}
+            </div>
+            {otpError && <p className="text-red-400 text-sm text-center">{otpError}</p>}
+            <button onClick={handleVerifyOtp} className="btn-neon w-full py-3"><i className="fas fa-check mr-2"></i> Verify</button>
+          </div>
+        );
+      }
+      if (step === 'details') {
+        return (
+          <div className="space-y-6">
+            <h2 className="text-2xl font-bold text-white"><i className="fas fa-user-check text-purple-400 mr-3"></i> Confirm Details</h2>
+            <div className="bg-purple-500/5 rounded-xl p-4 border border-purple-500/10 space-y-2">
+              <p><span className="text-white/50">Name:</span> <span className="text-white">{name}</span></p>
+              <p><span className="text-white/50">Username:</span> <span className="text-white">{username}</span></p>
+              <p><span className="text-white/50">WhatsApp:</span> <span className="text-white">{whatsapp}</span></p>
+              <p><span className="text-white/50">Plan:</span> <span className="text-white">1 slot for {durationType === 'months' ? months + ' month(s)' : days + ' day(s)'}</span></p>
+            </div>
+            <button onClick={completePurchase} disabled={loading} className="btn-neon w-full py-3">
+              {loading ? <span className="spinner"></span> : <><i className="fas fa-check-circle mr-2"></i> Complete</>}
+            </button>
+          </div>
+        );
+      }
       return null;
     }
 
-    // ─── CUSTOM FLOW (unchanged) ──────────────────────────────
+    // ─── CUSTOM FLOW ──────────────────────────────────────
     function CustomFlow({ subscription, onBack, onComplete, validateUser }) {
-      // ... keep existing ...
+      const [durationType, setDurationType] = useState('months');
+      const [months, setMonths] = useState(1);
+      const [days, setDays] = useState(30);
+      const [step, setStep] = useState('plan');
+      const [otp, setOtp] = useState(['', '', '', '']);
+      const [otpError, setOtpError] = useState('');
+      const [otpTimer, setOtpTimer] = useState(0);
+      const [name, setName] = useState('');
+      const [username, setUsername] = useState('');
+      const [password, setPassword] = useState('');
+      const [whatsapp, setWhatsapp] = useState('');
+      const [loading, setLoading] = useState(false);
+      const [customData, setCustomData] = useState({});
+      const { addToast } = useContext(AppContext);
+      const otpRefs = useRef([]);
+
+      const availableSlots = useMemo(() => {
+        if (!subscription?.accounts) return [];
+        const allSlots = [];
+        subscription.accounts.forEach(acc => {
+          if (acc.screens) {
+            acc.screens.forEach(screen => {
+              const customerCount = screen.customers?.length || 0;
+              if (customerCount < 1) {
+                allSlots.push({ account: acc, screen, used: customerCount });
+              }
+            });
+          }
+        });
+        return allSlots;
+      }, [subscription]);
+
+      const canAllocate = useMemo(() => availableSlots.length >= 1, [availableSlots]);
+
+      const { generateOTPAPI, verifyOTPAPI } = useOTPFlow(setStep, setOtpTimer, addToast, username || 'Custom User');
+
+      const handleGenerateOTP = async () => {
+        if (!name.trim()) { addToast('Please enter your full name', 'error'); return; }
+        if (!username.trim() || username.trim().length < 8) { addToast('Username must be at least 8 characters', 'error'); return; }
+        if (!password.trim() || password.trim().length < 8) { addToast('Password must be at least 8 characters', 'error'); return; }
+        if (!whatsapp.trim()) { addToast('Please enter your WhatsApp number', 'error'); return; }
+
+        const validation = validateUser(username.trim(), password.trim(), whatsapp.trim());
+        if (!validation.valid) {
+          addToast(validation.error, 'error');
+          return;
+        }
+        if (!canAllocate) { addToast('No slots available', 'error'); return; }
+        await generateOTPAPI();
+      };
+
+      useEffect(() => {
+        if (otpTimer > 0) {
+          const timer = setTimeout(() => setOtpTimer(otpTimer - 1), 1000);
+          return () => clearTimeout(timer);
+        }
+      }, [otpTimer]);
+
+      const handleOtpChange = (idx, val) => {
+        if (!/^\d*$/.test(val)) return;
+        const newOtp = [...otp];
+        newOtp[idx] = val.slice(0, 1);
+        setOtp(newOtp);
+        if (val && idx < 3) otpRefs.current[idx + 1]?.focus();
+      };
+
+      const handleVerifyOtp = async () => {
+        const entered = otp.join('');
+        if (entered.length !== 4) { setOtpError('Enter all 4 digits'); return; }
+        const verified = await verifyOTPAPI(entered);
+        if (verified) {
+          setOtpError('');
+          setStep('details');
+        } else {
+          setOtpError('Invalid OTP');
+        }
+      };
+
+      const completePurchase = () => {
+        if (!name.trim() || !username.trim() || !password.trim() || !whatsapp.trim()) {
+          addToast('Fill all details', 'error');
+          return;
+        }
+        const validation = validateUser(username.trim(), password.trim(), whatsapp.trim());
+        if (!validation.valid) {
+          addToast(validation.error, 'error');
+          return;
+        }
+        if (!canAllocate) { addToast('No slots available', 'error'); return; }
+        setLoading(true);
+        const now = new Date();
+        let totalDays = durationType === 'months' ? months * 30 : days;
+        const expiry = new Date(now);
+        expiry.setDate(expiry.getDate() + totalDays);
+        setTimeout(() => {
+          const allocated = [];
+          if (availableSlots.length > 0) {
+            const slot = availableSlots[0];
+            allocated.push({
+              accountId: slot.account.id,
+              screenId: slot.screen.id,
+              screenName: slot.screen.name,
+              accountEmail: slot.account.email,
+              accountPassword: slot.account.password || '••••••••',
+              screenPin: slot.screen.pin || 'N/A'
+            });
+          }
+          onComplete({
+            subscriptionId: subscription.id,
+            screens: 1,
+            months: durationType === 'months' ? months : 0,
+            days: totalDays,
+            name: name.trim(),
+            username: username.trim(),
+            password: password.trim(),
+            whatsapp: whatsapp.trim(),
+            allocated,
+            custom: customData,
+            expiryDate: expiry.toISOString().split('T')[0]
+          });
+          setLoading(false);
+        }, 1200);
+      };
+
+      if (step === 'plan') {
+        return (
+          <div className="space-y-6">
+            <button onClick={onBack} className="text-purple-400 hover:text-purple-300 text-sm"><i className="fas fa-arrow-left mr-2"></i> Back</button>
+            <h2 className="text-2xl font-bold text-white"><i className="fas fa-plus-circle text-purple-400 mr-3"></i> {subscription.name}</h2>
+            <div>
+              <label className="text-white/50 text-sm font-medium">Duration</label>
+              <select value={durationType} onChange={(e) => setDurationType(e.target.value)} className="input-neon mt-1">
+                <option value="months">Months</option>
+                <option value="days">Custom Days</option>
+              </select>
+            </div>
+            {durationType === 'months' ? (
+              <div>
+                <label className="text-white/50 text-sm font-medium">Months</label>
+                <select value={months} onChange={(e) => setMonths(Number(e.target.value))} className="input-neon mt-1">
+                  {[1, 2, 3, 6, 12].map(n => <option key={n} value={n}>{n} {n === 1 ? 'month' : 'months'}</option>)}
+                </select>
+              </div>
+            ) : (
+              <div>
+                <label className="text-white/50 text-sm font-medium">Days</label>
+                <input type="number" value={days} onChange={(e) => setDays(Math.max(1, Number(e.target.value)))} className="input-neon mt-1" min="1" />
+              </div>
+            )}
+            <div className="space-y-3">
+              <div>
+                <label className="text-white/50 text-sm font-medium">Full Name</label>
+                <input type="text" value={name} onChange={(e) => setName(e.target.value)} className="input-neon mt-1" placeholder="Your full name" />
+              </div>
+              <div>
+                <label className="text-white/50 text-sm font-medium">Username (min 8 chars)</label>
+                <input type="text" value={username} onChange={(e) => setUsername(e.target.value)} className="input-neon mt-1" placeholder="Choose a unique username" />
+              </div>
+              <div>
+                <label className="text-white/50 text-sm font-medium">Password (min 8 chars)</label>
+                <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} className="input-neon mt-1" placeholder="Create a password" />
+              </div>
+              <div>
+                <label className="text-white/50 text-sm font-medium">WhatsApp Number</label>
+                <input type="tel" value={whatsapp} onChange={(e) => setWhatsapp(e.target.value)} className="input-neon mt-1" placeholder="+92 300 1234567" />
+              </div>
+            </div>
+            <button onClick={handleGenerateOTP} disabled={!canAllocate} className={`btn-neon w-full py-3 ${!canAllocate ? 'opacity-50 cursor-not-allowed' : ''}`}>
+              <i className="fas fa-key mr-2"></i> Get OTP
+            </button>
+          </div>
+        );
+      }
+      if (step === 'otp') {
+        return (
+          <div className="space-y-6">
+            <button onClick={() => setStep('plan')} className="text-purple-400 hover:text-purple-300 text-sm"><i className="fas fa-arrow-left mr-2"></i> Back</button>
+            <h2 className="text-2xl font-bold text-white">Enter OTP</h2>
+            <p className="text-white/40 text-sm">Expires in {otpTimer}s</p>
+            <div className="flex gap-3 justify-center">
+              {[0, 1, 2, 3].map(idx => (
+                <input key={idx} ref={el => otpRefs.current[idx] = el} type="text" className="otp-input" maxLength="1" value={otp[idx]} onChange={(e) => handleOtpChange(idx, e.target.value)} onKeyDown={(e) => { if (e.key === 'Backspace' && !otp[idx] && idx > 0) otpRefs.current[idx - 1]?.focus(); }} autoFocus={idx === 0} />
+              ))}
+            </div>
+            {otpError && <p className="text-red-400 text-sm text-center">{otpError}</p>}
+            <button onClick={handleVerifyOtp} className="btn-neon w-full py-3"><i className="fas fa-check mr-2"></i> Verify</button>
+          </div>
+        );
+      }
+      if (step === 'details') {
+        return (
+          <div className="space-y-6">
+            <h2 className="text-2xl font-bold text-white"><i className="fas fa-user-check text-purple-400 mr-3"></i> Confirm Details</h2>
+            <div className="bg-purple-500/5 rounded-xl p-4 border border-purple-500/10 space-y-2">
+              <p><span className="text-white/50">Name:</span> <span className="text-white">{name}</span></p>
+              <p><span className="text-white/50">Username:</span> <span className="text-white">{username}</span></p>
+              <p><span className="text-white/50">WhatsApp:</span> <span className="text-white">{whatsapp}</span></p>
+              <p><span className="text-white/50">Plan:</span> <span className="text-white">1 slot for {durationType === 'months' ? months + ' month(s)' : days + ' day(s)'}</span></p>
+            </div>
+            <button onClick={completePurchase} disabled={loading} className="btn-neon w-full py-3">
+              {loading ? <span className="spinner"></span> : <><i className="fas fa-check-circle mr-2"></i> Complete</>}
+            </button>
+          </div>
+        );
+      }
       return null;
     }
 
-    // ─── CUSTOMER LOGIN ────────────────────────────────────────
+    // ─── CUSTOMER LOGIN ──────────────────────────────────
     function CustomerLogin({ onLogin, onForgot, onBack }) {
       const [username, setUsername] = useState('');
       const [password, setPassword] = useState('');
@@ -792,28 +1726,1272 @@
       );
     }
 
-    // ─── FORGOT PASSWORD FLOW (unchanged) ─────────────────────
+    // ─── FORGOT PASSWORD FLOW ───────────────────────────
     function ForgotPasswordFlow({ onBack, onComplete, subscriptions }) {
-      // ... keep existing ...
+      const [step, setStep] = useState('whatsapp');
+      const [whatsapp, setWhatsapp] = useState('');
+      const [otp, setOtp] = useState(['', '', '', '']);
+      const [otpError, setOtpError] = useState('');
+      const [otpTimer, setOtpTimer] = useState(0);
+      const [foundUser, setFoundUser] = useState(null);
+      const [newPassword, setNewPassword] = useState('');
+      const [loading, setLoading] = useState(false);
+      const [resetDone, setResetDone] = useState(false);
+      const { addToast } = useContext(AppContext);
+      const otpRefs = useRef([]);
+
+      const findUserByWhatsapp = (number) => {
+        for (let sub of subscriptions) {
+          for (let acc of sub.accounts) {
+            for (let screen of acc.screens) {
+              if (screen.customers) {
+                for (let c of screen.customers) {
+                  if (c.whatsapp === number) {
+                    return {
+                      username: c.username,
+                      password: c.password,
+                      name: c.name || '',
+                      whatsapp: c.whatsapp,
+                      expiryDate: c.expiryDate,
+                      subscriptionName: sub.name,
+                      accountEmail: acc.email,
+                      screenName: screen.name,
+                      subscriptionId: sub.id,
+                      accountId: acc.id,
+                      screenId: screen.id,
+                      customerIndex: screen.customers.indexOf(c)
+                    };
+                  }
+                }
+              }
+            }
+          }
+        }
+        return null;
+      };
+
+      const sendOTP = () => {
+        if (!whatsapp.trim()) {
+          addToast('Please enter your WhatsApp number', 'error');
+          return;
+        }
+        const user = findUserByWhatsapp(whatsapp.trim());
+        if (!user) {
+          addToast('No account found with this WhatsApp number', 'error');
+          return;
+        }
+        setFoundUser(user);
+        generateOTP(user.username)
+          .then(res => {
+            if (res.success) {
+              setOtpTimer(60);
+              setStep('otp');
+              addToast('OTP generated! Check admin portal.', 'success');
+            } else {
+              addToast('Failed to generate OTP', 'error');
+            }
+          })
+          .catch(() => addToast('Server error', 'error'));
+      };
+
+      useEffect(() => {
+        if (otpTimer > 0) {
+          const timer = setTimeout(() => setOtpTimer(otpTimer - 1), 1000);
+          return () => clearTimeout(timer);
+        }
+      }, [otpTimer]);
+
+      const handleOtpChange = (idx, val) => {
+        if (!/^\d*$/.test(val)) return;
+        const newOtp = [...otp];
+        newOtp[idx] = val.slice(0, 1);
+        setOtp(newOtp);
+        if (val && idx < 3) otpRefs.current[idx + 1]?.focus();
+      };
+
+      const handleVerifyOtp = async () => {
+        const entered = otp.join('');
+        if (entered.length !== 4) { setOtpError('Enter all 4 digits'); return; }
+        const result = await verifyOTP(entered);
+        if (result.success) {
+          setOtpError('');
+          setStep('reset');
+        } else {
+          setOtpError(result.error || 'Invalid OTP');
+        }
+      };
+
+      const resetPassword = () => {
+        if (!newPassword.trim() || newPassword.trim().length < 4) {
+          addToast('Password must be at least 4 characters', 'error');
+          return;
+        }
+        setLoading(true);
+        onComplete({
+          subscriptionId: foundUser.subscriptionId,
+          accountId: foundUser.accountId,
+          screenId: foundUser.screenId,
+          customerIndex: foundUser.customerIndex,
+          newPassword: newPassword.trim()
+        });
+        setResetDone(true);
+        setLoading(false);
+        addToast('Password reset successfully! 🎉', 'success');
+      };
+
+      if (step === 'whatsapp') {
+        return (
+          <div className="glass-panel max-w-md mx-auto">
+            <button onClick={onBack} className="text-purple-400 hover:text-purple-300 text-sm mb-4 inline-flex items-center">
+              <i className="fas fa-arrow-left mr-2"></i> Back
+            </button>
+            <h2 className="text-2xl font-bold text-white mb-2"><i className="fas fa-key text-purple-400 mr-3"></i> Recover Account</h2>
+            <p className="text-white/40 text-sm mb-6">Enter your WhatsApp number to recover your username and reset your password. Admin will receive an OTP to verify.</p>
+            <div>
+              <label className="text-white/50 text-sm font-medium">WhatsApp Number</label>
+              <input type="tel" value={whatsapp} onChange={(e) => setWhatsapp(e.target.value)} className="input-neon mt-1" placeholder="+92 300 1234567" />
+            </div>
+            <button onClick={sendOTP} className="btn-neon w-full py-3 mt-4"><i className="fas fa-paper-plane mr-2"></i> Send OTP</button>
+          </div>
+        );
+      }
+      if (step === 'otp') {
+        return (
+          <div className="glass-panel max-w-md mx-auto">
+            <button onClick={() => setStep('whatsapp')} className="text-purple-400 hover:text-purple-300 text-sm mb-4 inline-flex items-center">
+              <i className="fas fa-arrow-left mr-2"></i> Back
+            </button>
+            <h2 className="text-2xl font-bold text-white mb-2">Enter OTP</h2>
+            <p className="text-white/40 text-sm mb-4">Admin has received the OTP. Enter it below. Expires in {otpTimer}s</p>
+            <div className="flex gap-3 justify-center">
+              {[0, 1, 2, 3].map(idx => (
+                <input key={idx} ref={el => otpRefs.current[idx] = el} type="text" className="otp-input" maxLength="1" value={otp[idx]} onChange={(e) => handleOtpChange(idx, e.target.value)} onKeyDown={(e) => { if (e.key === 'Backspace' && !otp[idx] && idx > 0) otpRefs.current[idx - 1]?.focus(); }} autoFocus={idx === 0} />
+              ))}
+            </div>
+            {otpError && <p className="text-red-400 text-sm text-center mt-2">{otpError}</p>}
+            <button onClick={handleVerifyOtp} className="btn-neon w-full py-3 mt-4"><i className="fas fa-check mr-2"></i> Verify OTP</button>
+          </div>
+        );
+      }
+      if (step === 'reset') {
+        return (
+          <div className="glass-panel max-w-md mx-auto">
+            <div className="text-center mb-4">
+              <i className="fas fa-user-check text-4xl text-green-400"></i>
+              <h2 className="text-2xl font-bold text-white mt-2">Account Found!</h2>
+              <p className="text-white/40 text-sm">Your username: <span className="text-purple-400 font-bold">{foundUser?.username}</span></p>
+              <p className="text-white/30 text-sm">Name: {foundUser?.name}</p>
+            </div>
+            {resetDone ? (
+              <div className="text-center">
+                <i className="fas fa-check-circle text-4xl text-green-400"></i>
+                <h3 className="text-xl text-white mt-2">Password Reset Successful!</h3>
+                <p className="text-white/40 mt-1">You can now login with your new password.</p>
+                <button onClick={onBack} className="btn-neon mt-4"><i className="fas fa-arrow-left mr-2"></i> Back to Login</button>
+              </div>
+            ) : (
+              <div>
+                <p className="text-white/40 text-sm mb-4">Set a new password for your account.</p>
+                <div>
+                  <label className="text-white/50 text-sm font-medium">New Password</label>
+                  <input type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} className="input-neon mt-1" placeholder="Enter new password" />
+                </div>
+                <button onClick={resetPassword} disabled={loading} className="btn-neon w-full py-3 mt-4">
+                  {loading ? <span className="spinner"></span> : <><i className="fas fa-save mr-2"></i> Reset Password</>}
+                </button>
+              </div>
+            )}
+          </div>
+        );
+      }
       return null;
     }
 
-    // ─── CUSTOMER DASHBOARD (unchanged) ──────────────────────
+    // ─── CUSTOMER DASHBOARD (filtered, with expiry warnings) ──
     function CustomerDashboard({ customerData, onLogout }) {
-      // ... keep existing ...
-      return null;
+      const getStatus = (expiryDate) => {
+        if (!expiryDate) return { label: 'N/A', color: 'badge-gray' };
+        const now = new Date();
+        const exp = new Date(expiryDate);
+        const diff = Math.ceil((exp - now) / (1000 * 60 * 60 * 24));
+        if (diff < 0) return { label: 'Expired', color: 'badge-red' };
+        if (diff === 0) return { label: 'Expires Today', color: 'badge-yellow' };
+        if (diff === 1) return { label: 'Expires Tomorrow', color: 'badge-yellow' };
+        return { label: 'Active', color: 'badge-green' };
+      };
+
+      // ─── Only show active subscriptions (expiryDate >= today) ──
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const activeEntries = customerData.filter(entry => {
+        if (!entry.expiryDate) return true;
+        const exp = new Date(entry.expiryDate);
+        exp.setHours(0, 0, 0, 0);
+        return exp >= today;
+      });
+
+      // ─── Check for expiring soon (today or tomorrow) ──
+      const expiringSoon = activeEntries.some(entry => {
+        const exp = new Date(entry.expiryDate);
+        exp.setHours(0, 0, 0, 0);
+        const diff = Math.ceil((exp - today) / (1000 * 60 * 60 * 24));
+        return diff === 0 || diff === 1;
+      });
+
+      if (!customerData || customerData.length === 0) {
+        return <div className="text-center py-12"><p className="text-white/40">No subscription found.</p></div>;
+      }
+
+      if (activeEntries.length === 0) {
+        return (
+          <div className="glass-panel max-w-4xl mx-auto">
+            <div className="flex justify-between items-start mb-6">
+              <div>
+                <h2 className="text-2xl font-bold text-white"><i className="fas fa-user-circle text-purple-400 mr-3"></i> {customerData[0].name || customerData[0].username}</h2>
+                <p className="text-white/30 text-sm"><i className="fab fa-whatsapp mr-1"></i> {customerData[0].whatsapp || 'N/A'}</p>
+                <p className="text-white/30 text-sm"><i className="fas fa-user mr-1"></i> @{customerData[0].username}</p>
+              </div>
+              <button onClick={onLogout} className="text-white/30 hover:text-white/60 text-sm"><i className="fas fa-sign-out-alt mr-1"></i> Logout</button>
+            </div>
+            <div className="text-center py-8 text-white/40">
+              <i className="fas fa-exclamation-circle text-4xl text-yellow-400 mb-3 block"></i>
+              <p>Your subscriptions have expired. Please renew to regain access.</p>
+            </div>
+          </div>
+        );
+      }
+
+      return (
+        <div className="glass-panel max-w-4xl mx-auto">
+          <div className="flex justify-between items-start mb-6">
+            <div>
+              <h2 className="text-2xl font-bold text-white"><i className="fas fa-user-circle text-purple-400 mr-3"></i> {customerData[0].name || customerData[0].username}</h2>
+              <p className="text-white/30 text-sm"><i className="fab fa-whatsapp mr-1"></i> {customerData[0].whatsapp || 'N/A'}</p>
+              <p className="text-white/30 text-sm"><i className="fas fa-user mr-1"></i> @{customerData[0].username}</p>
+            </div>
+            <button onClick={onLogout} className="text-white/30 hover:text-white/60 text-sm"><i className="fas fa-sign-out-alt mr-1"></i> Logout</button>
+          </div>
+
+          {expiringSoon && (
+            <div className="mb-4 p-3 rounded-xl bg-yellow-500/10 border border-yellow-500/20">
+              <p className="text-yellow-400 text-sm"><i className="fas fa-exclamation-triangle mr-2"></i> ⚠️ One or more of your subscriptions expire today or tomorrow! Please renew.</p>
+            </div>
+          )}
+
+          <div className="space-y-4">
+            {activeEntries.map((entry, idx) => {
+              const status = getStatus(entry.expiryDate);
+              const isExpiring = status.label === 'Expires Today' || status.label === 'Expires Tomorrow';
+              return (
+                <div key={idx} className="bg-purple-500/5 rounded-xl p-4 border border-purple-500/10">
+                  <div className="flex justify-between items-center mb-2">
+                    <h3 className="text-lg font-semibold text-white">{entry.subscriptionName}</h3>
+                    <span className={`badge ${status.color === 'badge-green' ? 'badge-green' : status.color === 'badge-yellow' ? 'badge-yellow' : status.color === 'badge-red' ? 'badge-red' : 'badge-gray'}`}>{status.label}</span>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+                    <div className="detail-row">
+                      <span className="label">Screens</span>
+                      <span className="value">{entry.screens}</span>
+                    </div>
+                    <div className="detail-row">
+                      <span className="label">Duration</span>
+                      <span className="value">{entry.months ? entry.months + ' months' : entry.days + ' days'}</span>
+                    </div>
+                    <div className="detail-row">
+                      <span className="label">Expiry</span>
+                      <span className="value text-yellow-400">{entry.expiryDate}</span>
+                    </div>
+                    <div className="detail-row">
+                      <span className="label">Account Email</span>
+                      <span className="value">{entry.accountEmail} <button className="copy-btn" onClick={() => { navigator?.clipboard?.writeText(entry.accountEmail); addToast('Copied!', 'success'); }}><i className="fas fa-copy"></i></button></span>
+                    </div>
+                    <div className="detail-row">
+                      <span className="label">Account Password</span>
+                      <span className="value">{entry.accountPassword || '••••••••'} <button className="copy-btn" onClick={() => { navigator?.clipboard?.writeText(entry.accountPassword || ''); addToast('Copied!', 'success'); }}><i className="fas fa-copy"></i></button></span>
+                    </div>
+                    <div className="detail-row">
+                      <span className="label">Screen Name</span>
+                      <span className="value">{entry.screenName} <button className="copy-btn" onClick={() => { navigator?.clipboard?.writeText(entry.screenName); addToast('Copied!', 'success'); }}><i className="fas fa-copy"></i></button></span>
+                    </div>
+                    <div className="detail-row">
+                      <span className="label">Screen PIN</span>
+                      <span className="value">{entry.screenPin || 'N/A'} <button className="copy-btn" onClick={() => { navigator?.clipboard?.writeText(entry.screenPin || ''); addToast('Copied!', 'success'); }}><i className="fas fa-copy"></i></button></span>
+                    </div>
+                  </div>
+                  {isExpiring && (
+                    <div className="mt-2 text-xs text-yellow-400">
+                      <i className="fas fa-clock mr-1"></i> This subscription expires {status.label === 'Expires Today' ? 'today' : 'tomorrow'}!
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      );
     }
 
-    // ─── ADMIN LOGIN (unchanged) ─────────────────────────────
+    // ─── ADMIN LOGIN ─────────────────────────────────────
     function AdminLogin({ onLogin }) {
-      // ... keep existing ...
-      return null;
+      const [password, setPassword] = useState('');
+      const [error, setError] = useState('');
+      const [loading, setLoading] = useState(false);
+      const { addToast, adminPassword } = useContext(AppContext);
+
+      const handleSubmit = () => {
+        if (!password) { setError('Enter password'); return; }
+        setLoading(true);
+        if (password === adminPassword) {
+          onLogin();
+          addToast('Welcome Admin!', 'success');
+        } else {
+          setError('Invalid password');
+          addToast('Invalid password', 'error');
+        }
+        setLoading(false);
+      };
+
+      return (
+        <div className="glass-panel max-w-sm mx-auto">
+          <div className="text-center mb-6">
+            <i className="fas fa-user-shield text-5xl text-purple-400 neon-text"></i>
+            <h2 className="text-2xl font-bold text-white mt-3">Admin Access</h2>
+            <p className="text-white/40 text-sm">Enter your password.</p>
+          </div>
+          <div>
+            <input type="password" value={password} onChange={(e) => { setPassword(e.target.value); setError(''); }} className="input-neon" placeholder="Enter admin password" onKeyDown={(e) => e.key === 'Enter' && handleSubmit()} />
+            {error && <p className="text-red-400 text-sm mt-2">{error}</p>}
+            <button onClick={handleSubmit} disabled={loading} className="btn-neon w-full py-3 mt-4">
+              {loading ? <span className="spinner"></span> : <><i className="fas fa-lock-open mr-2"></i> Login</>}
+            </button>
+          </div>
+        </div>
+      );
     }
 
-    // ─── ADMIN DASHBOARD (unchanged) ─────────────────────────
+    // ─── ADMIN DASHBOARD (with expiring soon section) ──
     function AdminDashboard({ subscriptions, setSubscriptions, onLogout }) {
-      // ... keep existing ...
-      return null;
+      const [activeTab, setActiveTab] = useState('overview');
+      const [showAddSub, setShowAddSub] = useState(false);
+      const [showAddAccount, setShowAddAccount] = useState(null);
+      const [newSubName, setNewSubName] = useState('');
+      const [newSubType, setNewSubType] = useState('custom');
+      const [editingCustomer, setEditingCustomer] = useState(null);
+      const [editForm, setEditForm] = useState({ name: '', username: '', password: '', whatsapp: '', expiryDate: '' });
+      const [showAdminSettings, setShowAdminSettings] = useState(false);
+      const [newAdminPassword, setNewAdminPassword] = useState('');
+      const [confirmAdminPassword, setConfirmAdminPassword] = useState('');
+      const [otpList, setOtpList] = useState([]);
+      const { addToast, adminPassword, setAdminPassword } = useContext(AppContext);
+
+      const [editingAccount, setEditingAccount] = useState(null);
+      const [editingScreen, setEditingScreen] = useState(null);
+      const [editAccountForm, setEditAccountForm] = useState({ email: '', password: '' });
+      const [editScreenForm, setEditScreenForm] = useState({ name: '', pin: '' });
+
+      const [newAccount, setNewAccount] = useState({
+        email: '',
+        password: '',
+        screens: [{ name: 'Screen 1', pin: '' }],
+        subscriptionId: ''
+      });
+
+      // ─── Load OTPs ──────────────────────────────────────
+      const loadOTPs = async () => {
+        try {
+          const data = await fetchOTPList();
+          setOtpList(data);
+        } catch (err) {
+          console.error('Failed to fetch OTPs', err);
+        }
+      };
+      useEffect(() => {
+        if (activeTab === 'otp') {
+          loadOTPs();
+          const interval = setInterval(loadOTPs, 10000);
+          return () => clearInterval(interval);
+        }
+      }, [activeTab]);
+
+      // ─── Refresh data ────────────────────────────────────
+      const refreshData = async () => {
+        try {
+          const fresh = await fetchSubscriptions();
+          setSubscriptions(fresh);
+          addToast('Data refreshed!', 'success');
+        } catch (err) {
+          addToast('Failed to refresh data', 'error');
+        }
+      };
+
+      // ─── Admin Settings ────────────────────────────────
+      const handleChangeAdminPassword = () => {
+        if (!newAdminPassword.trim() || newAdminPassword.trim().length < 4) {
+          addToast('Password must be at least 4 characters', 'error');
+          return;
+        }
+        if (newAdminPassword !== confirmAdminPassword) {
+          addToast('Passwords do not match', 'error');
+          return;
+        }
+        setAdminPassword(newAdminPassword.trim());
+        addToast('Admin password updated!', 'success');
+        setNewAdminPassword('');
+        setConfirmAdminPassword('');
+        setShowAdminSettings(false);
+      };
+
+      // ─── Delete handlers with refresh ────────────────────
+      const deleteSubscription = async (subId) => {
+        if (window.confirm('Delete this subscription and all its data?')) {
+          await deleteSubscriptionAPI(subId);
+          await refreshData();
+          addToast('Subscription deleted.', 'warning');
+        }
+      };
+      const deleteAccount = async (subId, accId) => {
+        if (window.confirm('Delete this account and all its customers?')) {
+          setSubscriptions(prev => prev.map(sub => {
+            if (sub.id === subId) {
+              return { ...sub, accounts: sub.accounts.filter(a => a.id !== accId) };
+            }
+            return sub;
+          }));
+          const updatedSub = subscriptions.find(s => s.id === subId);
+          if (updatedSub) {
+            const newSub = { ...updatedSub, accounts: updatedSub.accounts.filter(a => a.id !== accId) };
+            await updateSubscription(subId, newSub);
+          }
+          await refreshData();
+          addToast('Account deleted.', 'warning');
+        }
+      };
+      const deleteCustomer = async (subId, accId, screenId, customerIdx) => {
+        if (window.confirm('Delete this customer?')) {
+          setSubscriptions(prev => prev.map(sub => {
+            if (sub.id === subId) {
+              return { ...sub, accounts: sub.accounts.map(acc => {
+                if (acc.id === accId) {
+                  return { ...acc, screens: acc.screens.map(screen => {
+                    if (screen.id === screenId) {
+                      const newCustomers = [...screen.customers];
+                      newCustomers.splice(customerIdx, 1);
+                      return { ...screen, customers: newCustomers };
+                    }
+                    return screen;
+                  }) };
+                }
+                return acc;
+              }) };
+            }
+            return sub;
+          }));
+          const updatedSub = subscriptions.find(s => s.id === subId);
+          if (updatedSub) {
+            await updateSubscription(subId, updatedSub);
+          }
+          await refreshData();
+          addToast('Customer deleted.', 'warning');
+        }
+      };
+
+      // ─── Edit customer ──────────────────────────────────
+      const openEditModal = (subId, accId, screenId, customerIdx, customer) => {
+        setEditingCustomer({ subId, accId, screenId, customerIdx });
+        setEditForm({
+          name: customer.name || '',
+          username: customer.username || '',
+          password: customer.password || '',
+          whatsapp: customer.whatsapp || '',
+          expiryDate: customer.expiryDate || ''
+        });
+      };
+      const closeEditModal = () => {
+        setEditingCustomer(null);
+        setEditForm({ name: '', username: '', password: '', whatsapp: '', expiryDate: '' });
+      };
+      const saveEdit = async () => {
+        if (!editingCustomer) return;
+        const { subId, accId, screenId, customerIdx } = editingCustomer;
+        setSubscriptions(prev => prev.map(sub => {
+          if (sub.id === subId) {
+            return { ...sub, accounts: sub.accounts.map(acc => {
+              if (acc.id === accId) {
+                return { ...acc, screens: acc.screens.map(screen => {
+                  if (screen.id === screenId) {
+                    const newCustomers = [...screen.customers];
+                    newCustomers[customerIdx] = {
+                      ...newCustomers[customerIdx],
+                      name: editForm.name,
+                      username: editForm.username,
+                      password: editForm.password,
+                      whatsapp: editForm.whatsapp,
+                      expiryDate: editForm.expiryDate
+                    };
+                    return { ...screen, customers: newCustomers };
+                  }
+                  return screen;
+                }) };
+              }
+              return acc;
+            }) };
+          }
+          return sub;
+        }));
+        const updatedSub = subscriptions.find(s => s.id === subId);
+        if (updatedSub) {
+          await updateSubscription(subId, updatedSub);
+        }
+        await refreshData();
+        addToast('Customer updated.', 'success');
+        closeEditModal();
+      };
+
+      // ─── Add subscription ──────────────────────────────
+      const handleAddSubscription = async () => {
+        if (!newSubName.trim()) {
+          addToast('Enter subscription name', 'error');
+          return;
+        }
+        const newSub = {
+          id: Date.now().toString(),
+          name: newSubName.trim(),
+          type: newSubType,
+          accounts: [],
+          createdAt: new Date().toISOString()
+        };
+        const result = await createSubscription(newSub);
+        setSubscriptions(prev => [...prev, result]);
+        setNewSubName('');
+        setShowAddSub(false);
+        await refreshData();
+        addToast(`Added ${newSub.name}!`, 'success');
+      };
+
+      // ─── Add account ────────────────────────────────────
+      const handleAddAccount = async (subId) => {
+        if (!newAccount.email.trim() || !newAccount.password.trim()) {
+          addToast('Email and password required', 'error');
+          return;
+        }
+        const account = {
+          id: Date.now().toString(),
+          email: newAccount.email.trim(),
+          password: newAccount.password.trim(),
+          screens: newAccount.screens.map(s => ({
+            ...s,
+            id: Date.now().toString() + Math.random().toString(36).slice(2, 6),
+            customers: []
+          })),
+          createdAt: new Date().toISOString()
+        };
+        setSubscriptions(prev => prev.map(sub => {
+          if (sub.id === subId) {
+            return { ...sub, accounts: [...sub.accounts, account] };
+          }
+          return sub;
+        }));
+        const updatedSub = subscriptions.find(s => s.id === subId);
+        if (updatedSub) {
+          const newSub = { ...updatedSub, accounts: [...updatedSub.accounts, account] };
+          await updateSubscription(subId, newSub);
+        }
+        setNewAccount({ email: '', password: '', screens: [{ name: 'Screen 1', pin: '' }], subscriptionId: '' });
+        setShowAddAccount(null);
+        await refreshData();
+        addToast('Account added!', 'success');
+      };
+
+      const addScreenToAccount = () => {
+        setNewAccount(prev => ({
+          ...prev,
+          screens: [...prev.screens, { name: `Screen ${prev.screens.length + 1}`, pin: '' }]
+        }));
+      };
+      const updateScreen = (idx, field, value) => {
+        const updated = [...newAccount.screens];
+        updated[idx][field] = value;
+        setNewAccount(prev => ({ ...prev, screens: updated }));
+      };
+
+      // ─── Generate password / PIN ──────────────────────
+      const generatePassword = () => {
+        const upper = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+        const lower = 'abcdefghijklmnopqrstuvwxyz';
+        const special = '@#$%&';
+        const digits = '0123456789';
+        let pass = '';
+        pass += upper[Math.floor(Math.random() * upper.length)];
+        for (let i = 0; i < 4; i++) pass += lower[Math.floor(Math.random() * lower.length)];
+        pass += special[Math.floor(Math.random() * special.length)];
+        for (let i = 0; i < 3; i++) pass += digits[Math.floor(Math.random() * digits.length)];
+        pass += special[Math.floor(Math.random() * special.length)];
+        for (let i = 0; i < 3; i++) pass += digits[Math.floor(Math.random() * digits.length)];
+        return pass;
+      };
+      const generatePin = () => String(Math.floor(1000 + Math.random() * 9000));
+
+      const openEditAccount = (subId, accId, email, password) => {
+        setEditingAccount({ subId, accId });
+        setEditAccountForm({ email, password });
+      };
+      const openEditScreen = (subId, accId, screenId, name, pin) => {
+        setEditingScreen({ subId, accId, screenId });
+        setEditScreenForm({ name, pin });
+      };
+
+      const saveAccountEdit = async () => {
+        const { subId, accId } = editingAccount;
+        const { email, password } = editAccountForm;
+        setSubscriptions(prev => prev.map(sub => {
+          if (sub.id === subId) {
+            return {
+              ...sub,
+              accounts: sub.accounts.map(acc => {
+                if (acc.id === accId) {
+                  return { ...acc, email, password };
+                }
+                return acc;
+              })
+            };
+          }
+          return sub;
+        }));
+        const updatedSub = subscriptions.find(s => s.id === subId);
+        if (updatedSub) {
+          const newSub = { ...updatedSub };
+          const acc = newSub.accounts.find(a => a.id === accId);
+          if (acc) { acc.email = email; acc.password = password; }
+          await updateSubscription(subId, newSub);
+        }
+        setEditingAccount(null);
+        await refreshData();
+        addToast('Account updated!', 'success');
+      };
+
+      const saveScreenEdit = async () => {
+        const { subId, accId, screenId } = editingScreen;
+        const { name, pin } = editScreenForm;
+        setSubscriptions(prev => prev.map(sub => {
+          if (sub.id === subId) {
+            return {
+              ...sub,
+              accounts: sub.accounts.map(acc => {
+                if (acc.id === accId) {
+                  return {
+                    ...acc,
+                    screens: acc.screens.map(screen => {
+                      if (screen.id === screenId) {
+                        return { ...screen, name, pin };
+                      }
+                      return screen;
+                    })
+                  };
+                }
+                return acc;
+              })
+            };
+          }
+          return sub;
+        }));
+        const updatedSub = subscriptions.find(s => s.id === subId);
+        if (updatedSub) {
+          const newSub = { ...updatedSub };
+          const acc = newSub.accounts.find(a => a.id === accId);
+          if (acc) {
+            const screen = acc.screens.find(s => s.id === screenId);
+            if (screen) { screen.name = name; screen.pin = pin; }
+          }
+          await updateSubscription(subId, newSub);
+        }
+        setEditingScreen(null);
+        await refreshData();
+        addToast('Screen updated!', 'success');
+      };
+
+      const handleGeneratePassword = async (subId, accId) => {
+        const newPass = generatePassword();
+        setSubscriptions(prev => prev.map(sub => {
+          if (sub.id === subId) {
+            return {
+              ...sub,
+              accounts: sub.accounts.map(acc => {
+                if (acc.id === accId) {
+                  return { ...acc, password: newPass };
+                }
+                return acc;
+              })
+            };
+          }
+          return sub;
+        }));
+        const updatedSub = subscriptions.find(s => s.id === subId);
+        if (updatedSub) {
+          const newSub = { ...updatedSub };
+          const acc = newSub.accounts.find(a => a.id === accId);
+          if (acc) acc.password = newPass;
+          await updateSubscription(subId, newSub);
+        }
+        addToast('New password generated!', 'success');
+      };
+
+      const handleGeneratePin = async (subId, accId, screenId) => {
+        const newPin = generatePin();
+        setSubscriptions(prev => prev.map(sub => {
+          if (sub.id === subId) {
+            return {
+              ...sub,
+              accounts: sub.accounts.map(acc => {
+                if (acc.id === accId) {
+                  return {
+                    ...acc,
+                    screens: acc.screens.map(screen => {
+                      if (screen.id === screenId) {
+                        return { ...screen, pin: newPin };
+                      }
+                      return screen;
+                    })
+                  };
+                }
+                return acc;
+              })
+            };
+          }
+          return sub;
+        }));
+        const updatedSub = subscriptions.find(s => s.id === subId);
+        if (updatedSub) {
+          const newSub = { ...updatedSub };
+          const acc = newSub.accounts.find(a => a.id === accId);
+          if (acc) {
+            const screen = acc.screens.find(s => s.id === screenId);
+            if (screen) screen.pin = newPin;
+          }
+          await updateSubscription(subId, newSub);
+        }
+        addToast('New PIN generated!', 'success');
+      };
+
+      // ─── Helpers ─────────────────────────────────────────
+      const getCustomerRecords = (sub) => {
+        const records = [];
+        sub.accounts.forEach(acc => {
+          acc.screens.forEach(screen => {
+            if (screen.customers && screen.customers.length > 0) {
+              screen.customers.forEach((c, idx) => {
+                records.push({
+                  accountEmail: acc.email,
+                  screenName: screen.name,
+                  customer: c,
+                  expiry: c.expiryDate || 'N/A',
+                  accountId: acc.id,
+                  screenId: screen.id,
+                  customerIdx: idx
+                });
+              });
+            }
+          });
+        });
+        return records;
+      };
+      const getTotalCustomers = (sub) => {
+        let count = 0;
+        sub.accounts.forEach(acc => {
+          acc.screens.forEach(screen => {
+            count += (screen.customers?.length || 0);
+          });
+        });
+        return count;
+      };
+      const getTotalSlots = (sub) => {
+        let count = 0;
+        sub.accounts.forEach(acc => {
+          count += (acc.screens?.length || 0);
+        });
+        return count;
+      };
+      const checkExpiry = (dateStr) => {
+        if (!dateStr) return 'unknown';
+        const now = new Date();
+        const expiry = new Date(dateStr);
+        const diff = Math.ceil((expiry - now) / (1000 * 60 * 60 * 24));
+        if (diff < 0) return 'expired';
+        if (diff === 0) return 'today';
+        if (diff === 1) return 'tomorrow';
+        if (diff <= 3) return 'soon';
+        return 'active';
+      };
+
+      // ─── Get expiring soon customers (next 1 day) ──
+      const getExpiringSoon = () => {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const results = [];
+        subscriptions.forEach(sub => {
+          sub.accounts.forEach(acc => {
+            acc.screens.forEach(screen => {
+              if (screen.customers) {
+                screen.customers.forEach(c => {
+                  if (c.expiryDate) {
+                    const exp = new Date(c.expiryDate);
+                    exp.setHours(0, 0, 0, 0);
+                    const diff = Math.ceil((exp - today) / (1000 * 60 * 60 * 24));
+                    if (diff === 0 || diff === 1) {
+                      results.push({
+                        name: c.name || c.username,
+                        username: c.username,
+                        whatsapp: c.whatsapp,
+                        expiryDate: c.expiryDate,
+                        subscriptionName: sub.name,
+                        screenName: screen.name,
+                        diff
+                      });
+                    }
+                  }
+                });
+              }
+            });
+          });
+        });
+        return results;
+      };
+
+      return (
+        <div className="space-y-6">
+          <div className="flex flex-wrap justify-between items-center gap-4">
+            <div>
+              <h2 className="text-2xl font-bold text-white"><i className="fas fa-user-shield text-purple-400 mr-3"></i> Admin Dashboard</h2>
+              <p className="text-white/30 text-sm">Manage everything.</p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <button onClick={refreshData} className="btn-purple text-sm">
+                <i className="fas fa-sync mr-1"></i> Refresh
+              </button>
+              <button onClick={() => setShowAdminSettings(!showAdminSettings)} className="btn-warning text-sm">
+                <i className="fas fa-cog mr-1"></i> Settings
+              </button>
+              <button onClick={() => setShowAddSub(!showAddSub)} className="btn-neon text-sm">
+                <i className="fas fa-plus mr-2"></i> Add Subscription
+              </button>
+              <button onClick={onLogout} className="btn-neon-outline text-sm">
+                <i className="fas fa-sign-out-alt mr-2"></i> Logout
+              </button>
+            </div>
+          </div>
+
+          {showAdminSettings && (
+            <div className="glass-panel">
+              <h3 className="text-lg font-semibold text-white mb-4"><i className="fas fa-lock text-purple-400 mr-2"></i> Change Admin Password</h3>
+              <div className="space-y-3">
+                <div>
+                  <label className="text-white/50 text-sm">New Password</label>
+                  <input type="password" value={newAdminPassword} onChange={(e) => setNewAdminPassword(e.target.value)} className="input-neon mt-1" placeholder="Enter new password" />
+                </div>
+                <div>
+                  <label className="text-white/50 text-sm">Confirm Password</label>
+                  <input type="password" value={confirmAdminPassword} onChange={(e) => setConfirmAdminPassword(e.target.value)} className="input-neon mt-1" placeholder="Confirm new password" />
+                </div>
+                <div className="flex gap-3 mt-2">
+                  <button onClick={handleChangeAdminPassword} className="btn-neon"><i className="fas fa-save mr-2"></i> Update Password</button>
+                  <button onClick={() => { setShowAdminSettings(false); setNewAdminPassword(''); setConfirmAdminPassword(''); }} className="btn-neon-outline">Cancel</button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {showAddSub && (
+            <div className="glass-panel">
+              <h3 className="text-lg font-semibold text-white mb-4"><i className="fas fa-plus-circle text-purple-400 mr-2"></i> New Subscription</h3>
+              <div className="grid sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="text-white/50 text-sm">Name</label>
+                  <input type="text" value={newSubName} onChange={(e) => setNewSubName(e.target.value)} className="input-neon mt-1" placeholder="e.g. Disney+" />
+                </div>
+                <div>
+                  <label className="text-white/50 text-sm">Type</label>
+                  <select value={newSubType} onChange={(e) => setNewSubType(e.target.value)} className="input-neon mt-1">
+                    <option value="netflix">Netflix</option>
+                    <option value="amazon">Amazon Prime</option>
+                    <option value="youtube">YouTube Premium</option>
+                    <option value="spotify">Spotify Premium</option>
+                    <option value="chatgpt">ChatGPT</option>
+                    <option value="custom">Custom</option>
+                  </select>
+                </div>
+              </div>
+              <div className="flex gap-3 mt-4">
+                <button onClick={handleAddSubscription} className="btn-neon"><i className="fas fa-check mr-2"></i> Create</button>
+                <button onClick={() => setShowAddSub(false)} className="btn-neon-outline">Cancel</button>
+              </div>
+            </div>
+          )}
+
+          <div className="flex flex-wrap gap-2 border-b border-white/5 pb-3">
+            {['overview', 'subscriptions', 'customers', 'otp'].map(tab => (
+              <button key={tab} onClick={() => setActiveTab(tab)} className={`tab-btn ${activeTab === tab ? 'active' : ''}`}>
+                {tab === 'overview' && <><i className="fas fa-chart-pie mr-2"></i> Overview</>}
+                {tab === 'subscriptions' && <><i className="fas fa-crown mr-2"></i> Subscriptions</>}
+                {tab === 'customers' && <><i className="fas fa-users mr-2"></i> Customers</>}
+                {tab === 'otp' && <><i className="fas fa-key mr-2"></i> OTP Logs</>}
+              </button>
+            ))}
+          </div>
+
+          {activeTab === 'overview' && (
+            <div className="space-y-4">
+              <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className="glass-panel text-center">
+                  <p className="text-white/30 text-xs">Total Subscriptions</p>
+                  <p className="text-3xl font-bold text-white">{subscriptions.length}</p>
+                </div>
+                <div className="glass-panel text-center">
+                  <p className="text-white/30 text-xs">Total Accounts</p>
+                  <p className="text-3xl font-bold text-white">{subscriptions.reduce((acc, s) => acc + s.accounts.length, 0)}</p>
+                </div>
+                <div className="glass-panel text-center">
+                  <p className="text-white/30 text-xs">Total Customers</p>
+                  <p className="text-3xl font-bold text-white">{subscriptions.reduce((acc, s) => acc + getTotalCustomers(s), 0)}</p>
+                </div>
+                <div className="glass-panel text-center">
+                  <p className="text-white/30 text-xs">Total Slots</p>
+                  <p className="text-3xl font-bold text-white">{subscriptions.reduce((acc, s) => acc + getTotalSlots(s), 0)}</p>
+                </div>
+              </div>
+
+              {/* Expiring Soon Section */}
+              {(() => {
+                const expiring = getExpiringSoon();
+                if (expiring.length > 0) {
+                  return (
+                    <div className="glass-panel border-yellow-500/30">
+                      <h3 className="text-lg font-semibold text-yellow-400 mb-3"><i className="fas fa-clock mr-2"></i> Expiring Soon (Next 24h)</h3>
+                      <div className="overflow-x-auto">
+                        <table className="admin-table text-sm">
+                          <thead>
+                            <tr><th>Customer</th><th>WhatsApp</th><th>Subscription</th><th>Screen</th><th>Expiry</th><th>Status</th></tr>
+                          </thead>
+                          <tbody>
+                            {expiring.map((item, idx) => (
+                              <tr key={idx}>
+                                <td>{item.name}</td>
+                                <td>{item.whatsapp}</td>
+                                <td>{item.subscriptionName}</td>
+                                <td>{item.screenName}</td>
+                                <td>{item.expiryDate}</td>
+                                <td><span className="badge badge-yellow">{item.diff === 0 ? 'Today' : 'Tomorrow'}</span></td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  );
+                }
+                return null;
+              })()}
+            </div>
+          )}
+
+          {activeTab === 'subscriptions' && (
+            <div className="space-y-6">
+              {subscriptions.map(sub => {
+                const records = getCustomerRecords(sub);
+                const totalCust = getTotalCustomers(sub);
+                const totalSlots = getTotalSlots(sub);
+                return (
+                  <div key={sub.id} className="glass-panel">
+                    <div className="flex flex-wrap justify-between items-start gap-4">
+                      <div>
+                        <h3 className="text-lg font-semibold text-white">
+                          <i className={`fas fa-${sub.type === 'netflix' ? 'netflix' : sub.type === 'amazon' ? 'amazon' : sub.type === 'youtube' ? 'youtube' : sub.type === 'spotify' ? 'spotify' : sub.type === 'chatgpt' ? 'robot' : 'crown'} mr-2`} style={{ color: sub.type === 'netflix' ? '#e50914' : sub.type === 'amazon' ? '#ff9900' : sub.type === 'youtube' ? '#ff0000' : sub.type === 'spotify' ? '#1db954' : sub.type === 'chatgpt' ? '#10a37f' : '#7c3aed' }}></i>
+                          {sub.name}
+                        </h3>
+                        <p className="text-white/30 text-xs">{sub.accounts.length} accounts • {totalSlots} slots • {totalCust} customers</p>
+                      </div>
+                      <div className="flex gap-2">
+                        <button onClick={() => { setNewAccount({ ...newAccount, subscriptionId: sub.id }); setShowAddAccount(sub.id); }} className="btn-neon text-sm">
+                          <i className="fas fa-plus mr-2"></i> Add Account
+                        </button>
+                        <button onClick={() => deleteSubscription(sub.id)} className="btn-danger text-sm">
+                          <i className="fas fa-trash mr-1"></i> Delete
+                        </button>
+                      </div>
+                    </div>
+
+                    {sub.accounts.length > 0 && (
+                      <div className="mt-4 overflow-x-auto">
+                        <table className="admin-table">
+                          <thead>
+                            <tr><th>Email</th><th>Screens</th><th>Customers</th><th>Status</th><th>Actions</th></tr>
+                          </thead>
+                          <tbody>
+                            {sub.accounts.map(acc => {
+                              const custCount = acc.screens.reduce((a, s) => a + (s.customers?.length || 0), 0);
+                              return (
+                                <React.Fragment key={acc.id}>
+                                  <tr>
+                                    <td className="text-sm">{acc.email}</td>
+                                    <td className="text-sm">{acc.screens.length}</td>
+                                    <td className="text-sm"><span className={`badge ${custCount > 0 ? 'badge-green' : 'badge-yellow'}`}>{custCount} active</span></td>
+                                    <td className="text-sm"><span className="badge badge-purple"><i className="fas fa-circle text-[6px] mr-1 align-middle"></i> Active</span></td>
+                                    <td>
+                                      <div className="flex gap-1 flex-wrap">
+                                        <button onClick={() => openEditAccount(sub.id, acc.id, acc.email, acc.password)} className="btn-warning text-xs">
+                                          <i className="fas fa-edit"></i>
+                                        </button>
+                                        <button onClick={() => handleGeneratePassword(sub.id, acc.id)} className="btn-purple text-xs">
+                                          <i className="fas fa-key"></i> Gen Pass
+                                        </button>
+                                        <button onClick={() => deleteAccount(sub.id, acc.id)} className="btn-danger text-xs">
+                                          <i className="fas fa-trash"></i>
+                                        </button>
+                                      </div>
+                                    </td>
+                                  </tr>
+                                  <tr>
+                                    <td colSpan="5">
+                                      <div className="p-2 bg-white/5 rounded-lg mt-1">
+                                        <p className="text-xs text-white/40 mb-1">Screens:</p>
+                                        <div className="flex flex-wrap gap-2">
+                                          {acc.screens.map(screen => (
+                                            <div key={screen.id} className="flex items-center gap-2 bg-purple-500/10 px-3 py-1 rounded-full text-xs">
+                                              <span className="text-white/70">{screen.name}</span>
+                                              <span className="text-white/30">PIN: {screen.pin || 'N/A'}</span>
+                                              <button onClick={() => openEditScreen(sub.id, acc.id, screen.id, screen.name, screen.pin)} className="btn-warning text-xs">
+                                                <i className="fas fa-edit"></i>
+                                              </button>
+                                              <button onClick={() => handleGeneratePin(sub.id, acc.id, screen.id)} className="btn-purple text-xs">
+                                                <i className="fas fa-shield-alt"></i> Gen PIN
+                                              </button>
+                                            </div>
+                                          ))}
+                                        </div>
+                                      </div>
+                                    </td>
+                                  </tr>
+                                </React.Fragment>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+
+                    {showAddAccount === sub.id && (
+                      <div className="mt-4 p-4 bg-purple-500/5 rounded-xl border border-purple-500/10">
+                        <h4 className="text-white font-medium mb-3"><i className="fas fa-user-plus text-purple-400 mr-2"></i> Add Account to {sub.name}</h4>
+                        <div className="grid sm:grid-cols-2 gap-4">
+                          <div>
+                            <label className="text-white/40 text-xs">Email</label>
+                            <input type="email" value={newAccount.email} onChange={(e) => setNewAccount({ ...newAccount, email: e.target.value })} className="input-neon mt-1" placeholder="account@email.com" />
+                          </div>
+                          <div>
+                            <label className="text-white/40 text-xs">Password</label>
+                            <input type="text" value={newAccount.password} onChange={(e) => setNewAccount({ ...newAccount, password: e.target.value })} className="input-neon mt-1" placeholder="••••••••" />
+                          </div>
+                        </div>
+                        <div className="mt-3">
+                          <p className="text-white/40 text-xs mb-2">Screens (Slots)</p>
+                          <div className="space-y-2">
+                            {newAccount.screens.map((s, idx) => (
+                              <div key={idx} className="flex gap-3 items-center">
+                                <input type="text" value={s.name} onChange={(e) => updateScreen(idx, 'name', e.target.value)} className="input-neon flex-1" placeholder="Screen name" />
+                                <input type="text" value={s.pin} onChange={(e) => updateScreen(idx, 'pin', e.target.value)} className="input-neon w-24" placeholder="PIN" />
+                              </div>
+                            ))}
+                            <button onClick={addScreenToAccount} className="text-purple-400 hover:text-purple-300 text-sm"><i className="fas fa-plus mr-1"></i> Add Screen</button>
+                          </div>
+                        </div>
+                        <div className="flex gap-3 mt-4">
+                          <button onClick={() => handleAddAccount(sub.id)} className="btn-neon text-sm"><i className="fas fa-check mr-2"></i> Save</button>
+                          <button onClick={() => { setShowAddAccount(null); setNewAccount({ email: '', password: '', screens: [{ name: 'Screen 1', pin: '' }], subscriptionId: '' }); }} className="btn-neon-outline text-sm">Cancel</button>
+                        </div>
+                      </div>
+                    )}
+
+                    {records.length > 0 && (
+                      <div className="mt-4">
+                        <p className="text-white/40 text-xs mb-2"><i className="fas fa-users mr-1"></i> {records.length} customer(s)</p>
+                        <div className="overflow-x-auto">
+                          <table className="admin-table text-sm">
+                            <thead>
+                              <tr><th>Name</th><th>Username</th><th>WhatsApp</th><th>Screen</th><th>Account</th><th>Expiry</th><th>Status</th><th>Actions</th></tr>
+                            </thead>
+                            <tbody>
+                              {records.map((r, idx) => {
+                                const status = checkExpiry(r.expiry);
+                                const statusColors = { expired: 'badge-red', today: 'badge-yellow', tomorrow: 'badge-yellow', soon: 'badge-yellow', active: 'badge-green', unknown: 'badge-purple' };
+                                const statusLabels = { expired: 'Expired', today: 'Today', tomorrow: 'Tomorrow', soon: 'Soon', active: 'Active', unknown: 'N/A' };
+                                return (
+                                  <tr key={idx}>
+                                    <td>{r.customer.name || 'N/A'}</td>
+                                    <td className="font-mono text-xs">{r.customer.username}</td>
+                                    <td>{r.customer.whatsapp}</td>
+                                    <td>{r.screenName}</td>
+                                    <td className="text-xs text-white/40">{r.accountEmail}</td>
+                                    <td>{r.expiry}</td>
+                                    <td><span className={`badge ${statusColors[status] || 'badge-purple'}`}>{statusLabels[status] || 'N/A'}</span></td>
+                                    <td>
+                                      <div className="flex gap-1">
+                                        <button onClick={() => openEditModal(sub.id, r.accountId, r.screenId, r.customerIdx, r.customer)} className="btn-warning text-xs"><i className="fas fa-edit"></i></button>
+                                        <button onClick={() => deleteCustomer(sub.id, r.accountId, r.screenId, r.customerIdx)} className="btn-danger text-xs"><i className="fas fa-trash"></i></button>
+                                      </div>
+                                    </td>
+                                  </tr>
+                                );
+                              })}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {activeTab === 'customers' && (
+            <div className="space-y-4">
+              {subscriptions.map(sub => {
+                const records = getCustomerRecords(sub);
+                if (records.length === 0) return null;
+                return (
+                  <div key={sub.id} className="glass-panel">
+                    <h4 className="text-white font-semibold mb-3">
+                      <i className={`fas fa-${sub.type === 'netflix' ? 'netflix' : sub.type === 'amazon' ? 'amazon' : sub.type === 'youtube' ? 'youtube' : sub.type === 'spotify' ? 'spotify' : sub.type === 'chatgpt' ? 'robot' : 'crown'} mr-2`} style={{ color: sub.type === 'netflix' ? '#e50914' : sub.type === 'amazon' ? '#ff9900' : sub.type === 'youtube' ? '#ff0000' : sub.type === 'spotify' ? '#1db954' : sub.type === 'chatgpt' ? '#10a37f' : '#7c3aed' }}></i>
+                      {sub.name} ({records.length})
+                    </h4>
+                    <div className="overflow-x-auto">
+                      <table className="admin-table text-sm">
+                        <thead>
+                          <tr><th>Name</th><th>Username</th><th>WhatsApp</th><th>Screen</th><th>Account</th><th>Expiry</th><th>Status</th><th>Actions</th></tr>
+                        </thead>
+                        <tbody>
+                          {records.map((r, idx) => {
+                            const status = checkExpiry(r.expiry);
+                            const statusColors = { expired: 'badge-red', today: 'badge-yellow', tomorrow: 'badge-yellow', soon: 'badge-yellow', active: 'badge-green', unknown: 'badge-purple' };
+                            const statusLabels = { expired: 'Expired', today: 'Today', tomorrow: 'Tomorrow', soon: 'Soon', active: 'Active', unknown: 'N/A' };
+                            return (
+                              <tr key={idx}>
+                                <td>{r.customer.name || 'N/A'}</td>
+                                <td className="font-mono text-xs">{r.customer.username}</td>
+                                <td>{r.customer.whatsapp}</td>
+                                <td>{r.screenName}</td>
+                                <td className="text-xs text-white/40">{r.accountEmail}</td>
+                                <td>{r.expiry}</td>
+                                <td><span className={`badge ${statusColors[status] || 'badge-purple'}`}>{statusLabels[status] || 'N/A'}</span></td>
+                                <td>
+                                  <div className="flex gap-1">
+                                    <button onClick={() => openEditModal(sub.id, r.accountId, r.screenId, r.customerIdx, r.customer)} className="btn-warning text-xs"><i className="fas fa-edit"></i></button>
+                                    <button onClick={() => deleteCustomer(sub.id, r.accountId, r.screenId, r.customerIdx)} className="btn-danger text-xs"><i className="fas fa-trash"></i></button>
+                                  </div>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                );
+              })}
+              {subscriptions.every(s => getCustomerRecords(s).length === 0) && (
+                <div className="text-center py-8 text-white/30"><i className="fas fa-users text-4xl mb-3 block"></i> No customers yet.</div>
+              )}
+            </div>
+          )}
+
+          {activeTab === 'otp' && (
+            <div className="glass-panel">
+              <h3 className="text-lg font-semibold text-white mb-3"><i className="fas fa-key mr-2 text-purple-400"></i> OTP Log</h3>
+              <p className="text-white/30 text-xs mb-4">All OTPs generated (latest first). Expire after 5 minutes.</p>
+              {otpList.length === 0 ? (
+                <div className="text-center py-8 text-white/30"><i className="fas fa-inbox text-3xl mb-3 block"></i> No OTPs generated yet.</div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="admin-table text-sm">
+                    <thead>
+                      <tr><th>OTP</th><th>User</th><th>Created</th><th>Status</th></tr>
+                    </thead>
+                    <tbody>
+                      {otpList.map(o => {
+                        let statusLabel = '', statusColor = '';
+                        if (o.verified) { statusLabel = 'Verified'; statusColor = 'badge-green'; } else if (o.expired) { statusLabel = 'Expired'; statusColor = 'badge-red'; } else { statusLabel = 'Pending'; statusColor = 'badge-yellow'; }
+                        return (
+                          <tr key={o.id}>
+                            <td className="font-mono font-bold text-purple-400">
+                              {o.otp}
+                              <button className="copy-btn" onClick={() => { navigator?.clipboard?.writeText(o.otp); addToast('OTP copied!', 'success'); }}><i className="fas fa-copy"></i></button>
+                            </td>
+                            <td>{o.userIdentifier}</td>
+                            <td className="text-xs text-white/40">{new Date(o.createdAt).toLocaleString()}</td>
+                            <td><span className={`badge ${statusColor}`}>{statusLabel}</span></td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Edit Customer Modal */}
+          {editingCustomer && (
+            <div className="modal-overlay">
+              <div className="modal-content glass-panel">
+                <h3 className="text-xl font-bold text-white mb-4">Edit Customer</h3>
+                <div className="space-y-4">
+                  <div><label className="text-white/50 text-sm">Name</label><input type="text" value={editForm.name} onChange={(e) => setEditForm({ ...editForm, name: e.target.value })} className="input-neon mt-1" /></div>
+                  <div><label className="text-white/50 text-sm">Username</label><input type="text" value={editForm.username} onChange={(e) => setEditForm({ ...editForm, username: e.target.value })} className="input-neon mt-1" /></div>
+                  <div><label className="text-white/50 text-sm">Password</label><input type="text" value={editForm.password} onChange={(e) => setEditForm({ ...editForm, password: e.target.value })} className="input-neon mt-1" /></div>
+                  <div><label className="text-white/50 text-sm">WhatsApp</label><input type="text" value={editForm.whatsapp} onChange={(e) => setEditForm({ ...editForm, whatsapp: e.target.value })} className="input-neon mt-1" /></div>
+                  <div><label className="text-white/50 text-sm">Expiry Date</label><input type="date" value={editForm.expiryDate} onChange={(e) => setEditForm({ ...editForm, expiryDate: e.target.value })} className="input-neon mt-1" /></div>
+                </div>
+                <div className="flex gap-3 mt-6">
+                  <button onClick={saveEdit} className="btn-neon">Save</button>
+                  <button onClick={closeEditModal} className="btn-neon-outline">Cancel</button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Edit Account Modal */}
+          {editingAccount && (
+            <div className="modal-overlay">
+              <div className="modal-content glass-panel">
+                <h3 className="text-xl font-bold text-white mb-4">Edit Account</h3>
+                <div className="space-y-4">
+                  <div><label className="text-white/50 text-sm">Email</label><input type="text" value={editAccountForm.email} onChange={(e) => setEditAccountForm({...editAccountForm, email: e.target.value})} className="input-neon mt-1" /></div>
+                  <div><label className="text-white/50 text-sm">Password</label><input type="text" value={editAccountForm.password} onChange={(e) => setEditAccountForm({...editAccountForm, password: e.target.value})} className="input-neon mt-1" /></div>
+                </div>
+                <div className="flex gap-3 mt-6">
+                  <button onClick={saveAccountEdit} className="btn-neon">Save</button>
+                  <button onClick={() => setEditingAccount(null)} className="btn-neon-outline">Cancel</button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Edit Screen Modal */}
+          {editingScreen && (
+            <div className="modal-overlay">
+              <div className="modal-content glass-panel">
+                <h3 className="text-xl font-bold text-white mb-4">Edit Screen</h3>
+                <div className="space-y-4">
+                  <div><label className="text-white/50 text-sm">Screen Name</label><input type="text" value={editScreenForm.name} onChange={(e) => setEditScreenForm({...editScreenForm, name: e.target.value})} className="input-neon mt-1" /></div>
+                  <div><label className="text-white/50 text-sm">PIN</label><input type="text" value={editScreenForm.pin} onChange={(e) => setEditScreenForm({...editScreenForm, pin: e.target.value})} className="input-neon mt-1" placeholder="4-digit PIN" maxLength="4" /></div>
+                </div>
+                <div className="flex gap-3 mt-6">
+                  <button onClick={saveScreenEdit} className="btn-neon">Save</button>
+                  <button onClick={() => setEditingScreen(null)} className="btn-neon-outline">Cancel</button>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      );
     }
 
     // ─── MAIN APP ──────────────────────────────────────────────
@@ -828,6 +3006,7 @@
       const [flowType, setFlowType] = useState(null);
       const { addToast } = useContext(AppContext);
 
+      // ─── Load subscriptions ──────────────────────────────────
       useEffect(() => {
         const loadData = async () => {
           try {
@@ -853,6 +3032,7 @@
         setFlowStep('flow');
       };
 
+      // ─── UPDATED validateUser with WhatsApp check ──────────
       const validateUser = (username, password, whatsapp) => {
         let existingUser = null;
         let existingWithSameNumber = null;
@@ -879,7 +3059,7 @@
             return { valid: false, error: 'Username already exists. Please use a different username or correct password.' };
           }
         }
-        // Allow if same WhatsApp but different username (just a warning, but we still allow)
+        // Allow same WhatsApp with different username – just warn
         if (existingWithSameNumber) {
           addToast('This WhatsApp number is already used by another account. We\'ll assign a different screen.', 'warning');
         }
@@ -959,6 +3139,7 @@
         if (updatedSub) {
           await updateSubscription(data.subscriptionId, updatedSub);
         }
+        // ─── Refresh data ──────────────────────────────────────
         const fresh = await fetchSubscriptions();
         setSubscriptions(fresh);
         resetFlow();
