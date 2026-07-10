@@ -1,5 +1,3 @@
-// functions/index.js
-const functions = require('firebase-functions');
 const express = require('express');
 const cors = require('cors');
 
@@ -7,24 +5,45 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// ─── In‑memory storage (will reset on every function cold start) ──
+// ─── In‑memory storage ──────────────────────────────────────
 let otps = [];
 let idCounter = 0;
 let subscriptions = [
-  // ... your initial data here (the same as in your server.js)
-  // Make sure to copy everything from your original server.js
+  // ─── Your subscription data (copy from your original server.js) ──
+  // Make sure to include all your subscriptions here
 ];
 
-// ─── Copy ALL your routes exactly as they are ──────────────────
-app.post('/api/otp/generate', (req, res) => { /* ... */ });
-app.post('/api/otp/verify', (req, res) => { /* ... */ });
-app.get('/api/otp/list', (req, res) => { /* ... */ });
-app.get('/api/subscriptions', (req, res) => { /* ... */ });
-app.get('/api/subscriptions/:id', (req, res) => { /* ... */ });
-app.post('/api/subscriptions', (req, res) => { /* ... */ });
-app.put('/api/subscriptions/:id', (req, res) => { /* ... */ });
-app.delete('/api/subscriptions/:id', (req, res) => { /* ... */ });
-app.get('/api/health', (req, res) => { /* ... */ });
+// ─── Your routes ──────────────────────────────────────────────
+app.post('/api/otp/generate', (req, res) => {
+  // your code
+});
+app.post('/api/otp/verify', (req, res) => {
+  // your code
+});
+app.get('/api/otp/list', (req, res) => {
+  // your code
+});
+app.get('/api/subscriptions', (req, res) => {
+  // your code
+});
+app.get('/api/subscriptions/:id', (req, res) => {
+  // your code
+});
+app.post('/api/subscriptions', (req, res) => {
+  // your code
+});
+app.put('/api/subscriptions/:id', (req, res) => {
+  // your code
+});
+app.delete('/api/subscriptions/:id', (req, res) => {
+  // your code
+});
+app.get('/api/health', (req, res) => {
+  res.json({ status: 'ok' });
+});
 
-// ─── EXPORT the app as a Cloud Function ────────────────────────
-exports.api = functions.https.onRequest(app);
+// ─── START THE SERVER (CRITICAL for Render) ──────────────────
+const PORT = process.env.PORT || 5000;
+app.listen(PORT, () => {
+  console.log(`🚀 Server running on port ${PORT}`);
+});
