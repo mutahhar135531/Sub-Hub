@@ -2226,41 +2226,51 @@
         setEditForm({ name: '', username: '', password: '', whatsapp: '', expiryDate: '' });
       };
       const saveEdit = async () => {
-        if (!editingCustomer) return;
-        const { subId, accId, screenId, customerIdx } = editingCustomer;
-        setSubscriptions(prev => prev.map(sub => {
-          if (sub.id === subId) {
-            return { ...sub, accounts: sub.accounts.map(acc => {
-              if (acc.id === accId) {
-                return { ...acc, screens: acc.screens.map(screen => {
-                  if (screen.id === screenId) {
-                    const newCustomers = [...screen.customers];
-                    newCustomers[customerIdx] = {
-                      ...newCustomers[customerIdx],
-                      name: editForm.name,
-                      username: editForm.username,
-                      password: editForm.password,
-                      whatsapp: editForm.whatsapp,
-                      expiryDate: editForm.expiryDate
-                    };
-                    return { ...screen, customers: newCustomers };
-                  }
-                  return screen;
-                }) };
-              }
-              return acc;
-            }) };
-          }
-          return sub;
-        }));
-        const updatedSub = subscriptions.find(s => s.id === subId);
-        if (updatedSub) {
-          await updateSubscription(subId, updatedSub);
-        }
-        await refreshData();
-        addToast('Customer updated.', 'success');
-        closeEditModal();
-      };
+  if (!editingCustomer) return;
+  const { subId, accId, screenId, customerIdx } = editingCustomer;
+
+  // 1. Find the subscription and the customer to update
+  const sub = subscriptions.find(s => s.id === subId);
+  if (!sub) { addToast('Subscription not found', 'error'); return; }
+  const acc = sub.accounts.find(a => a.id === accId);
+  if (!acc) { addToast('Account not found', 'error'); return; }
+  const screen = acc.screens.find(s => s.id === screenId);
+  if (!screen) { addToast('Screen not found', 'error'); return; }
+  if (!screen.customers || screen.customers.length <= customerIdx) {
+    addToast('Customer not found', 'error');
+    return;
+  }
+
+  // 2. Create a deep copy of the subscription with the updated customer
+  const updatedSub = JSON.parse(JSON.stringify(sub));
+  const updatedAcc = updatedSub.accounts.find(a => a.id === accId);
+  const updatedScreen = updatedAcc.screens.find(s => s.id === screenId);
+  updatedScreen.customers[customerIdx] = {
+    ...updatedScreen.customers[customerIdx],
+    name: editForm.name,
+    username: editForm.username,
+    password: editForm.password,
+    whatsapp: editForm.whatsapp,
+    expiryDate: editForm.expiryDate,
+  };
+
+  // 3. Update local state (optimistic)
+  setSubscriptions(prev => prev.map(s => (s.id === subId ? updatedSub : s)));
+
+  // 4. Send update to the server
+  try {
+    await updateSubscription(subId, updatedSub);
+    // 5. Refresh data from server to ensure consistency
+    await refreshData();
+    addToast('Customer updated.', 'success');
+    closeEditModal();
+  } catch (err) {
+    console.error('Update error:', err);
+    addToast('Failed to update customer.', 'error');
+    // Revert local state (optional: refetch)
+    await refreshData();
+  }
+};
 
       // ─── Add subscription ──────────────────────────────
       const handleAddSubscription = async () => {
