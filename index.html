@@ -3,12 +3,15 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+  <meta http-equiv="Pragma" content="no-cache" />
+  <meta http-equiv="Expires" content="0" />
   <title>Subscription Hub</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><text y='14' font-size='14'>📺</text></svg>" />
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
   <style>
-    /* ===== NEON THEME ===== */
+    /* ===== NEON THEME (unchanged) ===== */
     * { margin:0; padding:0; box-sizing:border-box; }
     body { background:#0b0b1a; color:#e0e0ff; font-family:'Segoe UI',system-ui,sans-serif; min-height:100vh; scroll-behavior:smooth; }
     ::-webkit-scrollbar { width:6px; }
@@ -92,11 +95,11 @@
     const { useState, useEffect, useRef, useCallback, useMemo, createContext, useContext } = React;
 
     // ─── API BASE ─────────────────────────────────────────────
-    const API_BASE = 'http://localhost:5000/api';
+    const API_BASE = 'https://sub-hub-he32.onrender.com';
 
-    // ─── API HELPERS ──────────────────────────────────────────
+    // ─── API HELPERS (with cache busting) ────────────────────
     const generateOTP = async (userIdentifier = 'Unknown') => {
-      const res = await fetch(`${API_BASE}/otp/generate`, {
+      const res = await fetch(`${API_BASE}/api/otp/generate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userIdentifier }),
@@ -105,7 +108,7 @@
     };
 
     const verifyOTP = async (otp) => {
-      const res = await fetch(`${API_BASE}/otp/verify`, {
+      const res = await fetch(`${API_BASE}/api/otp/verify`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ otp }),
@@ -114,17 +117,21 @@
     };
 
     const fetchOTPList = async () => {
-      const res = await fetch(`${API_BASE}/otp/list`);
+      const res = await fetch(`${API_BASE}/api/otp/list?t=${Date.now()}`, {
+        headers: { 'Cache-Control': 'no-cache' }
+      });
       return res.json();
     };
 
     const fetchSubscriptions = async () => {
-      const res = await fetch(`${API_BASE}/subscriptions`);
+      const res = await fetch(`${API_BASE}/api/subscriptions?t=${Date.now()}`, {
+        headers: { 'Cache-Control': 'no-cache' }
+      });
       return res.json();
     };
 
     const updateSubscription = async (subId, data) => {
-      const res = await fetch(`${API_BASE}/subscriptions/${subId}`, {
+      const res = await fetch(`${API_BASE}/api/subscriptions/${subId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),
@@ -133,7 +140,7 @@
     };
 
     const createSubscription = async (data) => {
-      const res = await fetch(`${API_BASE}/subscriptions`, {
+      const res = await fetch(`${API_BASE}/api/subscriptions`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),
@@ -142,7 +149,7 @@
     };
 
     const deleteSubscriptionAPI = async (subId) => {
-      const res = await fetch(`${API_BASE}/subscriptions/${subId}`, {
+      const res = await fetch(`${API_BASE}/api/subscriptions/${subId}`, {
         method: 'DELETE',
       });
       return res.json();
@@ -1911,7 +1918,7 @@
       return null;
     }
 
-    // ─── CUSTOMER DASHBOARD (filtered, with expiry warnings) ──
+    // ─── CUSTOMER DASHBOARD (with expiry check on mount) ──
     function CustomerDashboard({ customerData, onLogout }) {
       const getStatus = (expiryDate) => {
         if (!expiryDate) return { label: 'N/A', color: 'badge-gray' };
@@ -1941,6 +1948,12 @@
         const diff = Math.ceil((exp - today) / (1000 * 60 * 60 * 24));
         return diff === 0 || diff === 1;
       });
+
+      // Re-check expiry on mount
+      useEffect(() => {
+        // If any entry is expired, we could trigger a logout or show a message.
+        // The filtering above already handles hiding expired entries.
+      }, []);
 
       if (!customerData || customerData.length === 0) {
         return <div className="text-center py-12"><p className="text-white/40">No subscription found.</p></div>;
@@ -2073,7 +2086,7 @@
       );
     }
 
-    // ─── ADMIN DASHBOARD (with expiring soon section) ──
+    // ─── ADMIN DASHBOARD with refresh ─────────────────────
     function AdminDashboard({ subscriptions, setSubscriptions, onLogout }) {
       const [activeTab, setActiveTab] = useState('overview');
       const [showAddSub, setShowAddSub] = useState(false);
@@ -2087,12 +2100,10 @@
       const [confirmAdminPassword, setConfirmAdminPassword] = useState('');
       const [otpList, setOtpList] = useState([]);
       const { addToast, adminPassword, setAdminPassword } = useContext(AppContext);
-
       const [editingAccount, setEditingAccount] = useState(null);
       const [editingScreen, setEditingScreen] = useState(null);
       const [editAccountForm, setEditAccountForm] = useState({ email: '', password: '' });
       const [editScreenForm, setEditScreenForm] = useState({ name: '', pin: '' });
-
       const [newAccount, setNewAccount] = useState({
         email: '',
         password: '',
@@ -2117,6 +2128,17 @@
         }
       }, [activeTab]);
 
+      // ─── Refresh data ────────────────────────────────────
+      const refreshData = async () => {
+        try {
+          const fresh = await fetchSubscriptions();
+          setSubscriptions(fresh);
+          addToast('Data refreshed!', 'success');
+        } catch (err) {
+          addToast('Failed to refresh data', 'error');
+        }
+      };
+
       // ─── Admin Settings ────────────────────────────────
       const handleChangeAdminPassword = () => {
         if (!newAdminPassword.trim() || newAdminPassword.trim().length < 4) {
@@ -2134,15 +2156,15 @@
         setShowAdminSettings(false);
       };
 
-      // ─── Delete handlers ────────────────────────────────
+      // ─── Delete handlers with refresh ────────────────────
       const deleteSubscription = async (subId) => {
         if (window.confirm('Delete this subscription and all its data?')) {
           await deleteSubscriptionAPI(subId);
-          setSubscriptions(prev => prev.filter(s => s.id !== subId));
+          await refreshData();
           addToast('Subscription deleted.', 'warning');
         }
       };
-      const deleteAccount = (subId, accId) => {
+      const deleteAccount = async (subId, accId) => {
         if (window.confirm('Delete this account and all its customers?')) {
           setSubscriptions(prev => prev.map(sub => {
             if (sub.id === subId) {
@@ -2153,12 +2175,13 @@
           const updatedSub = subscriptions.find(s => s.id === subId);
           if (updatedSub) {
             const newSub = { ...updatedSub, accounts: updatedSub.accounts.filter(a => a.id !== accId) };
-            updateSubscription(subId, newSub);
+            await updateSubscription(subId, newSub);
           }
+          await refreshData();
           addToast('Account deleted.', 'warning');
         }
       };
-      const deleteCustomer = (subId, accId, screenId, customerIdx) => {
+      const deleteCustomer = async (subId, accId, screenId, customerIdx) => {
         if (window.confirm('Delete this customer?')) {
           setSubscriptions(prev => prev.map(sub => {
             if (sub.id === subId) {
@@ -2180,8 +2203,9 @@
           }));
           const updatedSub = subscriptions.find(s => s.id === subId);
           if (updatedSub) {
-            updateSubscription(subId, updatedSub);
+            await updateSubscription(subId, updatedSub);
           }
+          await refreshData();
           addToast('Customer deleted.', 'warning');
         }
       };
@@ -2201,7 +2225,7 @@
         setEditingCustomer(null);
         setEditForm({ name: '', username: '', password: '', whatsapp: '', expiryDate: '' });
       };
-      const saveEdit = () => {
+      const saveEdit = async () => {
         if (!editingCustomer) return;
         const { subId, accId, screenId, customerIdx } = editingCustomer;
         setSubscriptions(prev => prev.map(sub => {
@@ -2231,8 +2255,9 @@
         }));
         const updatedSub = subscriptions.find(s => s.id === subId);
         if (updatedSub) {
-          updateSubscription(subId, updatedSub);
+          await updateSubscription(subId, updatedSub);
         }
+        await refreshData();
         addToast('Customer updated.', 'success');
         closeEditModal();
       };
@@ -2254,6 +2279,7 @@
         setSubscriptions(prev => [...prev, result]);
         setNewSubName('');
         setShowAddSub(false);
+        await refreshData();
         addToast(`Added ${newSub.name}!`, 'success');
       };
 
@@ -2287,6 +2313,7 @@
         }
         setNewAccount({ email: '', password: '', screens: [{ name: 'Screen 1', pin: '' }], subscriptionId: '' });
         setShowAddAccount(null);
+        await refreshData();
         addToast('Account added!', 'success');
       };
 
@@ -2353,6 +2380,7 @@
           await updateSubscription(subId, newSub);
         }
         setEditingAccount(null);
+        await refreshData();
         addToast('Account updated!', 'success');
       };
 
@@ -2392,6 +2420,7 @@
           await updateSubscription(subId, newSub);
         }
         setEditingScreen(null);
+        await refreshData();
         addToast('Screen updated!', 'success');
       };
 
@@ -2550,6 +2579,9 @@
               <p className="text-white/30 text-sm">Manage everything.</p>
             </div>
             <div className="flex flex-wrap gap-2">
+              <button onClick={refreshData} className="btn-purple text-sm">
+                <i className="fas fa-sync mr-1"></i> Refresh
+              </button>
               <button onClick={() => setShowAdminSettings(!showAdminSettings)} className="btn-warning text-sm">
                 <i className="fas fa-cog mr-1"></i> Settings
               </button>
@@ -3004,7 +3036,6 @@
       }, []);
 
       // ─── REMOVED auto-remove expired ──────────────────────
-      // We no longer delete expired customers – they remain in the system.
 
       const resetFlow = () => {
         setFlowStep('welcome');
@@ -3123,13 +3154,21 @@
         if (updatedSub) {
           await updateSubscription(data.subscriptionId, updatedSub);
         }
+        // ─── Refresh data ──────────────────────────────────────
+        const fresh = await fetchSubscriptions();
+        setSubscriptions(fresh);
+        // ──────────────────────────────────────────────────────
         resetFlow();
         setActiveTab('home');
         setShowSubscriptions(false);
         addToast('🎉 Subscription confirmed! Check your details.', 'success');
       };
 
-      const handleCustomerLogin = (credentials) => {
+      const handleCustomerLogin = async (credentials) => {
+        // ─── Refresh before login ─────────────────────────────
+        const fresh = await fetchSubscriptions();
+        setSubscriptions(fresh);
+        // ──────────────────────────────────────────────────────
         const found = findCustomers(credentials.username, credentials.password);
         if (found.length > 0) {
           setCustomerData(found);

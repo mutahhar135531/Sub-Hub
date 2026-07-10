@@ -6,6 +6,14 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+// ─── STRICT CACHE CONTROL ──────────────────────────────────────
+app.use((req, res, next) => {
+  res.header('Cache-Control', 'no-cache, no-store, must-revalidate');
+  res.header('Pragma', 'no-cache');
+  res.header('Expires', '0');
+  next();
+});
+
 // ─── MongoDB connection ──────────────────────────────────────
 const MONGODB_URI = 'mongodb+srv://elitecinezo_db_user:g485P3ELoeP8REkD@cluster0.tsw1i0i.mongodb.net/subscription_hub?retryWrites=true&w=majority';
 const DB_NAME = 'subscription_hub';
@@ -246,6 +254,49 @@ app.get('/api/otp/list', async (req, res) => {
   }
 });
 
+// ─── Authentication check (for expiry) ──────────────────────
+app.post('/api/auth/check', async (req, res) => {
+  try {
+    const { username, password } = req.body;
+    const subs = await subscriptionsCollection.find({}).toArray();
+    let user = null;
+    let subscriptionName = '';
+    for (let sub of subs) {
+      for (let acc of sub.accounts) {
+        for (let screen of acc.screens) {
+          if (screen.customers) {
+            const found = screen.customers.find(
+              c => c.username === username && c.password === password
+            );
+            if (found) {
+              user = found;
+              subscriptionName = sub.name;
+              break;
+            }
+          }
+        }
+        if (user) break;
+      }
+      if (user) break;
+    }
+    if (!user) {
+      return res.json({ valid: false, error: 'User not found' });
+    }
+    // Check expiry
+    if (user.expiryDate) {
+      const expiry = new Date(user.expiryDate);
+      const now = new Date();
+      if (expiry < now) {
+        return res.json({ valid: false, error: 'Subscription expired' });
+      }
+    }
+    res.json({ valid: true, user, subscriptionName });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ─── Health check ──────────────────────────────────────────
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', database: db ? 'connected' : 'disconnected' });
 });
