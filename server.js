@@ -23,7 +23,11 @@ let subscriptionsCollection;
 let otpsCollection;
 
 async function connectDB() {
-  const client = new MongoClient(MONGODB_URI);
+  const client = new MongoClient(MONGODB_URI, {
+    serverSelectionTimeoutMS: 5000,
+    // If you still get SSL errors, uncomment this line ONLY for testing:
+    // tlsAllowInvalidCertificates: true
+  });
   await client.connect();
   db = client.db(DB_NAME);
   subscriptionsCollection = db.collection('subscriptions');
