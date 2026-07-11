@@ -81,7 +81,6 @@ async function seedData() {
             id: 'a3',
             email: 'amazon1@example.com',
             password: 'pass3',
-            // ✅ Changed to exactly 6 screens (Slot 1 – Slot 6)
             screens: Array.from({ length: 6 }, (_, i) => ({
               id: `s_${i+1}`,
               name: `Slot ${i+1}`,
@@ -203,7 +202,7 @@ app.delete('/api/subscriptions/:id', async (req, res) => {
   }
 });
 
-// ---- Users (NEW) ----
+// ---- Users ----
 app.post('/api/users/signup', async (req, res) => {
   try {
     const { username, password, whatsapp } = req.body;
@@ -219,12 +218,12 @@ app.post('/api/users/signup', async (req, res) => {
       password,
       whatsapp,
       purchaseCount: 0,
+      credits: 0,
       createdAt: new Date()
     };
     await usersCollection.insertOne(newUser);
-    // Return user without password
-    const { password: _, ...user } = newUser;
-    res.json({ success: true, user });
+    // Return user with password (for frontend)
+    res.json({ success: true, user: newUser });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -237,8 +236,21 @@ app.post('/api/users/login', async (req, res) => {
     if (!user || user.password !== password) {
       return res.status(401).json({ error: 'Invalid credentials' });
     }
-    const { password: _, ...userData } = user;
-    res.json({ success: true, user: userData });
+    res.json({ success: true, user });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/users', async (req, res) => {
+  try {
+    const users = await usersCollection.find({}).toArray();
+    // Remove passwords for security
+    const sanitized = users.map(u => {
+      const { password, ...rest } = u;
+      return rest;
+    });
+    res.json(sanitized);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -248,8 +260,7 @@ app.get('/api/users/:username', async (req, res) => {
   try {
     const user = await usersCollection.findOne({ username: req.params.username });
     if (!user) return res.status(404).json({ error: 'User not found' });
-    const { password: _, ...userData } = user;
-    res.json(userData);
+    res.json(user);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -265,8 +276,51 @@ app.put('/api/users/:username/incrementPurchase', async (req, res) => {
       return res.status(404).json({ error: 'User not found' });
     }
     const updated = await usersCollection.findOne({ username: req.params.username });
-    const { password: _, ...userData } = updated;
-    res.json(userData);
+    res.json(updated);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Add credits (admin only – no auth for simplicity, but we rely on frontend)
+app.post('/api/users/:username/addCredits', async (req, res) => {
+  try {
+    const { amount } = req.body;
+    if (!amount || amount <= 0) {
+      return res.status(400).json({ error: 'Invalid amount' });
+    }
+    const result = await usersCollection.updateOne(
+      { username: req.params.username },
+      { $inc: { credits: amount } }
+    );
+    if (result.matchedCount === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    const updated = await usersCollection.findOne({ username: req.params.username });
+    res.json(updated);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Deduct credits (used during credit-based purchase)
+app.post('/api/users/:username/deductCredits', async (req, res) => {
+  try {
+    const { amount } = req.body;
+    if (!amount || amount <= 0) {
+      return res.status(400).json({ error: 'Invalid amount' });
+    }
+    const user = await usersCollection.findOne({ username: req.params.username });
+    if (!user) return res.status(404).json({ error: 'User not found' });
+    if (user.credits < amount) {
+      return res.status(400).json({ error: 'Insufficient credits' });
+    }
+    const result = await usersCollection.updateOne(
+      { username: req.params.username },
+      { $inc: { credits: -amount } }
+    );
+    const updated = await usersCollection.findOne({ username: req.params.username });
+    res.json(updated);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -275,19 +329,20 @@ app.put('/api/users/:username/incrementPurchase', async (req, res) => {
 // ---- OTP ----
 app.post('/api/otp/generate', async (req, res) => {
   try {
-    const { userIdentifier } = req.body;
+    const { userIdentifier, description } = req.body;
     const otp = String(Math.floor(1000 + Math.random() * 9000));
     const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
     const newOTP = {
       id: Date.now().toString(),
       otp,
       userIdentifier: userIdentifier || 'Unknown',
+      description: description || '',
       createdAt: new Date(),
       expiresAt,
       verified: false,
     };
     await otpsCollection.insertOne(newOTP);
-    console.log(`✅ OTP generated: ${otp} for ${userIdentifier}`);
+    console.log(`✅ OTP generated: ${otp} for ${userIdentifier} - ${description}`);
     res.json({ success: true, otpId: newOTP.id });
   } catch (err) {
     res.status(500).json({ error: err.message });
