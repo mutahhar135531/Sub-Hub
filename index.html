@@ -66,24 +66,35 @@
     .badge-yellow { background:rgba(251,191,36,0.15); color:#fbbf24; }
     .badge-red-light { background:rgba(239,68,68,0.15); color:#fca5a5; }
     .badge-gray { background:rgba(255,255,255,0.05); color:#9ca3af; }
-    .deal-card { background:rgba(20,20,20,0.90); backdrop-filter:blur(12px); border:2px solid rgba(239,68,68,0.25); border-radius:20px; padding:20px 18px; transition:all .3s ease; position:relative; overflow:hidden; display:flex; flex-direction:column; height:100%; min-height:200px; }
-    .deal-card:hover { border-color:#ef4444; box-shadow:0 0 40px rgba(239,68,68,0.12); transform:translateY(-4px); }
-    .deal-card .discount-badge { position:absolute; top:10px; right:10px; background:linear-gradient(135deg,#ef4444,#dc2626); color:#fff; font-weight:700; padding:3px 12px; border-radius:40px; font-size:.7rem; box-shadow:0 0 20px rgba(239,68,68,0.3); }
-    .deal-price-original { color:rgba(255,255,255,0.3); font-size:.95rem; text-decoration:line-through; }
-    .deal-price-discount { color:#34d399; font-size:1.8rem; font-weight:800; text-shadow:0 0 30px rgba(52,211,153,0.15); }
-    .deal-price-currency { font-size:1rem; font-weight:600; }
-    .deal-sub-badges { display:flex; flex-wrap:wrap; gap:4px; margin-top:6px; }
-    .deal-sub-badge { background:rgba(239,68,68,0.12); border:1px solid rgba(239,68,68,0.15); padding:2px 8px; border-radius:16px; font-size:.65rem; color:#fca5a5; display:inline-flex; align-items:center; gap:4px; }
+    .deal-card { background:rgba(20,20,20,0.90); backdrop-filter:blur(12px); border:2px solid rgba(239,68,68,0.25); border-radius:16px; padding:14px 14px; transition:all .3s ease; position:relative; overflow:hidden; display:flex; flex-direction:column; height:100%; min-height:160px; }
+    .deal-card:hover { border-color:#ef4444; box-shadow:0 0 30px rgba(239,68,68,0.12); transform:translateY(-2px); }
+    .deal-card .discount-badge { position:absolute; top:8px; right:8px; background:linear-gradient(135deg,#ef4444,#dc2626); color:#fff; font-weight:700; padding:2px 10px; border-radius:40px; font-size:.6rem; box-shadow:0 0 16px rgba(239,68,68,0.3); }
+    .deal-price-original { color:rgba(255,255,255,0.3); font-size:.8rem; text-decoration:line-through; }
+    .deal-price-discount { color:#34d399; font-size:1.4rem; font-weight:800; text-shadow:0 0 20px rgba(52,211,153,0.12); }
+    .deal-price-currency { font-size:.8rem; font-weight:600; }
+    .deal-sub-badges { display:flex; flex-wrap:wrap; gap:3px; margin-top:4px; }
+    .deal-sub-badge { background:rgba(239,68,68,0.12); border:1px solid rgba(239,68,68,0.15); padding:1px 6px; border-radius:12px; font-size:.55rem; color:#fca5a5; display:inline-flex; align-items:center; gap:3px; }
+    .deal-sub-badge i { font-size:.5rem; }
+    .deal-card .deal-title { font-size:.9rem; font-weight:700; }
+    .deal-card .deal-desc { font-size:.65rem; color:rgba(255,255,255,0.4); }
+    .deal-card .btn-neon-sm { font-size:.75rem; padding:6px 12px; border-radius:30px; background:linear-gradient(135deg,#ef4444,#dc2626); color:#fff; border:none; font-weight:600; transition:all .3s ease; cursor:pointer; }
+    .deal-card .btn-neon-sm:hover { transform:scale(1.02); box-shadow:0 0 20px rgba(239,68,68,0.3); }
     /* Carousel styles - multi-item */
-    .carousel-container { position:relative; overflow:hidden; border-radius:20px; }
-    .carousel-track { display:flex; transition:transform 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94); will-change:transform; }
-    .carousel-slide { flex:0 0 33.333%; padding:0 10px; }
-    @media (max-width:1024px) { .carousel-slide { flex:0 0 50%; } }
+    .carousel-container { position:relative; overflow:hidden; border-radius:16px; }
+    .carousel-track { display:flex; transition:transform 0.7s cubic-bezier(0.25, 0.46, 0.45, 0.94); will-change:transform; }
+    .carousel-slide { flex:0 0 25%; padding:0 8px; }
+    @media (max-width:1200px) { .carousel-slide { flex:0 0 33.333%; } }
+    @media (max-width:992px) { .carousel-slide { flex:0 0 50%; } }
     @media (max-width:640px) { .carousel-slide { flex:0 0 100%; } }
-    .carousel-dots { display:flex; justify-content:center; gap:8px; margin-top:14px; }
+    .carousel-dots { display:flex; justify-content:center; gap:8px; margin-top:10px; }
     .carousel-dot { width:8px; height:8px; border-radius:50%; background:rgba(255,255,255,0.12); border:none; cursor:pointer; transition:all .3s ease; }
     .carousel-dot.active { background:#ef4444; box-shadow:0 0 16px rgba(239,68,68,0.4); width:24px; border-radius:20px; }
     .carousel-dot:hover { background:rgba(239,68,68,0.5); }
+    .carousel-btn { position:absolute; top:50%; transform:translateY(-50%); z-index:10; background:rgba(10,10,10,0.8); backdrop-filter:blur(6px); border:1px solid rgba(239,68,68,0.2); color:white; width:36px; height:36px; border-radius:50%; cursor:pointer; transition:all .3s ease; display:flex; align-items:center; justify-content:center; font-size:.9rem; }
+    .carousel-btn:hover { background:rgba(239,68,68,0.25); border-color:#ef4444; box-shadow:0 0 20px rgba(239,68,68,0.15); }
+    .carousel-btn.prev { left:-4px; }
+    .carousel-btn.next { right:-4px; }
+    @media (max-width:640px) { .carousel-btn { width:30px; height:30px; font-size:.8rem; } .carousel-btn.prev { left:-2px; } .carousel-btn.next { right:-2px; } }
     @media (max-width:640px) { .sub-icon { font-size:2.2rem; } .otp-input { width:44px; height:52px; font-size:1.3rem; } .toast-container { left:16px; right:16px; max-width:100%; bottom:16px; } .admin-table th,.admin-table td { padding:8px 10px; font-size:.75rem; } }
     .fade-up { opacity:0; transform:translateY(30px); transition:all .6s ease; }
     .fade-up.visible { opacity:1; transform:translateY(0); }
@@ -101,7 +112,6 @@
     .detail-row { display:flex; justify-content:space-between; align-items:center; padding:8px 0; border-bottom:1px solid rgba(255,255,255,0.04); }
     .detail-row .label { color:rgba(255,255,255,0.30); font-size:.8rem; }
     .detail-row .value { color:#e0e0e0; font-weight:500; font-size:.9rem; display:flex; align-items:center; gap:6px; }
-    /* Logo styles */
     .logo-primary { font-size:1.6rem; font-weight:800; letter-spacing:-0.5px; background:linear-gradient(135deg,#ef4444,#dc2626); -webkit-background-clip:text; -webkit-text-fill-color:transparent; }
     .logo-secondary { font-weight:700; color:#fca5a5; }
     .logo-icon { color:#ef4444; }
@@ -461,7 +471,7 @@
       );
     }
 
-    // ─── DEALS CAROUSEL (Multi-item, swipe only) ──────────────
+    // ─── DEALS CAROUSEL (With buttons & responsive sizing) ───
     function DealsCarousel({ deals, subscriptions, onPurchaseClick }) {
       const [currentIndex, setCurrentIndex] = useState(0);
       const [isPaused, setIsPaused] = useState(false);
@@ -472,7 +482,6 @@
       const carouselRef = useRef(null);
       const slideInterval = 4000;
       const pauseDuration = 5000;
-      const itemsPerView = 3;
 
       const icons = { netflix: 'fa-netflix', amazon: 'fa-amazon', youtube: 'fa-youtube', spotify: 'fa-spotify', chatgpt: 'fa-robot', custom: 'fa-plus-circle' };
       const colors = { netflix: '#e50914', amazon: '#ff9900', youtube: '#ff0000', spotify: '#1db954', chatgpt: '#10a37f', custom: '#ef4444' };
@@ -488,14 +497,32 @@
           .filter(d => d.subscriptions.length > 0);
       }, [deals, subscriptions]);
 
-      const totalSlides = activeDeals.length;
-      const totalItems = totalSlides;
+      const totalItems = activeDeals.length;
 
-      // Auto-slide effect
+      // Responsive items per view
+      const getItemsPerView = () => {
+        if (typeof window === 'undefined') return 4;
+        const w = window.innerWidth;
+        if (w >= 1200) return 4;
+        if (w >= 992) return 3;
+        if (w >= 640) return 2;
+        return 1;
+      };
+
+      const [itemsPerView, setItemsPerView] = useState(getItemsPerView());
+
+      useEffect(() => {
+        const handleResize = () => setItemsPerView(getItemsPerView());
+        window.addEventListener('resize', handleResize);
+        return () => window.removeEventListener('resize', handleResize);
+      }, []);
+
+      // Auto-slide
       useEffect(() => {
         if (isPaused || totalItems <= itemsPerView) return;
         const interval = setInterval(() => {
-          setCurrentIndex(prev => (prev + 1) % (totalItems - itemsPerView + 1));
+          const maxIndex = Math.max(0, totalItems - itemsPerView);
+          setCurrentIndex(prev => (prev + 1) % (maxIndex + 1));
         }, slideInterval);
         return () => clearInterval(interval);
       }, [isPaused, totalItems, itemsPerView]);
@@ -521,6 +548,26 @@
         setPauseTimer(timer);
       };
 
+      const goToPrev = () => {
+        const maxIndex = Math.max(0, totalItems - itemsPerView);
+        setCurrentIndex(prev => Math.max(prev - 1, 0));
+        handlePause();
+        setTimeout(handleResume, 3000);
+      };
+
+      const goToNext = () => {
+        const maxIndex = Math.max(0, totalItems - itemsPerView);
+        setCurrentIndex(prev => Math.min(prev + 1, maxIndex));
+        handlePause();
+        setTimeout(handleResume, 3000);
+      };
+
+      const goToSlide = (index) => {
+        setCurrentIndex(index);
+        handlePause();
+        setTimeout(handleResume, 3000);
+      };
+
       const handleTouchStart = (e) => {
         handlePause();
         setTouchStartX(e.touches[0].clientX);
@@ -532,7 +579,6 @@
         if (!isDragging) return;
         const currentX = e.touches[0].clientX;
         const diff = touchStartX - currentX;
-        // Only prevent default if horizontal swipe
         const currentY = e.touches[0].clientY;
         const diffY = Math.abs(touchStartY - currentY);
         if (Math.abs(diff) > diffY && Math.abs(diff) > 10) {
@@ -585,102 +631,106 @@
         handleResume();
       };
 
-      const goToSlide = (index) => {
-        setCurrentIndex(index);
-        handlePause();
-        setTimeout(handleResume, 3000);
-      };
-
       if (activeDeals.length === 0) return null;
 
       const maxIndex = Math.max(0, totalItems - itemsPerView);
       const currentSlide = Math.min(currentIndex, maxIndex);
 
       return (
-        <div className="max-w-7xl mx-auto px-4 py-6">
-          <div className="flex items-center gap-3 mb-5">
-            <i className="fas fa-bolt text-red-500 text-2xl"></i>
-            <h2 className="text-2xl font-bold text-white">🔥 Hot Deals!</h2>
-            <span className="text-white/30 text-sm ml-2">Limited time offers</span>
+        <div className="max-w-7xl mx-auto px-4 py-4 relative">
+          <div className="flex items-center gap-3 mb-4">
+            <i className="fas fa-bolt text-red-500 text-xl"></i>
+            <h2 className="text-xl font-bold text-white">🔥 Hot Deals!</h2>
+            <span className="text-white/30 text-xs ml-2">Limited time offers</span>
           </div>
 
-          <div
-            className="carousel-container relative"
-            ref={carouselRef}
-            onTouchStart={handleTouchStart}
-            onTouchMove={handleTouchMove}
-            onTouchEnd={handleTouchEnd}
-            onMouseDown={handleMouseDown}
-            onMouseMove={handleMouseMove}
-            onMouseUp={handleMouseUp}
-            onMouseLeave={handleMouseUp}
-            style={{ touchAction: 'none' }}
-          >
+          <div className="relative">
             <div
-              className="carousel-track"
-              style={{
-                transform: `translateX(-${currentSlide * (100 / itemsPerView)}%)`,
-                width: `${(totalItems / itemsPerView) * 100}%`
-              }}
+              className="carousel-container relative"
+              ref={carouselRef}
+              onTouchStart={handleTouchStart}
+              onTouchMove={handleTouchMove}
+              onTouchEnd={handleTouchEnd}
+              onMouseDown={handleMouseDown}
+              onMouseMove={handleMouseMove}
+              onMouseUp={handleMouseUp}
+              onMouseLeave={handleMouseUp}
+              style={{ touchAction: 'none' }}
             >
-              {activeDeals.map((deal, idx) => {
-                const firstSub = deal.subscriptions[0];
-                const icon = icons[firstSub?.type] || 'fa-crown';
-                const color = colors[firstSub?.type] || '#ef4444';
-                const discount = Math.round((1 - deal.discountPrice / deal.actualPrice) * 100);
-                const isCombo = deal.subscriptions.length > 1;
+              <div
+                className="carousel-track"
+                style={{
+                  transform: `translateX(-${currentSlide * (100 / itemsPerView)}%)`,
+                  width: `${(totalItems / itemsPerView) * 100}%`
+                }}
+              >
+                {activeDeals.map((deal, idx) => {
+                  const firstSub = deal.subscriptions[0];
+                  const icon = icons[firstSub?.type] || 'fa-crown';
+                  const color = colors[firstSub?.type] || '#ef4444';
+                  const discount = Math.round((1 - deal.discountPrice / deal.actualPrice) * 100);
+                  const isCombo = deal.subscriptions.length > 1;
 
-                return (
-                  <div key={deal.id} className="carousel-slide">
-                    <div className="deal-card">
-                      <div className="discount-badge">-{discount}% OFF</div>
-                      <div className="flex-1">
-                        <div className="flex items-center gap-3 mb-2">
-                          <i className={`fab ${icon} text-2xl`} style={{ color }}></i>
+                  return (
+                    <div key={deal.id} className="carousel-slide">
+                      <div className="deal-card">
+                        <div className="discount-badge">-{discount}%</div>
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-1">
+                            <i className={`fab ${icon} text-xl`} style={{ color }}></i>
+                            <div className="min-w-0">
+                              <h3 className="deal-title truncate">{deal.title}</h3>
+                              <p className="deal-desc truncate">{deal.description || firstSub?.name || ''}</p>
+                            </div>
+                          </div>
+                          {isCombo && (
+                            <div className="deal-sub-badges">
+                              {deal.subscriptions.map(sub => (
+                                <span key={sub.id} className="deal-sub-badge">
+                                  <i className={`fab ${icons[sub.type] || 'fa-crown'}`} style={{ color: colors[sub.type] || '#ef4444' }}></i>
+                                  {sub.name}
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                        <div className="mt-1 flex items-center justify-between">
                           <div>
-                            <h3 className="text-base font-bold text-white truncate">{deal.title}</h3>
-                            <p className="text-white/40 text-xs truncate">{deal.description || firstSub?.name || ''}</p>
+                            <span className="deal-price-original">RS {deal.actualPrice}</span>
+                            <span className="deal-price-discount ml-1">RS {deal.discountPrice}</span>
                           </div>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); onPurchaseClick(deal); }}
+                            className="btn-neon-sm"
+                          >
+                            <i className="fas fa-shopping-cart mr-1"></i> Buy
+                          </button>
                         </div>
-                        {isCombo && (
-                          <div className="deal-sub-badges">
-                            {deal.subscriptions.map(sub => (
-                              <span key={sub.id} className="deal-sub-badge">
-                                <i className={`fab ${icons[sub.type] || 'fa-crown'}`} style={{ color: colors[sub.type] || '#ef4444' }}></i>
-                                {sub.name}
-                              </span>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                      <div className="mt-2">
-                        <div className="flex items-end gap-2">
-                          <span className="deal-price-original">RS {deal.actualPrice}</span>
-                          <span className="deal-price-discount">RS {deal.discountPrice}</span>
-                        </div>
-                        <button
-                          onClick={(e) => { e.stopPropagation(); onPurchaseClick(deal); }}
-                          className="btn-neon w-full mt-2 py-2 text-sm"
-                        >
-                          <i className="fas fa-shopping-cart mr-2"></i> Purchase
-                        </button>
                       </div>
                     </div>
-                  </div>
-                );
-              })}
+                  );
+                })}
+              </div>
             </div>
 
             {totalItems > itemsPerView && (
-              <div className="carousel-dots">
-                {Array.from({ length: Math.ceil(totalItems / itemsPerView) }).map((_, idx) => (
-                  <button
-                    key={idx}
-                    className={`carousel-dot ${idx === Math.floor(currentSlide / Math.ceil(totalItems / itemsPerView)) ? 'active' : ''}`}
-                    onClick={() => goToSlide(idx * Math.ceil(totalItems / itemsPerView))}
-                  />
-                ))}
-              </div>
+              <>
+                <button className="carousel-btn prev" onClick={goToPrev}>
+                  <i className="fas fa-chevron-left"></i>
+                </button>
+                <button className="carousel-btn next" onClick={goToNext}>
+                  <i className="fas fa-chevron-right"></i>
+                </button>
+                <div className="carousel-dots">
+                  {Array.from({ length: Math.ceil(totalItems / itemsPerView) }).map((_, idx) => (
+                    <button
+                      key={idx}
+                      className={`carousel-dot ${idx === Math.floor(currentSlide / Math.ceil(totalItems / itemsPerView)) ? 'active' : ''}`}
+                      onClick={() => goToSlide(idx * Math.ceil(totalItems / itemsPerView))}
+                    />
+                  ))}
+                </div>
+              </>
             )}
           </div>
         </div>
@@ -1832,7 +1882,7 @@
     }
 
     // ─── CUSTOMER DASHBOARD ──────────────────────────────────
-    function CustomerDashboard({ customerData, onLogout, deals, onDealPurchase }) {
+    function CustomerDashboard({ customerData, onLogout, deals, onDealPurchase, subscriptions }) {
       const { addToast } = useContext(AppContext);
       const { user, refreshUser } = useContext(UserContext);
       const [userCredits, setUserCredits] = useState(user?.credits || 0);
@@ -1888,7 +1938,7 @@
             <h3 className="text-xl font-bold text-white mb-4"><i className="fas fa-fire text-orange-400 mr-2"></i> Hot Deals</h3>
             <DealsCarousel
               deals={activeDeals}
-              subscriptions={[]}
+              subscriptions={subscriptions || []}
               onPurchaseClick={onDealPurchase}
             />
           </div>
@@ -3634,6 +3684,7 @@
                     onLogout={() => { resetFlow(); setActiveTab('home'); setShowSubscriptions(false); }}
                     deals={dealsWithSub}
                     onDealPurchase={handleDealPurchase}
+                    subscriptions={subscriptions}
                   />
                 )}
               </div>
