@@ -469,8 +469,6 @@
     // ─── AMAZON ALLOCATION (round‑robin based on purchaseCount) ──
     const allocateAmazonScreen = (availableSlots, username, whatsapp, purchaseCount) => {
       // Available slots: all screens (6) from the single account
-      // Filter out screens that already have this user (active or not, we allow reassignment if expired? but we'll just use round-robin)
-      // We don't care about capacity (no limit)
       // We compute screen index = (purchaseCount % 6) + 1
       const screenIndex = (purchaseCount % 6) + 1; // 1..6
       // Find the screen with that number (slot name "Slot 1", "Slot 2", ...)
@@ -482,8 +480,6 @@
         // fallback: first available
         return availableSlots[0] || null;
       }
-      // We don't check if user already has this screen; we allow them to buy again (they might renew)
-      // To avoid giving same screen to the same person for the *same* purchase, we only allocate one screen per purchase.
       return targetSlot;
     };
 
@@ -754,7 +750,6 @@
     }
 
     // ─── AMAZON FLOW ──────────────────────────────────────────
-    const { setUser } = useContext(UserContext);
     function AmazonFlow({ subscription, onBack, onComplete, user }) {
       const [durationType, setDurationType] = useState('months');
       const [months, setMonths] = useState(1);
@@ -767,6 +762,7 @@
       const [whatsapp, setWhatsapp] = useState(user?.whatsapp || '');
       const [loading, setLoading] = useState(false);
       const { addToast } = useContext(AppContext);
+      const { setUser } = useContext(UserContext); // ✅ moved inside component
       const otpRefs = useRef([]);
 
       const availableSlots = useMemo(() => {
@@ -826,63 +822,64 @@
       };
 
       const completePurchase = async () => {
-  if (!name.trim() || !whatsapp.trim()) {
-    addToast('Please fill all details', 'error');
-    return;
-  }
-  if (whatsapp.trim() !== user?.whatsapp) {
-    addToast('WhatsApp number must match your sign-up number', 'error');
-    return;
-  }
-  if (!canAllocate) { addToast('No screens available right now.', 'error'); return; }
+        if (!name.trim() || !whatsapp.trim()) {
+          addToast('Please fill all details', 'error');
+          return;
+        }
+        if (whatsapp.trim() !== user?.whatsapp) {
+          addToast('WhatsApp number must match your sign-up number', 'error');
+          return;
+        }
+        if (!canAllocate) { addToast('No screens available right now.', 'error'); return; }
 
-  const purchaseCount = user.purchaseCount || 0;
-  const slot = allocateAmazonScreen(availableSlots, user.username, whatsapp.trim(), purchaseCount);
-  if (!slot) {
-    addToast('No available screens.', 'error');
-    return;
-  }
+        const purchaseCount = user.purchaseCount || 0;
+        const slot = allocateAmazonScreen(availableSlots, user.username, whatsapp.trim(), purchaseCount);
+        if (!slot) {
+          addToast('No available screens.', 'error');
+          return;
+        }
 
-  const allocatedData = [{
-    accountId: slot.account.id,
-    screenId: slot.screen.id,
-    screenName: slot.screen.name,
-    accountEmail: slot.account.email,
-    accountPassword: slot.account.password || '••••••••',
-    screenPin: slot.screen.pin || 'N/A'
-  }];
+        const allocatedData = [{
+          accountId: slot.account.id,
+          screenId: slot.screen.id,
+          screenName: slot.screen.name,
+          accountEmail: slot.account.email,
+          accountPassword: slot.account.password || '••••••••',
+          screenPin: slot.screen.pin || 'N/A'
+        }];
 
-  setLoading(true);
-  const now = new Date();
-  let totalDays = durationType === 'months' ? months * 30 : days;
-  const expiry = new Date(now);
-  expiry.setDate(expiry.getDate() + totalDays);
+        setLoading(true);
+        const now = new Date();
+        let totalDays = durationType === 'months' ? months * 30 : days;
+        const expiry = new Date(now);
+        expiry.setDate(expiry.getDate() + totalDays);
 
-  // Increment purchase count on server AND update local user state
-  try {
-    const updatedUser = await incrementPurchase(user.username);
-    // Update the user context with the new purchaseCount
-    setUser(updatedUser);
-  } catch (err) {
-    console.error('Failed to increment purchase count', err);
-  }
+        // Increment purchase count on server AND update local user state
+        try {
+          const updatedUser = await incrementPurchase(user.username);
+          // Update the user context with the new purchaseCount
+          setUser(updatedUser);
+        } catch (err) {
+          console.error('Failed to increment purchase count', err);
+        }
 
-  setTimeout(() => {
-    onComplete({
-      subscriptionId: subscription.id,
-      screens: 1,
-      months: durationType === 'months' ? months : 0,
-      days: totalDays,
-      name: name.trim(),
-      username: user.username,
-      password: user.password,
-      whatsapp: whatsapp.trim(),
-      allocated: allocatedData,
-      expiryDate: expiry.toISOString().split('T')[0]
-    });
-    setLoading(false);
-  }, 1200);
-};
+        setTimeout(() => {
+          onComplete({
+            subscriptionId: subscription.id,
+            screens: 1,
+            months: durationType === 'months' ? months : 0,
+            days: totalDays,
+            name: name.trim(),
+            username: user.username,
+            password: user.password,
+            whatsapp: whatsapp.trim(),
+            allocated: allocatedData,
+            expiryDate: expiry.toISOString().split('T')[0]
+          });
+          setLoading(false);
+        }, 1200);
+      };
+
       if (step === 'plan') {
         return (
           <div className="space-y-6">
@@ -2793,14 +2790,15 @@
         setFlowStep('flow');
       };
 
-      const findCustomers = (username, password) => {
+      // ✅ Find customers by username only (no password)
+      const findCustomers = (username) => {
         const results = [];
         for (let sub of subscriptions) {
           for (let acc of sub.accounts) {
             for (let screen of acc.screens) {
               if (screen.customers) {
                 for (let c of screen.customers) {
-                  if (c.username === username && c.password === password) {
+                  if (c.username === username) {
                     results.push({
                       name: c.name || '',
                       username: c.username,
@@ -2987,8 +2985,8 @@
 
       const handleCustomerPortal = () => {
         if (user) {
-          // Show dashboard: fetch subscriptions for this user
-          setCustomerData(findCustomers(user.username, user.password));
+          // Show dashboard: fetch subscriptions for this user (by username only)
+          setCustomerData(findCustomers(user.username));
           setFlowStep('customer-dash');
           setActiveTab('subscriptions');
           setShowSubscriptions(true);
@@ -3022,7 +3020,7 @@
                         <i className="fas fa-plus-circle mr-3"></i> New Subscription
                       </button>
                       {user ? (
-                        <button onClick={() => { setCustomerData(findCustomers(user.username, user.password)); setFlowStep('customer-dash'); }} className="btn-neon-outline px-10 py-4 text-lg">
+                        <button onClick={() => { setCustomerData(findCustomers(user.username)); setFlowStep('customer-dash'); }} className="btn-neon-outline px-10 py-4 text-lg">
                           <i className="fas fa-user-circle mr-3"></i> My Dashboard
                         </button>
                       ) : (
