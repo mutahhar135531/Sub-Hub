@@ -22,24 +22,24 @@ const DB_NAME = 'subscription_hub';
 let db;
 let subscriptionsCollection;
 let otpsCollection;
+let usersCollection;
 
 async function connectDB() {
   const client = new MongoClient(MONGODB_URI, {
     serverSelectionTimeoutMS: 5000,
-    // If you still get SSL errors, uncomment this line ONLY for testing:
-    // tlsAllowInvalidCertificates: true
   });
   await client.connect();
   db = client.db(DB_NAME);
   subscriptionsCollection = db.collection('subscriptions');
   otpsCollection = db.collection('otps');
+  usersCollection = db.collection('users');
   console.log('✅ Connected to MongoDB');
 }
 
 // ─── Initial seed data ──────────────────────────────────────
 async function seedData() {
-  const count = await subscriptionsCollection.countDocuments();
-  if (count === 0) {
+  const subCount = await subscriptionsCollection.countDocuments();
+  if (subCount === 0) {
     const initialSubscriptions = [
       {
         id: '1',
@@ -81,8 +81,9 @@ async function seedData() {
             id: 'a3',
             email: 'amazon1@example.com',
             password: 'pass3',
-            screens: Array.from({ length: 30 }, (_, i) => ({
-              id: `s_${i}`,
+            // ✅ Changed to exactly 6 screens (Slot 1 – Slot 6)
+            screens: Array.from({ length: 6 }, (_, i) => ({
+              id: `s_${i+1}`,
               name: `Slot ${i+1}`,
               pin: '',
               customers: []
@@ -134,6 +135,7 @@ async function seedData() {
 
 // ─── Routes ──────────────────────────────────────────────────
 
+// ---- Subscriptions ----
 app.get('/api/subscriptions', async (req, res) => {
   try {
     const subs = await subscriptionsCollection.find({}).toArray();
@@ -201,8 +203,76 @@ app.delete('/api/subscriptions/:id', async (req, res) => {
   }
 });
 
-// ─── OTP endpoints ──────────────────────────────────────────
+// ---- Users (NEW) ----
+app.post('/api/users/signup', async (req, res) => {
+  try {
+    const { username, password, whatsapp } = req.body;
+    if (!username || !password || !whatsapp) {
+      return res.status(400).json({ error: 'All fields required' });
+    }
+    const existing = await usersCollection.findOne({ username });
+    if (existing) {
+      return res.status(400).json({ error: 'Username already exists' });
+    }
+    const newUser = {
+      username,
+      password,
+      whatsapp,
+      purchaseCount: 0,
+      createdAt: new Date()
+    };
+    await usersCollection.insertOne(newUser);
+    // Return user without password
+    const { password: _, ...user } = newUser;
+    res.json({ success: true, user });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
 
+app.post('/api/users/login', async (req, res) => {
+  try {
+    const { username, password } = req.body;
+    const user = await usersCollection.findOne({ username });
+    if (!user || user.password !== password) {
+      return res.status(401).json({ error: 'Invalid credentials' });
+    }
+    const { password: _, ...userData } = user;
+    res.json({ success: true, user: userData });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/users/:username', async (req, res) => {
+  try {
+    const user = await usersCollection.findOne({ username: req.params.username });
+    if (!user) return res.status(404).json({ error: 'User not found' });
+    const { password: _, ...userData } = user;
+    res.json(userData);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.put('/api/users/:username/incrementPurchase', async (req, res) => {
+  try {
+    const result = await usersCollection.updateOne(
+      { username: req.params.username },
+      { $inc: { purchaseCount: 1 } }
+    );
+    if (result.matchedCount === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    const updated = await usersCollection.findOne({ username: req.params.username });
+    const { password: _, ...userData } = updated;
+    res.json(userData);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ---- OTP ----
 app.post('/api/otp/generate', async (req, res) => {
   try {
     const { userIdentifier } = req.body;
@@ -259,49 +329,7 @@ app.get('/api/otp/list', async (req, res) => {
   }
 });
 
-// ─── Authentication check (for expiry) ──────────────────────
-app.post('/api/auth/check', async (req, res) => {
-  try {
-    const { username, password } = req.body;
-    const subs = await subscriptionsCollection.find({}).toArray();
-    let user = null;
-    let subscriptionName = '';
-    for (let sub of subs) {
-      for (let acc of sub.accounts) {
-        for (let screen of acc.screens) {
-          if (screen.customers) {
-            const found = screen.customers.find(
-              c => c.username === username && c.password === password
-            );
-            if (found) {
-              user = found;
-              subscriptionName = sub.name;
-              break;
-            }
-          }
-        }
-        if (user) break;
-      }
-      if (user) break;
-    }
-    if (!user) {
-      return res.json({ valid: false, error: 'User not found' });
-    }
-    // Check expiry
-    if (user.expiryDate) {
-      const expiry = new Date(user.expiryDate);
-      const now = new Date();
-      if (expiry < now) {
-        return res.json({ valid: false, error: 'Subscription expired' });
-      }
-    }
-    res.json({ valid: true, user, subscriptionName });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// ─── Health check ──────────────────────────────────────────
+// ---- Health ----
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', database: db ? 'connected' : 'disconnected' });
 });

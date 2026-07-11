@@ -468,16 +468,12 @@
 
     // ─── AMAZON ALLOCATION (round‑robin based on purchaseCount) ──
     const allocateAmazonScreen = (availableSlots, username, whatsapp, purchaseCount) => {
-      // Available slots: all screens (6) from the single account
-      // We compute screen index = (purchaseCount % 6) + 1
-      const screenIndex = (purchaseCount % 6) + 1; // 1..6
-      // Find the screen with that number (slot name "Slot 1", "Slot 2", ...)
+      const screenIndex = (purchaseCount % 6) + 1;
       const targetSlot = availableSlots.find(slot => {
         const num = parseInt(slot.screen.name.split(' ')[1]);
         return num === screenIndex;
       });
       if (!targetSlot) {
-        // fallback: first available
         return availableSlots[0] || null;
       }
       return targetSlot;
@@ -499,6 +495,7 @@
       const [specificScreen, setSpecificScreen] = useState(false);
       const [selectedScreenId, setSelectedScreenId] = useState('');
       const { addToast } = useContext(AppContext);
+      const otpRefs = useRef([]);
 
       const allAvailableSlots = useMemo(() => {
         if (!subscription?.accounts) return [];
@@ -562,7 +559,6 @@
         setOtp(newOtp);
         if (val && idx < 3) otpRefs.current[idx + 1]?.focus();
       };
-      const otpRefs = useRef([]);
 
       const handleVerifyOtp = async () => {
         const entered = otp.join('');
@@ -633,7 +629,7 @@
             days: totalDays,
             name: name.trim(),
             username: user.username,
-            password: user.password, // use user's password
+            password: user.password,
             whatsapp: whatsapp.trim(),
             allocated: allocatedData,
             expiryDate: expiry.toISOString().split('T')[0]
@@ -762,7 +758,7 @@
       const [whatsapp, setWhatsapp] = useState(user?.whatsapp || '');
       const [loading, setLoading] = useState(false);
       const { addToast } = useContext(AppContext);
-      const { setUser } = useContext(UserContext); // ✅ moved inside component
+      const { setUser } = useContext(UserContext);
       const otpRefs = useRef([]);
 
       const availableSlots = useMemo(() => {
@@ -771,7 +767,6 @@
         subscription.accounts.forEach(acc => {
           if (acc.screens) {
             acc.screens.forEach(screen => {
-              // no limit on customers per screen
               allSlots.push({ account: acc, screen, used: 0 });
             });
           }
@@ -854,10 +849,8 @@
         const expiry = new Date(now);
         expiry.setDate(expiry.getDate() + totalDays);
 
-        // Increment purchase count on server AND update local user state
         try {
           const updatedUser = await incrementPurchase(user.username);
-          // Update the user context with the new purchaseCount
           setUser(updatedUser);
         } catch (err) {
           console.error('Failed to increment purchase count', err);
@@ -1769,6 +1762,8 @@
 
     // ─── CUSTOMER DASHBOARD ──────────────────────────────────
     function CustomerDashboard({ customerData, onLogout }) {
+      const { addToast } = useContext(AppContext);
+      
       const getStatus = (expiryDate) => {
         if (!expiryDate) return { label: 'N/A', color: 'badge-gray' };
         const now = new Date();
@@ -1954,7 +1949,6 @@
         subscriptionId: ''
       });
 
-      // ─── Load OTPs ──────────────────────────────────────
       const loadOTPs = async () => {
         try {
           const data = await fetchOTPList();
@@ -1997,7 +1991,6 @@
         setShowAdminSettings(false);
       };
 
-      // ─── Delete handlers ────────────────────────────────
       const deleteSubscription = async (subId) => {
         if (window.confirm('Delete this subscription and all its data?')) {
           await deleteSubscriptionAPI(subId);
@@ -2036,7 +2029,6 @@
         }
       };
 
-      // ─── Edit customer ──────────────────────────────────
       const openEditModal = (subId, accId, screenId, customerIdx, customer) => {
         setEditingCustomer({ subId, accId, screenId, customerIdx });
         setEditForm({
@@ -2085,7 +2077,6 @@
         }
       };
 
-      // ─── Add subscription ──────────────────────────────
       const handleAddSubscription = async () => {
         if (!newSubName.trim()) {
           addToast('Enter subscription name', 'error');
@@ -2106,7 +2097,6 @@
         addToast(`Added ${newSub.name}!`, 'success');
       };
 
-      // ─── Add account ────────────────────────────────────
       const handleAddAccount = async (subId) => {
         if (!newAccount.email.trim() || !newAccount.password.trim()) {
           addToast('Email and password required', 'error');
@@ -2135,7 +2125,6 @@
         addToast('Account added!', 'success');
       };
 
-      // ─── UI rendering ──────────────────────────────────────
       const getCustomerRecords = (sub) => {
         const records = [];
         sub.accounts.forEach(acc => {
@@ -2312,7 +2301,6 @@
       };
       const generatePin = () => String(Math.floor(1000 + Math.random() * 9000));
 
-      // ---- Render ----
       return (
         <div className="space-y-6">
           <div className="flex flex-wrap justify-between items-center gap-4">
@@ -2693,7 +2681,6 @@
             </div>
           )}
 
-          {/* Edit Customer Modal */}
           {editingCustomer && (
             <div className="modal-overlay">
               <div className="modal-content glass-panel">
@@ -2713,7 +2700,6 @@
             </div>
           )}
 
-          {/* Edit Account Modal */}
           {editingAccount && (
             <div className="modal-overlay">
               <div className="modal-content glass-panel">
@@ -2730,7 +2716,6 @@
             </div>
           )}
 
-          {/* Edit Screen Modal */}
           {editingScreen && (
             <div className="modal-overlay">
               <div className="modal-content glass-panel">
@@ -2790,7 +2775,7 @@
         setFlowStep('flow');
       };
 
-      // ✅ Find customers by username only (no password)
+      // ✅ Find customers by username ONLY (no password needed)
       const findCustomers = (username) => {
         const results = [];
         for (let sub of subscriptions) {
@@ -2857,8 +2842,6 @@
                 });
               });
             } else {
-              // For YouTube, we create a dummy screen? Actually YouTube has no screens; we just store customer in the subscription? 
-              // For simplicity, we'll store the customer in the first account's first screen if exists.
               if (updated.accounts.length > 0) {
                 const firstAcc = updated.accounts[0];
                 if (firstAcc.screens && firstAcc.screens.length > 0) {
@@ -2875,7 +2858,6 @@
                     screens: data.screens || 1
                   });
                 } else {
-                  // Create a default screen
                   firstAcc.screens = [{
                     id: 'default',
                     name: 'Default',
@@ -2893,7 +2875,6 @@
                   }];
                 }
               } else {
-                // No accounts, create one
                 updated.accounts = [{
                   id: 'default',
                   email: 'default@example.com',
@@ -2933,13 +2914,13 @@
         addToast('🎉 Subscription confirmed! Check your details.', 'success');
       };
 
+      // ✅ After login, go to subscription selection
       const handleLogin = (userData) => {
         setUser(userData);
         setShowAuth(false);
-        // If they came from "Get Started", proceed to subscription selection
-        if (flowStep === 'welcome') {
-          setFlowStep('select');
-        }
+        setFlowStep('select'); // Always go to subscription selection after login
+        setActiveTab('subscriptions');
+        setShowSubscriptions(true);
       };
 
       const handleLogout = () => {
@@ -2972,12 +2953,10 @@
 
       const handleGetStarted = () => {
         if (user) {
-          // Already logged in, go to subscription selection
           setFlowStep('select');
           setActiveTab('subscriptions');
           setShowSubscriptions(true);
         } else {
-          // Show auth page
           setShowAuth(true);
           setFlowStep('auth');
         }
@@ -2985,9 +2964,14 @@
 
       const handleCustomerPortal = () => {
         if (user) {
-          // Show dashboard: fetch subscriptions for this user (by username only)
-          setCustomerData(findCustomers(user.username));
-          setFlowStep('customer-dash');
+          const found = findCustomers(user.username);
+          if (found.length > 0) {
+            setCustomerData(found);
+            setFlowStep('customer-dash');
+          } else {
+            addToast('No active subscriptions found.', 'info');
+            setFlowStep('select');
+          }
           setActiveTab('subscriptions');
           setShowSubscriptions(true);
         } else {
@@ -3020,7 +3004,7 @@
                         <i className="fas fa-plus-circle mr-3"></i> New Subscription
                       </button>
                       {user ? (
-                        <button onClick={() => { setCustomerData(findCustomers(user.username)); setFlowStep('customer-dash'); }} className="btn-neon-outline px-10 py-4 text-lg">
+                        <button onClick={() => { const found = findCustomers(user.username); setCustomerData(found); setFlowStep('customer-dash'); }} className="btn-neon-outline px-10 py-4 text-lg">
                           <i className="fas fa-user-circle mr-3"></i> My Dashboard
                         </button>
                       ) : (
