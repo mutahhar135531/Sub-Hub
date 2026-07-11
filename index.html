@@ -754,6 +754,7 @@
     }
 
     // ─── AMAZON FLOW ──────────────────────────────────────────
+    const { setUser } = useContext(UserContext);
     function AmazonFlow({ subscription, onBack, onComplete, user }) {
       const [durationType, setDurationType] = useState('months');
       const [months, setMonths] = useState(1);
@@ -825,64 +826,63 @@
       };
 
       const completePurchase = async () => {
-        if (!name.trim() || !whatsapp.trim()) {
-          addToast('Please fill all details', 'error');
-          return;
-        }
-        if (whatsapp.trim() !== user?.whatsapp) {
-          addToast('WhatsApp number must match your sign-up number', 'error');
-          return;
-        }
-        if (!canAllocate) { addToast('No screens available right now.', 'error'); return; }
+  if (!name.trim() || !whatsapp.trim()) {
+    addToast('Please fill all details', 'error');
+    return;
+  }
+  if (whatsapp.trim() !== user?.whatsapp) {
+    addToast('WhatsApp number must match your sign-up number', 'error');
+    return;
+  }
+  if (!canAllocate) { addToast('No screens available right now.', 'error'); return; }
 
-        // Round‑robin allocation based on purchaseCount
-        const purchaseCount = user.purchaseCount || 0;
-        const slot = allocateAmazonScreen(availableSlots, user.username, whatsapp.trim(), purchaseCount);
-        if (!slot) {
-          addToast('No available screens.', 'error');
-          return;
-        }
+  const purchaseCount = user.purchaseCount || 0;
+  const slot = allocateAmazonScreen(availableSlots, user.username, whatsapp.trim(), purchaseCount);
+  if (!slot) {
+    addToast('No available screens.', 'error');
+    return;
+  }
 
-        const allocatedData = [{
-          accountId: slot.account.id,
-          screenId: slot.screen.id,
-          screenName: slot.screen.name,
-          accountEmail: slot.account.email,
-          accountPassword: slot.account.password || '••••••••',
-          screenPin: slot.screen.pin || 'N/A'
-        }];
+  const allocatedData = [{
+    accountId: slot.account.id,
+    screenId: slot.screen.id,
+    screenName: slot.screen.name,
+    accountEmail: slot.account.email,
+    accountPassword: slot.account.password || '••••••••',
+    screenPin: slot.screen.pin || 'N/A'
+  }];
 
-        setLoading(true);
-        const now = new Date();
-        let totalDays = durationType === 'months' ? months * 30 : days;
-        const expiry = new Date(now);
-        expiry.setDate(expiry.getDate() + totalDays);
+  setLoading(true);
+  const now = new Date();
+  let totalDays = durationType === 'months' ? months * 30 : days;
+  const expiry = new Date(now);
+  expiry.setDate(expiry.getDate() + totalDays);
 
-        // Increment purchase count on server
-        try {
-          const updatedUser = await incrementPurchase(user.username);
-          // Update user in context (optional)
-        } catch (err) {
-          console.error('Failed to increment purchase count', err);
-        }
+  // Increment purchase count on server AND update local user state
+  try {
+    const updatedUser = await incrementPurchase(user.username);
+    // Update the user context with the new purchaseCount
+    setUser(updatedUser);
+  } catch (err) {
+    console.error('Failed to increment purchase count', err);
+  }
 
-        setTimeout(() => {
-          onComplete({
-            subscriptionId: subscription.id,
-            screens: 1,
-            months: durationType === 'months' ? months : 0,
-            days: totalDays,
-            name: name.trim(),
-            username: user.username,
-            password: user.password,
-            whatsapp: whatsapp.trim(),
-            allocated: allocatedData,
-            expiryDate: expiry.toISOString().split('T')[0]
-          });
-          setLoading(false);
-        }, 1200);
-      };
-
+  setTimeout(() => {
+    onComplete({
+      subscriptionId: subscription.id,
+      screens: 1,
+      months: durationType === 'months' ? months : 0,
+      days: totalDays,
+      name: name.trim(),
+      username: user.username,
+      password: user.password,
+      whatsapp: whatsapp.trim(),
+      allocated: allocatedData,
+      expiryDate: expiry.toISOString().split('T')[0]
+    });
+    setLoading(false);
+  }, 1200);
+};
       if (step === 'plan') {
         return (
           <div className="space-y-6">
