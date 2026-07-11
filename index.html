@@ -13,7 +13,7 @@
   <style>
     /* ===== RED/BLACK NEON THEME ===== */
     * { margin:0; padding:0; box-sizing:border-box; }
-    body { background:#0a0a0a; color:#e0e0e0; font-family:'Segoe UI',system-ui,sans-serif; min-height:100vh; scroll-behavior:smooth; }
+    body { background:#0a0a0a; color:#e0e0e0; font-family:'Segoe UI',system-ui,sans-serif; min-height:100vh; scroll-behavior:smooth; overflow-x:hidden; }
     ::-webkit-scrollbar { width:6px; }
     ::-webkit-scrollbar-track { background:#1a1a1a; }
     ::-webkit-scrollbar-thumb { background:#ef4444; border-radius:8px; }
@@ -109,6 +109,24 @@
       font-size: 3rem;
       margin-right: 8px;
     }
+    /* ===== NETFLIX LOGO ===== */
+    .netflix-logo {
+      display: inline-block;
+      font-family: 'Arial', sans-serif;
+      font-weight: 900;
+      font-size: 1.1rem;
+      color: #e50914;
+      text-shadow: 0 0 10px rgba(229,9,20,0.4);
+      letter-spacing: -1px;
+    }
+    .netflix-logo svg {
+      display: inline-block;
+      vertical-align: middle;
+      width: 1.4rem;
+      height: 1.4rem;
+      margin-right: 4px;
+      filter: drop-shadow(0 0 6px rgba(229,9,20,0.5));
+    }
     /* ===== NEW CAROUSEL (Continuous Scroll) ===== */
     .carousel-container {
       position: relative;
@@ -120,7 +138,7 @@
       display: flex;
       will-change: transform;
       width: max-content;
-      gap: 8px; /* consistent gap between cards */
+      gap: 8px;
     }
     .carousel-track .carousel-slide {
       flex: 0 0 auto;
@@ -136,7 +154,7 @@
       .carousel-track .carousel-slide { width: calc((100% / 2) - 8px); }
     }
     @media (max-width:640px) {
-      .carousel-track .carousel-slide { width: calc(100% - 8px); max-width: 100%; }
+      .carousel-track .carousel-slide { width: calc(100% - 8px); max-width: 100%; min-width: unset; }
     }
     .carousel-dots {
       display: flex;
@@ -582,7 +600,7 @@
       const containerRef = useRef(null);
       const trackRef = useRef(null);
       const animationRef = useRef(null);
-      const speed = 40; // pixels per second
+      const speed = 30; // pixels per second (cinematic slow scroll)
 
       const icons = { netflix: 'fa-netflix', amazon: 'fa-amazon', youtube: 'fa-youtube', spotify: 'fa-spotify', chatgpt: 'fa-robot', custom: 'fa-plus-circle' };
       const colors = { netflix: '#e50914', amazon: '#ff9900', youtube: '#ff0000', spotify: '#1db954', chatgpt: '#10a37f', custom: '#ef4444' };
@@ -751,7 +769,7 @@
                 const color = colors[firstSub?.type] || '#ef4444';
                 const discount = Math.round((1 - deal.discountPrice / deal.actualPrice) * 100);
                 const isCombo = deal.subscriptions.length > 1;
-                // Add brand Z on each card
+                const isNetflix = deal.subscriptions.some(s => s.type === 'netflix');
                 return (
                   <div key={deal.id + '-' + idx} className="carousel-slide">
                     <div className="deal-card relative">
@@ -760,7 +778,17 @@
                       <div className="absolute top-2 left-2 text-white/10 text-3xl font-black select-none pointer-events-none" style={{ fontFamily: 'Georgia, serif', transform: 'rotate(-8deg)' }}>Z</div>
                       <div className="flex-1">
                         <div className="flex items-center gap-2 mb-1">
-                          <i className={`fab ${icon} text-xl`} style={{ color }}></i>
+                          {isNetflix ? (
+                            <span className="netflix-logo">
+                              <svg viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M5.5 2.5v19.5l5-2.5V5l-5 2.5zM12 2.5v19.5l5-2.5V5L12 2.5z"/>
+                                <path d="M18.5 2.5v19.5l5-2.5V5l-5 2.5z"/>
+                              </svg>
+                              <span style={{ color: '#e50914' }}>NETFLIX</span>
+                            </span>
+                          ) : (
+                            <i className={`fab ${icon} text-xl`} style={{ color }}></i>
+                          )}
                           <div className="min-w-0">
                             <h3 className="deal-title truncate">{deal.title}</h3>
                             <p className="deal-desc truncate">{deal.description || firstSub?.name || ''}</p>
@@ -770,7 +798,11 @@
                           <div className="deal-sub-badges">
                             {deal.subscriptions.map(sub => (
                               <span key={sub.id} className="deal-sub-badge">
-                                <i className={`fab ${icons[sub.type] || 'fa-crown'}`} style={{ color: colors[sub.type] || '#ef4444' }}></i>
+                                {sub.type === 'netflix' ? (
+                                  <span className="netflix-logo" style={{ fontSize: '0.6rem' }}>N</span>
+                                ) : (
+                                  <i className={`fab ${icons[sub.type] || 'fa-crown'}`} style={{ color: colors[sub.type] || '#ef4444' }}></i>
+                                )}
                                 {sub.name}
                               </span>
                             ))}
@@ -857,9 +889,19 @@
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
           {subscriptions.map(s => {
             const isSelected = selected?.id === s.id;
+            const isNetflix = s.type === 'netflix';
             return (
               <div key={s.id} onClick={() => onSelect(s)} className={`sub-card ${isSelected ? 'selected' : ''}`}>
-                <i className={`fab ${icons[s.type] || 'fa-crown'} sub-icon`} style={{ color: colors[s.type] || '#ef4444' }}></i>
+                {isNetflix ? (
+                  <span className="netflix-logo sub-icon" style={{ fontSize: '2.8rem', display: 'block' }}>
+                    <svg viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg" style={{ width: '2.8rem', height: '2.8rem' }}>
+                      <path d="M5.5 2.5v19.5l5-2.5V5l-5 2.5zM12 2.5v19.5l5-2.5V5L12 2.5z"/>
+                      <path d="M18.5 2.5v19.5l5-2.5V5l-5 2.5z"/>
+                    </svg>
+                  </span>
+                ) : (
+                  <i className={`fab ${icons[s.type] || 'fa-crown'} sub-icon`} style={{ color: colors[s.type] || '#ef4444' }}></i>
+                )}
                 <h3 className="text-white font-semibold text-base">{s.name}</h3>
                 <p className="text-white/30 text-xs mt-1">{s.accounts ? s.accounts.length : 0} accounts</p>
                 {isSelected && <div className="mt-3 text-red-400 text-xs"><i className="fas fa-check-circle mr-1"></i> Selected</div>}
@@ -1180,7 +1222,15 @@
         return (
           <div className="space-y-6">
             <button onClick={onBack} className="text-red-400 hover:text-red-300 text-sm"><i className="fas fa-arrow-left mr-2"></i> Back</button>
-            <h2 className="text-2xl font-bold text-white"><i className="fab fa-netflix text-red-500 mr-3"></i> Netflix</h2>
+            <h2 className="text-2xl font-bold text-white">
+              <span className="netflix-logo" style={{ fontSize: '2rem' }}>
+                <svg viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg" style={{ width: '2rem', height: '2rem', marginRight: '8px' }}>
+                  <path d="M5.5 2.5v19.5l5-2.5V5l-5 2.5zM12 2.5v19.5l5-2.5V5L12 2.5z"/>
+                  <path d="M18.5 2.5v19.5l5-2.5V5l-5 2.5z"/>
+                </svg>
+                Netflix
+              </span>
+            </h2>
             <div className="grid sm:grid-cols-2 gap-6">
               <div>
                 <label className="text-white/50 text-sm font-medium">Screens</label>
@@ -1796,7 +1846,11 @@
                 <div className="flex flex-wrap gap-2 mt-2">
                   {dealSubs.map(sub => (
                     <span key={sub.id} className="deal-sub-badge">
-                      <i className={`fab ${sub.type === 'netflix' ? 'fa-netflix' : sub.type === 'amazon' ? 'fa-amazon' : sub.type === 'youtube' ? 'fa-youtube' : sub.type === 'spotify' ? 'fa-spotify' : sub.type === 'chatgpt' ? 'fa-robot' : 'fa-crown'}`} style={{ color: sub.type === 'netflix' ? '#e50914' : sub.type === 'amazon' ? '#ff9900' : sub.type === 'youtube' ? '#ff0000' : sub.type === 'spotify' ? '#1db954' : sub.type === 'chatgpt' ? '#10a37f' : '#ef4444' }}></i>
+                      {sub.type === 'netflix' ? (
+                        <span className="netflix-logo" style={{ fontSize: '0.6rem' }}>N</span>
+                      ) : (
+                        <i className={`fab ${sub.type === 'netflix' ? 'fa-netflix' : sub.type === 'amazon' ? 'fa-amazon' : sub.type === 'youtube' ? 'fa-youtube' : sub.type === 'spotify' ? 'fa-spotify' : sub.type === 'chatgpt' ? 'fa-robot' : 'fa-crown'}`} style={{ color: sub.type === 'netflix' ? '#e50914' : sub.type === 'amazon' ? '#ff9900' : sub.type === 'youtube' ? '#ff0000' : sub.type === 'spotify' ? '#1db954' : sub.type === 'chatgpt' ? '#10a37f' : '#ef4444' }}></i>
+                      )}
                       {sub.name}
                     </span>
                   ))}
@@ -2891,8 +2945,20 @@
                     <div className="flex flex-wrap justify-between items-start gap-4">
                       <div>
                         <h3 className="text-lg font-semibold text-white">
-                          <i className={`fas fa-${sub.type === 'netflix' ? 'netflix' : sub.type === 'amazon' ? 'amazon' : sub.type === 'youtube' ? 'youtube' : sub.type === 'spotify' ? 'spotify' : sub.type === 'chatgpt' ? 'robot' : 'crown'} mr-2`} style={{ color: sub.type === 'netflix' ? '#e50914' : sub.type === 'amazon' ? '#ff9900' : sub.type === 'youtube' ? '#ff0000' : sub.type === 'spotify' ? '#1db954' : sub.type === 'chatgpt' ? '#10a37f' : '#ef4444' }}></i>
-                          {sub.name}
+                          {sub.type === 'netflix' ? (
+                            <span className="netflix-logo" style={{ fontSize: '1.2rem' }}>
+                              <svg viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg" style={{ width: '1.4rem', height: '1.4rem', verticalAlign: 'middle', marginRight: '4px' }}>
+                                <path d="M5.5 2.5v19.5l5-2.5V5l-5 2.5zM12 2.5v19.5l5-2.5V5L12 2.5z"/>
+                                <path d="M18.5 2.5v19.5l5-2.5V5l-5 2.5z"/>
+                              </svg>
+                              Netflix
+                            </span>
+                          ) : (
+                            <>
+                              <i className={`fas fa-${sub.type === 'amazon' ? 'amazon' : sub.type === 'youtube' ? 'youtube' : sub.type === 'spotify' ? 'spotify' : sub.type === 'chatgpt' ? 'robot' : 'crown'} mr-2`} style={{ color: sub.type === 'amazon' ? '#ff9900' : sub.type === 'youtube' ? '#ff0000' : sub.type === 'spotify' ? '#1db954' : sub.type === 'chatgpt' ? '#10a37f' : '#ef4444' }}></i>
+                              {sub.name}
+                            </>
+                          )}
                         </h3>
                         <p className="text-white/30 text-xs">{sub.accounts.length} accounts • {totalSlots} slots • {totalCust} customers</p>
                       </div>
@@ -3047,8 +3113,21 @@
                 return (
                   <div key={sub.id} className="glass-panel">
                     <h4 className="text-white font-semibold mb-3">
-                      <i className={`fas fa-${sub.type === 'netflix' ? 'netflix' : sub.type === 'amazon' ? 'amazon' : sub.type === 'youtube' ? 'youtube' : sub.type === 'spotify' ? 'spotify' : sub.type === 'chatgpt' ? 'robot' : 'crown'} mr-2`} style={{ color: sub.type === 'netflix' ? '#e50914' : sub.type === 'amazon' ? '#ff9900' : sub.type === 'youtube' ? '#ff0000' : sub.type === 'spotify' ? '#1db954' : sub.type === 'chatgpt' ? '#10a37f' : '#ef4444' }}></i>
-                      {sub.name} ({records.length})
+                      {sub.type === 'netflix' ? (
+                        <span className="netflix-logo" style={{ fontSize: '1rem' }}>
+                          <svg viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg" style={{ width: '1.2rem', height: '1.2rem', verticalAlign: 'middle', marginRight: '4px' }}>
+                            <path d="M5.5 2.5v19.5l5-2.5V5l-5 2.5zM12 2.5v19.5l5-2.5V5L12 2.5z"/>
+                            <path d="M18.5 2.5v19.5l5-2.5V5l-5 2.5z"/>
+                          </svg>
+                          Netflix
+                        </span>
+                      ) : (
+                        <>
+                          <i className={`fas fa-${sub.type === 'amazon' ? 'amazon' : sub.type === 'youtube' ? 'youtube' : sub.type === 'spotify' ? 'spotify' : sub.type === 'chatgpt' ? 'robot' : 'crown'} mr-2`} style={{ color: sub.type === 'amazon' ? '#ff9900' : sub.type === 'youtube' ? '#ff0000' : sub.type === 'spotify' ? '#1db954' : sub.type === 'chatgpt' ? '#10a37f' : '#ef4444' }}></i>
+                          {sub.name}
+                        </>
+                      )}
+                      ({records.length})
                     </h4>
                     <div className="overflow-x-auto">
                       <table className="admin-table text-sm">
@@ -3280,7 +3359,11 @@
                             onChange={() => toggleSubscriptionInDeal(sub.id)}
                             className="w-4 h-4 accent-red-500"
                           />
-                          <i className={`fab ${sub.type === 'netflix' ? 'fa-netflix' : sub.type === 'amazon' ? 'fa-amazon' : sub.type === 'youtube' ? 'fa-youtube' : sub.type === 'spotify' ? 'fa-spotify' : sub.type === 'chatgpt' ? 'fa-robot' : 'fa-crown'}`} style={{ color: sub.type === 'netflix' ? '#e50914' : sub.type === 'amazon' ? '#ff9900' : sub.type === 'youtube' ? '#ff0000' : sub.type === 'spotify' ? '#1db954' : sub.type === 'chatgpt' ? '#10a37f' : '#ef4444' }}></i>
+                          {sub.type === 'netflix' ? (
+                            <span className="netflix-logo" style={{ fontSize: '0.8rem' }}>N</span>
+                          ) : (
+                            <i className={`fab ${sub.type === 'netflix' ? 'fa-netflix' : sub.type === 'amazon' ? 'fa-amazon' : sub.type === 'youtube' ? 'fa-youtube' : sub.type === 'spotify' ? 'fa-spotify' : sub.type === 'chatgpt' ? 'fa-robot' : 'fa-crown'}`} style={{ color: sub.type === 'netflix' ? '#e50914' : sub.type === 'amazon' ? '#ff9900' : sub.type === 'youtube' ? '#ff0000' : sub.type === 'spotify' ? '#1db954' : sub.type === 'chatgpt' ? '#10a37f' : '#ef4444' }}></i>
+                          )}
                           {sub.name}
                         </label>
                       ))}
