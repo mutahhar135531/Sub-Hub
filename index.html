@@ -97,7 +97,7 @@
     // ─── API BASE ─────────────────────────────────────────────
     const API_BASE = 'https://sub-hub-he32.onrender.com';
 
-    // ─── API HELPERS (with cache busting) ────────────────────
+    // ─── API HELPERS ──────────────────────────────────────────
     const generateOTP = async (userIdentifier = 'Unknown') => {
       const res = await fetch(`${API_BASE}/api/otp/generate`, {
         method: 'POST',
@@ -155,8 +155,35 @@
       return res.json();
     };
 
+    // ─── USER API ─────────────────────────────────────────────
+    const signUpUser = async (username, password, whatsapp) => {
+      const res = await fetch(`${API_BASE}/api/users/signup`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password, whatsapp }),
+      });
+      return res.json();
+    };
+
+    const loginUser = async (username, password) => {
+      const res = await fetch(`${API_BASE}/api/users/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password }),
+      });
+      return res.json();
+    };
+
+    const incrementPurchase = async (username) => {
+      const res = await fetch(`${API_BASE}/api/users/${username}/incrementPurchase`, {
+        method: 'PUT',
+      });
+      return res.json();
+    };
+
     // ─── CONTEXT ──────────────────────────────────────────────
     const AppContext = createContext();
+    const UserContext = createContext();
 
     function AppProvider({ children }) {
       const [toasts, setToasts] = useState([]);
@@ -165,6 +192,10 @@
       const [adminPassword, setAdminPassword] = useState(() => {
         const saved = localStorage.getItem('adminPassword');
         return saved || 'admin123';
+      });
+      const [user, setUser] = useState(() => {
+        const saved = localStorage.getItem('user');
+        return saved ? JSON.parse(saved) : null;
       });
 
       const addToast = (message, type = 'info') => {
@@ -175,10 +206,13 @@
       const removeToast = (id) => setToasts(prev => prev.filter(t => t.id !== id));
 
       useEffect(() => { localStorage.setItem('adminPassword', adminPassword); }, [adminPassword]);
+      useEffect(() => { localStorage.setItem('user', JSON.stringify(user)); }, [user]);
 
       return (
         <AppContext.Provider value={{ toasts, addToast, removeToast, loading, setLoading, isAdmin, setIsAdmin, adminPassword, setAdminPassword }}>
-          {children}
+          <UserContext.Provider value={{ user, setUser }}>
+            {children}
+          </UserContext.Provider>
         </AppContext.Provider>
       );
     }
@@ -203,8 +237,9 @@
     }
 
     // ─── NAVBAR ──────────────────────────────────────────────
-    function Navbar({ activeTab, setActiveTab, showSubscriptions, setShowSubscriptions }) {
+    function Navbar({ activeTab, setActiveTab, showSubscriptions, setShowSubscriptions, onCustomerPortal, onLogout }) {
       const [mobileOpen, setMobileOpen] = useState(false);
+      const { user } = useContext(UserContext);
       const navItems = [
         { id: 'home', label: 'Home', icon: 'fa-home' },
         { id: 'subscriptions', label: 'Subscriptions', icon: 'fa-crown' },
@@ -237,6 +272,20 @@
                     <i className={`fas ${item.icon} mr-2`}></i> {item.label}
                   </button>
                 ))}
+                {user ? (
+                  <>
+                    <button onClick={onCustomerPortal} className="nav-link active">
+                      <i className="fas fa-user-circle mr-2"></i> {user.username}
+                    </button>
+                    <button onClick={onLogout} className="nav-link text-red-400 hover:text-red-300">
+                      <i className="fas fa-sign-out-alt mr-2"></i> Logout
+                    </button>
+                  </>
+                ) : (
+                  <button onClick={onCustomerPortal} className="nav-link active">
+                    <i className="fas fa-user-plus mr-2"></i> Customer Portal
+                  </button>
+                )}
               </div>
               <button onClick={() => setMobileOpen(!mobileOpen)} className="md:hidden text-white text-xl p-2 hover:bg-white/5 rounded-xl transition">
                 <i className={`fas ${mobileOpen ? 'fa-times' : 'fa-bars'}`}></i>
@@ -249,6 +298,20 @@
                     <i className={`fas ${item.icon} mr-3 w-5`}></i> {item.label}
                   </button>
                 ))}
+                {user ? (
+                  <>
+                    <button onClick={onCustomerPortal} className="nav-link w-full text-left py-3 px-4 active">
+                      <i className="fas fa-user-circle mr-3 w-5"></i> {user.username}
+                    </button>
+                    <button onClick={onLogout} className="nav-link w-full text-left py-3 px-4 text-red-400">
+                      <i className="fas fa-sign-out-alt mr-3 w-5"></i> Logout
+                    </button>
+                  </>
+                ) : (
+                  <button onClick={onCustomerPortal} className="nav-link w-full text-left py-3 px-4 active">
+                    <i className="fas fa-user-plus mr-3 w-5"></i> Customer Portal
+                  </button>
+                )}
               </div>
             )}
           </nav>
@@ -257,7 +320,7 @@
     }
 
     // ─── HERO ──────────────────────────────────────────────────
-    function Hero({ setActiveTab, setShowSubscriptions }) {
+    function Hero({ setActiveTab, setShowSubscriptions, onGetStarted }) {
       return (
         <section className="pt-28 pb-14 px-4 max-w-7xl mx-auto">
           <div className="text-center">
@@ -270,7 +333,7 @@
             </h1>
             <p className="mt-5 text-lg md:text-xl text-white/50 max-w-2xl mx-auto">Netflix, Amazon Prime, YouTube Premium, Spotify, ChatGPT & more. One platform, all your entertainment.</p>
             <div className="mt-8 flex flex-wrap justify-center gap-4">
-              <button onClick={() => { setActiveTab('subscriptions'); setShowSubscriptions(true); document.getElementById('subscription-section')?.scrollIntoView({ behavior: 'smooth' }); }} className="btn-neon px-8 py-3 text-base">
+              <button onClick={onGetStarted} className="btn-neon px-8 py-3 text-base">
                 <i className="fas fa-rocket mr-2"></i> Get Started
               </button>
             </div>
@@ -335,9 +398,8 @@
       return { generateOTPAPI, verifyOTPAPI };
     };
 
-    // ─── SMART ALLOCATION ALGORITHM (improved) ──────────────
+    // ─── SMART ALLOCATION ALGORITHM (Netflix) ──────────────
     const allocateScreens = (availableSlots, count, username, whatsapp, requestedScreenId = null) => {
-      // Filter slots already used by this username OR same whatsapp number
       const notUsedByUser = availableSlots.filter(slot => {
         const customers = slot.screen.customers || [];
         if (customers.some(c => c.username === username)) return false;
@@ -404,33 +466,29 @@
       return allocated;
     };
 
-    // ─── AMAZON ALLOCATION (round-robin, avoid same screen) ──
-    const allocateAmazonScreens = (availableSlots, username, whatsapp) => {
-      // Filter slots already used by this username or whatsapp
-      const notUsedByUser = availableSlots.filter(slot => {
-        const customers = slot.screen.customers || [];
-        if (customers.some(c => c.username === username)) return false;
-        if (customers.some(c => c.whatsapp === whatsapp)) return false;
-        return true;
+    // ─── AMAZON ALLOCATION (round‑robin based on purchaseCount) ──
+    const allocateAmazonScreen = (availableSlots, username, whatsapp, purchaseCount) => {
+      // Available slots: all screens (6) from the single account
+      // Filter out screens that already have this user (active or not, we allow reassignment if expired? but we'll just use round-robin)
+      // We don't care about capacity (no limit)
+      // We compute screen index = (purchaseCount % 6) + 1
+      const screenIndex = (purchaseCount % 6) + 1; // 1..6
+      // Find the screen with that number (slot name "Slot 1", "Slot 2", ...)
+      const targetSlot = availableSlots.find(slot => {
+        const num = parseInt(slot.screen.name.split(' ')[1]);
+        return num === screenIndex;
       });
-
-      if (notUsedByUser.length === 0) {
-        return { error: 'no_available_slots' };
+      if (!targetSlot) {
+        // fallback: first available
+        return availableSlots[0] || null;
       }
-
-      // Sort by screen name (assuming "Slot 1", "Slot 2", ...)
-      const sortedSlots = notUsedByUser.sort((a, b) => {
-        const aNum = parseInt(a.screen.name.split(' ')[1]) || 0;
-        const bNum = parseInt(b.screen.name.split(' ')[1]) || 0;
-        return aNum - bNum;
-      });
-
-      // Pick the first available (lowest number) that is not used by this user
-      return sortedSlots[0];
+      // We don't check if user already has this screen; we allow them to buy again (they might renew)
+      // To avoid giving same screen to the same person for the *same* purchase, we only allocate one screen per purchase.
+      return targetSlot;
     };
 
-    // ─── NETFLIX FLOW (with improved allocation) ────────────
-    function NetflixFlow({ subscription, onBack, onComplete, validateUser }) {
+    // ─── NETFLIX FLOW ────────────────────────────────────────
+    function NetflixFlow({ subscription, onBack, onComplete, user }) {
       const [screens, setScreens] = useState(1);
       const [durationType, setDurationType] = useState('months');
       const [months, setMonths] = useState(1);
@@ -440,14 +498,11 @@
       const [otpError, setOtpError] = useState('');
       const [otpTimer, setOtpTimer] = useState(0);
       const [name, setName] = useState('');
-      const [username, setUsername] = useState('');
-      const [password, setPassword] = useState('');
-      const [whatsapp, setWhatsapp] = useState('');
+      const [whatsapp, setWhatsapp] = useState(user?.whatsapp || '');
       const [loading, setLoading] = useState(false);
       const [specificScreen, setSpecificScreen] = useState(false);
       const [selectedScreenId, setSelectedScreenId] = useState('');
       const { addToast } = useContext(AppContext);
-      const otpRefs = useRef([]);
 
       const allAvailableSlots = useMemo(() => {
         if (!subscription?.accounts) return [];
@@ -477,20 +532,15 @@
         return totalFree >= screens;
       }, [allAvailableSlots, screens]);
 
-      const { generateOTPAPI, verifyOTPAPI } = useOTPFlow(setStep, setOtpTimer, addToast, username || 'Netflix User');
+      const { generateOTPAPI, verifyOTPAPI } = useOTPFlow(setStep, setOtpTimer, addToast, user?.username || 'Netflix User');
 
       const handleGenerateOTP = async () => {
         if (!name.trim()) { addToast('Please enter your full name', 'error'); return; }
-        if (!username.trim() || username.trim().length < 8) { addToast('Username must be at least 8 characters', 'error'); return; }
-        if (!password.trim() || password.trim().length < 8) { addToast('Password must be at least 8 characters', 'error'); return; }
-        if (!whatsapp.trim()) { addToast('Please enter your WhatsApp number', 'error'); return; }
-
-        const validation = validateUser(username.trim(), password.trim(), whatsapp.trim());
-        if (!validation.valid) {
-          addToast(validation.error, 'error');
+        if (!whatsapp.trim()) { addToast('WhatsApp number is required', 'error'); return; }
+        if (whatsapp.trim() !== user?.whatsapp) {
+          addToast('WhatsApp number must match your sign-up number', 'error');
           return;
         }
-
         if (!canAllocate) {
           addToast('No screens available right now.', 'error');
           return;
@@ -516,6 +566,7 @@
         setOtp(newOtp);
         if (val && idx < 3) otpRefs.current[idx + 1]?.focus();
       };
+      const otpRefs = useRef([]);
 
       const handleVerifyOtp = async () => {
         const entered = otp.join('');
@@ -530,8 +581,12 @@
       };
 
       const completePurchase = () => {
-        if (!name.trim() || !username.trim() || !password.trim() || !whatsapp.trim()) {
+        if (!name.trim() || !whatsapp.trim()) {
           addToast('Please fill all details', 'error');
+          return;
+        }
+        if (whatsapp.trim() !== user?.whatsapp) {
+          addToast('WhatsApp number must match your sign-up number', 'error');
           return;
         }
         if (!canAllocate) {
@@ -539,18 +594,12 @@
           return;
         }
 
-        const validation = validateUser(username.trim(), password.trim(), whatsapp.trim());
-        if (!validation.valid) {
-          addToast(validation.error, 'error');
-          return;
-        }
-
         let requestedId = specificScreen ? selectedScreenId : null;
-        let allocationResult = allocateScreens(allAvailableSlots, screens, username, whatsapp.trim(), requestedId);
+        let allocationResult = allocateScreens(allAvailableSlots, screens, user.username, whatsapp.trim(), requestedId);
         let allocated = null;
         if (allocationResult.error) {
           if (specificScreen) {
-            const autoResult = allocateScreens(allAvailableSlots, screens, username, whatsapp.trim(), null);
+            const autoResult = allocateScreens(allAvailableSlots, screens, user.username, whatsapp.trim(), null);
             if (autoResult.error) {
               addToast('No screens available right now.', 'error');
               return;
@@ -587,8 +636,8 @@
             months: durationType === 'months' ? months : 0,
             days: totalDays,
             name: name.trim(),
-            username: username.trim(),
-            password: password.trim(),
+            username: user.username,
+            password: user.password, // use user's password
             whatsapp: whatsapp.trim(),
             allocated: allocatedData,
             expiryDate: expiry.toISOString().split('T')[0]
@@ -655,16 +704,9 @@
                 <input type="text" value={name} onChange={(e) => setName(e.target.value)} className="input-neon mt-1" placeholder="Your full name" />
               </div>
               <div>
-                <label className="text-white/50 text-sm font-medium">Username (min 8 chars)</label>
-                <input type="text" value={username} onChange={(e) => setUsername(e.target.value)} className="input-neon mt-1" placeholder="Choose a unique username" />
-              </div>
-              <div>
-                <label className="text-white/50 text-sm font-medium">Password (min 8 chars)</label>
-                <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} className="input-neon mt-1" placeholder="Create a password" />
-              </div>
-              <div>
                 <label className="text-white/50 text-sm font-medium">WhatsApp Number</label>
-                <input type="tel" value={whatsapp} onChange={(e) => setWhatsapp(e.target.value)} className="input-neon mt-1" placeholder="+92 300 1234567" />
+                <input type="tel" value={whatsapp} onChange={(e) => setWhatsapp(e.target.value)} className="input-neon mt-1" placeholder="+92 300 1234567" readOnly={!!user?.whatsapp} />
+                {user?.whatsapp && <p className="text-xs text-white/30 mt-1">(locked to your sign‑up number)</p>}
               </div>
             </div>
 
@@ -698,7 +740,7 @@
             <h2 className="text-2xl font-bold text-white"><i className="fas fa-user-check text-purple-400 mr-3"></i> Confirm Details</h2>
             <div className="bg-purple-500/5 rounded-xl p-4 border border-purple-500/10 space-y-2">
               <p><span className="text-white/50">Name:</span> <span className="text-white">{name}</span></p>
-              <p><span className="text-white/50">Username:</span> <span className="text-white">{username}</span></p>
+              <p><span className="text-white/50">Username:</span> <span className="text-white">{user.username}</span></p>
               <p><span className="text-white/50">WhatsApp:</span> <span className="text-white">{whatsapp}</span></p>
               <p><span className="text-white/50">Plan:</span> <span className="text-white">{screens} screen(s) for {durationType === 'months' ? months + ' month(s)' : days + ' day(s)'}</span></p>
             </div>
@@ -711,8 +753,8 @@
       return null;
     }
 
-    // ─── AMAZON FLOW (with round‑robin allocation) ─────────
-    function AmazonFlow({ subscription, onBack, onComplete, validateUser }) {
+    // ─── AMAZON FLOW ──────────────────────────────────────────
+    function AmazonFlow({ subscription, onBack, onComplete, user }) {
       const [durationType, setDurationType] = useState('months');
       const [months, setMonths] = useState(1);
       const [days, setDays] = useState(30);
@@ -721,9 +763,7 @@
       const [otpError, setOtpError] = useState('');
       const [otpTimer, setOtpTimer] = useState(0);
       const [name, setName] = useState('');
-      const [username, setUsername] = useState('');
-      const [password, setPassword] = useState('');
-      const [whatsapp, setWhatsapp] = useState('');
+      const [whatsapp, setWhatsapp] = useState(user?.whatsapp || '');
       const [loading, setLoading] = useState(false);
       const { addToast } = useContext(AppContext);
       const otpRefs = useRef([]);
@@ -734,10 +774,8 @@
         subscription.accounts.forEach(acc => {
           if (acc.screens) {
             acc.screens.forEach(screen => {
-              const customerCount = screen.customers?.length || 0;
-              if (customerCount < 30) {
-                allSlots.push({ account: acc, screen, used: customerCount });
-              }
+              // no limit on customers per screen
+              allSlots.push({ account: acc, screen, used: 0 });
             });
           }
         });
@@ -746,20 +784,15 @@
 
       const canAllocate = useMemo(() => availableSlots.length >= 1, [availableSlots]);
 
-      const { generateOTPAPI, verifyOTPAPI } = useOTPFlow(setStep, setOtpTimer, addToast, username || 'Amazon User');
+      const { generateOTPAPI, verifyOTPAPI } = useOTPFlow(setStep, setOtpTimer, addToast, user?.username || 'Amazon User');
 
       const handleGenerateOTP = async () => {
         if (!name.trim()) { addToast('Please enter your full name', 'error'); return; }
-        if (!username.trim() || username.trim().length < 8) { addToast('Username must be at least 8 characters', 'error'); return; }
-        if (!password.trim() || password.trim().length < 8) { addToast('Password must be at least 8 characters', 'error'); return; }
-        if (!whatsapp.trim()) { addToast('Please enter your WhatsApp number', 'error'); return; }
-
-        const validation = validateUser(username.trim(), password.trim(), whatsapp.trim());
-        if (!validation.valid) {
-          addToast(validation.error, 'error');
+        if (!whatsapp.trim()) { addToast('WhatsApp number is required', 'error'); return; }
+        if (whatsapp.trim() !== user?.whatsapp) {
+          addToast('WhatsApp number must match your sign-up number', 'error');
           return;
         }
-
         if (!canAllocate) { addToast('No screens available right now.', 'error'); return; }
         await generateOTPAPI();
       };
@@ -791,21 +824,21 @@
         }
       };
 
-      const completePurchase = () => {
-        if (!name.trim() || !username.trim() || !password.trim() || !whatsapp.trim()) {
+      const completePurchase = async () => {
+        if (!name.trim() || !whatsapp.trim()) {
           addToast('Please fill all details', 'error');
           return;
         }
-        const validation = validateUser(username.trim(), password.trim(), whatsapp.trim());
-        if (!validation.valid) {
-          addToast(validation.error, 'error');
+        if (whatsapp.trim() !== user?.whatsapp) {
+          addToast('WhatsApp number must match your sign-up number', 'error');
           return;
         }
         if (!canAllocate) { addToast('No screens available right now.', 'error'); return; }
 
-        // Use the round‑robin allocation
-        const slot = allocateAmazonScreens(availableSlots, username.trim(), whatsapp.trim());
-        if (slot.error) {
+        // Round‑robin allocation based on purchaseCount
+        const purchaseCount = user.purchaseCount || 0;
+        const slot = allocateAmazonScreen(availableSlots, user.username, whatsapp.trim(), purchaseCount);
+        if (!slot) {
           addToast('No available screens.', 'error');
           return;
         }
@@ -825,6 +858,14 @@
         const expiry = new Date(now);
         expiry.setDate(expiry.getDate() + totalDays);
 
+        // Increment purchase count on server
+        try {
+          const updatedUser = await incrementPurchase(user.username);
+          // Update user in context (optional)
+        } catch (err) {
+          console.error('Failed to increment purchase count', err);
+        }
+
         setTimeout(() => {
           onComplete({
             subscriptionId: subscription.id,
@@ -832,8 +873,8 @@
             months: durationType === 'months' ? months : 0,
             days: totalDays,
             name: name.trim(),
-            username: username.trim(),
-            password: password.trim(),
+            username: user.username,
+            password: user.password,
             whatsapp: whatsapp.trim(),
             allocated: allocatedData,
             expiryDate: expiry.toISOString().split('T')[0]
@@ -873,16 +914,9 @@
                 <input type="text" value={name} onChange={(e) => setName(e.target.value)} className="input-neon mt-1" placeholder="Your full name" />
               </div>
               <div>
-                <label className="text-white/50 text-sm font-medium">Username (min 8 chars)</label>
-                <input type="text" value={username} onChange={(e) => setUsername(e.target.value)} className="input-neon mt-1" placeholder="Choose a unique username" />
-              </div>
-              <div>
-                <label className="text-white/50 text-sm font-medium">Password (min 8 chars)</label>
-                <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} className="input-neon mt-1" placeholder="Create a password" />
-              </div>
-              <div>
                 <label className="text-white/50 text-sm font-medium">WhatsApp Number</label>
-                <input type="tel" value={whatsapp} onChange={(e) => setWhatsapp(e.target.value)} className="input-neon mt-1" placeholder="+92 300 1234567" />
+                <input type="tel" value={whatsapp} onChange={(e) => setWhatsapp(e.target.value)} className="input-neon mt-1" placeholder="+92 300 1234567" readOnly={!!user?.whatsapp} />
+                {user?.whatsapp && <p className="text-xs text-white/30 mt-1">(locked to your sign‑up number)</p>}
               </div>
             </div>
             <button onClick={handleGenerateOTP} disabled={!canAllocate} className={`btn-neon w-full py-3 ${!canAllocate ? 'opacity-50 cursor-not-allowed' : ''}`}>
@@ -913,7 +947,7 @@
             <h2 className="text-2xl font-bold text-white"><i className="fas fa-user-check text-purple-400 mr-3"></i> Confirm Details</h2>
             <div className="bg-purple-500/5 rounded-xl p-4 border border-purple-500/10 space-y-2">
               <p><span className="text-white/50">Name:</span> <span className="text-white">{name}</span></p>
-              <p><span className="text-white/50">Username:</span> <span className="text-white">{username}</span></p>
+              <p><span className="text-white/50">Username:</span> <span className="text-white">{user.username}</span></p>
               <p><span className="text-white/50">WhatsApp:</span> <span className="text-white">{whatsapp}</span></p>
               <p><span className="text-white/50">Plan:</span> <span className="text-white">1 screen for {durationType === 'months' ? months + ' month(s)' : days + ' day(s)'}</span></p>
             </div>
@@ -927,9 +961,9 @@
     }
 
     // ─── YOUTUBE FLOW ──────────────────────────────────────
-    function YouTubeFlow({ subscription, onBack, onComplete, validateUser }) {
+    function YouTubeFlow({ subscription, onBack, onComplete, user }) {
       const [email, setEmail] = useState('');
-      const [password, setPassword] = useState('');
+      const [youtubePassword, setYoutubePassword] = useState('');
       const [durationType, setDurationType] = useState('months');
       const [months, setMonths] = useState(1);
       const [days, setDays] = useState(30);
@@ -938,26 +972,22 @@
       const [otpError, setOtpError] = useState('');
       const [otpTimer, setOtpTimer] = useState(0);
       const [name, setName] = useState('');
-      const [username, setUsername] = useState('');
-      const [whatsapp, setWhatsapp] = useState('');
+      const [whatsapp, setWhatsapp] = useState(user?.whatsapp || '');
       const [loading, setLoading] = useState(false);
       const { addToast } = useContext(AppContext);
       const otpRefs = useRef([]);
 
-      const { generateOTPAPI, verifyOTPAPI } = useOTPFlow(setStep, setOtpTimer, addToast, username || 'YouTube User');
+      const { generateOTPAPI, verifyOTPAPI } = useOTPFlow(setStep, setOtpTimer, addToast, user?.username || 'YouTube User');
 
       const handleGenerateOTP = async () => {
         if (!name.trim()) { addToast('Please enter your full name', 'error'); return; }
-        if (!username.trim() || username.trim().length < 8) { addToast('Username must be at least 8 characters', 'error'); return; }
-        if (!password.trim() || password.trim().length < 8) { addToast('Password must be at least 8 characters', 'error'); return; }
-        if (!whatsapp.trim()) { addToast('Please enter your WhatsApp number', 'error'); return; }
-        if (!email.trim()) { addToast('Please enter your email', 'error'); return; }
-
-        const validation = validateUser(username.trim(), password.trim(), whatsapp.trim());
-        if (!validation.valid) {
-          addToast(validation.error, 'error');
+        if (!whatsapp.trim()) { addToast('WhatsApp number is required', 'error'); return; }
+        if (whatsapp.trim() !== user?.whatsapp) {
+          addToast('WhatsApp number must match your sign-up number', 'error');
           return;
         }
+        if (!email.trim()) { addToast('Please enter your email', 'error'); return; }
+        if (!youtubePassword.trim()) { addToast('Please enter a password for YouTube', 'error'); return; }
         await generateOTPAPI();
       };
 
@@ -991,8 +1021,8 @@
             onComplete({
               subscriptionId: subscription.id,
               email: email.trim(),
-              username: username.trim(),
-              password: password.trim(),
+              username: user.username,
+              password: user.password,
               whatsapp: whatsapp.trim(),
               name: name.trim(),
               expiryDate: expiry.toISOString().split('T')[0],
@@ -1014,11 +1044,15 @@
             <button onClick={onBack} className="text-purple-400 hover:text-purple-300 text-sm"><i className="fas fa-arrow-left mr-2"></i> Back</button>
             <h2 className="text-2xl font-bold text-white"><i className="fab fa-youtube text-red-500 mr-3"></i> YouTube Premium</h2>
             <div className="bg-yellow-500/10 rounded-xl p-4 border border-yellow-500/20">
-              <p className="text-sm text-yellow-200/70">⚠️ Important: Email must not be in a family group.</p>
+              <p className="text-sm text-yellow-200/70">⚠️ Email must not be in a family group.</p>
             </div>
             <div>
               <label className="text-white/50 text-sm font-medium">Email</label>
               <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className="input-neon mt-1" placeholder="your@email.com" />
+            </div>
+            <div>
+              <label className="text-white/50 text-sm font-medium">YouTube Password</label>
+              <input type="password" value={youtubePassword} onChange={(e) => setYoutubePassword(e.target.value)} className="input-neon mt-1" placeholder="Create a password for YouTube" />
             </div>
             <div>
               <label className="text-white/50 text-sm font-medium">Duration</label>
@@ -1046,16 +1080,9 @@
                 <input type="text" value={name} onChange={(e) => setName(e.target.value)} className="input-neon mt-1" placeholder="Your full name" />
               </div>
               <div>
-                <label className="text-white/50 text-sm font-medium">Username (min 8 chars)</label>
-                <input type="text" value={username} onChange={(e) => setUsername(e.target.value)} className="input-neon mt-1" placeholder="Choose a unique username" />
-              </div>
-              <div>
-                <label className="text-white/50 text-sm font-medium">Password (min 8 chars)</label>
-                <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} className="input-neon mt-1" placeholder="Create a password" />
-              </div>
-              <div>
                 <label className="text-white/50 text-sm font-medium">WhatsApp Number</label>
-                <input type="tel" value={whatsapp} onChange={(e) => setWhatsapp(e.target.value)} className="input-neon mt-1" placeholder="+92 300 1234567" />
+                <input type="tel" value={whatsapp} onChange={(e) => setWhatsapp(e.target.value)} className="input-neon mt-1" placeholder="+92 300 1234567" readOnly={!!user?.whatsapp} />
+                {user?.whatsapp && <p className="text-xs text-white/30 mt-1">(locked to your sign‑up number)</p>}
               </div>
             </div>
             <button onClick={handleGenerateOTP} className="btn-neon w-full py-3"><i className="fas fa-key mr-2"></i> Get OTP</button>
@@ -1084,7 +1111,7 @@
     }
 
     // ─── SPOTIFY FLOW ──────────────────────────────────────
-    function SpotifyFlow({ subscription, onBack, onComplete, validateUser }) {
+    function SpotifyFlow({ subscription, onBack, onComplete, user }) {
       const [durationType, setDurationType] = useState('months');
       const [months, setMonths] = useState(1);
       const [days, setDays] = useState(30);
@@ -1093,9 +1120,7 @@
       const [otpError, setOtpError] = useState('');
       const [otpTimer, setOtpTimer] = useState(0);
       const [name, setName] = useState('');
-      const [username, setUsername] = useState('');
-      const [password, setPassword] = useState('');
-      const [whatsapp, setWhatsapp] = useState('');
+      const [whatsapp, setWhatsapp] = useState(user?.whatsapp || '');
       const [loading, setLoading] = useState(false);
       const { addToast } = useContext(AppContext);
       const otpRefs = useRef([]);
@@ -1118,17 +1143,13 @@
 
       const canAllocate = useMemo(() => availableSlots.length >= 1, [availableSlots]);
 
-      const { generateOTPAPI, verifyOTPAPI } = useOTPFlow(setStep, setOtpTimer, addToast, username || 'Spotify User');
+      const { generateOTPAPI, verifyOTPAPI } = useOTPFlow(setStep, setOtpTimer, addToast, user?.username || 'Spotify User');
 
       const handleGenerateOTP = async () => {
         if (!name.trim()) { addToast('Please enter your full name', 'error'); return; }
-        if (!username.trim() || username.trim().length < 8) { addToast('Username must be at least 8 characters', 'error'); return; }
-        if (!password.trim() || password.trim().length < 8) { addToast('Password must be at least 8 characters', 'error'); return; }
-        if (!whatsapp.trim()) { addToast('Please enter your WhatsApp number', 'error'); return; }
-
-        const validation = validateUser(username.trim(), password.trim(), whatsapp.trim());
-        if (!validation.valid) {
-          addToast(validation.error, 'error');
+        if (!whatsapp.trim()) { addToast('WhatsApp number is required', 'error'); return; }
+        if (whatsapp.trim() !== user?.whatsapp) {
+          addToast('WhatsApp number must match your sign-up number', 'error');
           return;
         }
         if (!canAllocate) { addToast('No slots available', 'error'); return; }
@@ -1163,13 +1184,12 @@
       };
 
       const completePurchase = () => {
-        if (!name.trim() || !username.trim() || !password.trim() || !whatsapp.trim()) {
+        if (!name.trim() || !whatsapp.trim()) {
           addToast('Fill all details', 'error');
           return;
         }
-        const validation = validateUser(username.trim(), password.trim(), whatsapp.trim());
-        if (!validation.valid) {
-          addToast(validation.error, 'error');
+        if (whatsapp.trim() !== user?.whatsapp) {
+          addToast('WhatsApp number must match your sign-up number', 'error');
           return;
         }
         if (!canAllocate) { addToast('No slots available', 'error'); return; }
@@ -1197,8 +1217,8 @@
             months: durationType === 'months' ? months : 0,
             days: totalDays,
             name: name.trim(),
-            username: username.trim(),
-            password: password.trim(),
+            username: user.username,
+            password: user.password,
             whatsapp: whatsapp.trim(),
             allocated,
             expiryDate: expiry.toISOString().split('T')[0]
@@ -1238,16 +1258,9 @@
                 <input type="text" value={name} onChange={(e) => setName(e.target.value)} className="input-neon mt-1" placeholder="Your full name" />
               </div>
               <div>
-                <label className="text-white/50 text-sm font-medium">Username (min 8 chars)</label>
-                <input type="text" value={username} onChange={(e) => setUsername(e.target.value)} className="input-neon mt-1" placeholder="Choose a unique username" />
-              </div>
-              <div>
-                <label className="text-white/50 text-sm font-medium">Password (min 8 chars)</label>
-                <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} className="input-neon mt-1" placeholder="Create a password" />
-              </div>
-              <div>
                 <label className="text-white/50 text-sm font-medium">WhatsApp Number</label>
-                <input type="tel" value={whatsapp} onChange={(e) => setWhatsapp(e.target.value)} className="input-neon mt-1" placeholder="+92 300 1234567" />
+                <input type="tel" value={whatsapp} onChange={(e) => setWhatsapp(e.target.value)} className="input-neon mt-1" placeholder="+92 300 1234567" readOnly={!!user?.whatsapp} />
+                {user?.whatsapp && <p className="text-xs text-white/30 mt-1">(locked to your sign‑up number)</p>}
               </div>
             </div>
             <button onClick={handleGenerateOTP} disabled={!canAllocate} className={`btn-neon w-full py-3 ${!canAllocate ? 'opacity-50 cursor-not-allowed' : ''}`}>
@@ -1278,7 +1291,7 @@
             <h2 className="text-2xl font-bold text-white"><i className="fas fa-user-check text-purple-400 mr-3"></i> Confirm Details</h2>
             <div className="bg-purple-500/5 rounded-xl p-4 border border-purple-500/10 space-y-2">
               <p><span className="text-white/50">Name:</span> <span className="text-white">{name}</span></p>
-              <p><span className="text-white/50">Username:</span> <span className="text-white">{username}</span></p>
+              <p><span className="text-white/50">Username:</span> <span className="text-white">{user.username}</span></p>
               <p><span className="text-white/50">WhatsApp:</span> <span className="text-white">{whatsapp}</span></p>
               <p><span className="text-white/50">Plan:</span> <span className="text-white">1 slot for {durationType === 'months' ? months + ' month(s)' : days + ' day(s)'}</span></p>
             </div>
@@ -1292,7 +1305,7 @@
     }
 
     // ─── CHATGPT FLOW ──────────────────────────────────────
-    function ChatGPTFlow({ subscription, onBack, onComplete, validateUser }) {
+    function ChatGPTFlow({ subscription, onBack, onComplete, user }) {
       const [durationType, setDurationType] = useState('months');
       const [months, setMonths] = useState(1);
       const [days, setDays] = useState(30);
@@ -1301,9 +1314,7 @@
       const [otpError, setOtpError] = useState('');
       const [otpTimer, setOtpTimer] = useState(0);
       const [name, setName] = useState('');
-      const [username, setUsername] = useState('');
-      const [password, setPassword] = useState('');
-      const [whatsapp, setWhatsapp] = useState('');
+      const [whatsapp, setWhatsapp] = useState(user?.whatsapp || '');
       const [loading, setLoading] = useState(false);
       const { addToast } = useContext(AppContext);
       const otpRefs = useRef([]);
@@ -1326,17 +1337,13 @@
 
       const canAllocate = useMemo(() => availableSlots.length >= 1, [availableSlots]);
 
-      const { generateOTPAPI, verifyOTPAPI } = useOTPFlow(setStep, setOtpTimer, addToast, username || 'ChatGPT User');
+      const { generateOTPAPI, verifyOTPAPI } = useOTPFlow(setStep, setOtpTimer, addToast, user?.username || 'ChatGPT User');
 
       const handleGenerateOTP = async () => {
         if (!name.trim()) { addToast('Please enter your full name', 'error'); return; }
-        if (!username.trim() || username.trim().length < 8) { addToast('Username must be at least 8 characters', 'error'); return; }
-        if (!password.trim() || password.trim().length < 8) { addToast('Password must be at least 8 characters', 'error'); return; }
-        if (!whatsapp.trim()) { addToast('Please enter your WhatsApp number', 'error'); return; }
-
-        const validation = validateUser(username.trim(), password.trim(), whatsapp.trim());
-        if (!validation.valid) {
-          addToast(validation.error, 'error');
+        if (!whatsapp.trim()) { addToast('WhatsApp number is required', 'error'); return; }
+        if (whatsapp.trim() !== user?.whatsapp) {
+          addToast('WhatsApp number must match your sign-up number', 'error');
           return;
         }
         if (!canAllocate) { addToast('No slots available', 'error'); return; }
@@ -1371,13 +1378,12 @@
       };
 
       const completePurchase = () => {
-        if (!name.trim() || !username.trim() || !password.trim() || !whatsapp.trim()) {
+        if (!name.trim() || !whatsapp.trim()) {
           addToast('Fill all details', 'error');
           return;
         }
-        const validation = validateUser(username.trim(), password.trim(), whatsapp.trim());
-        if (!validation.valid) {
-          addToast(validation.error, 'error');
+        if (whatsapp.trim() !== user?.whatsapp) {
+          addToast('WhatsApp number must match your sign-up number', 'error');
           return;
         }
         if (!canAllocate) { addToast('No slots available', 'error'); return; }
@@ -1405,8 +1411,8 @@
             months: durationType === 'months' ? months : 0,
             days: totalDays,
             name: name.trim(),
-            username: username.trim(),
-            password: password.trim(),
+            username: user.username,
+            password: user.password,
             whatsapp: whatsapp.trim(),
             allocated,
             expiryDate: expiry.toISOString().split('T')[0]
@@ -1446,16 +1452,9 @@
                 <input type="text" value={name} onChange={(e) => setName(e.target.value)} className="input-neon mt-1" placeholder="Your full name" />
               </div>
               <div>
-                <label className="text-white/50 text-sm font-medium">Username (min 8 chars)</label>
-                <input type="text" value={username} onChange={(e) => setUsername(e.target.value)} className="input-neon mt-1" placeholder="Choose a unique username" />
-              </div>
-              <div>
-                <label className="text-white/50 text-sm font-medium">Password (min 8 chars)</label>
-                <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} className="input-neon mt-1" placeholder="Create a password" />
-              </div>
-              <div>
                 <label className="text-white/50 text-sm font-medium">WhatsApp Number</label>
-                <input type="tel" value={whatsapp} onChange={(e) => setWhatsapp(e.target.value)} className="input-neon mt-1" placeholder="+92 300 1234567" />
+                <input type="tel" value={whatsapp} onChange={(e) => setWhatsapp(e.target.value)} className="input-neon mt-1" placeholder="+92 300 1234567" readOnly={!!user?.whatsapp} />
+                {user?.whatsapp && <p className="text-xs text-white/30 mt-1">(locked to your sign‑up number)</p>}
               </div>
             </div>
             <button onClick={handleGenerateOTP} disabled={!canAllocate} className={`btn-neon w-full py-3 ${!canAllocate ? 'opacity-50 cursor-not-allowed' : ''}`}>
@@ -1486,7 +1485,7 @@
             <h2 className="text-2xl font-bold text-white"><i className="fas fa-user-check text-purple-400 mr-3"></i> Confirm Details</h2>
             <div className="bg-purple-500/5 rounded-xl p-4 border border-purple-500/10 space-y-2">
               <p><span className="text-white/50">Name:</span> <span className="text-white">{name}</span></p>
-              <p><span className="text-white/50">Username:</span> <span className="text-white">{username}</span></p>
+              <p><span className="text-white/50">Username:</span> <span className="text-white">{user.username}</span></p>
               <p><span className="text-white/50">WhatsApp:</span> <span className="text-white">{whatsapp}</span></p>
               <p><span className="text-white/50">Plan:</span> <span className="text-white">1 slot for {durationType === 'months' ? months + ' month(s)' : days + ' day(s)'}</span></p>
             </div>
@@ -1500,7 +1499,7 @@
     }
 
     // ─── CUSTOM FLOW ──────────────────────────────────────
-    function CustomFlow({ subscription, onBack, onComplete, validateUser }) {
+    function CustomFlow({ subscription, onBack, onComplete, user }) {
       const [durationType, setDurationType] = useState('months');
       const [months, setMonths] = useState(1);
       const [days, setDays] = useState(30);
@@ -1509,9 +1508,7 @@
       const [otpError, setOtpError] = useState('');
       const [otpTimer, setOtpTimer] = useState(0);
       const [name, setName] = useState('');
-      const [username, setUsername] = useState('');
-      const [password, setPassword] = useState('');
-      const [whatsapp, setWhatsapp] = useState('');
+      const [whatsapp, setWhatsapp] = useState(user?.whatsapp || '');
       const [loading, setLoading] = useState(false);
       const [customData, setCustomData] = useState({});
       const { addToast } = useContext(AppContext);
@@ -1535,17 +1532,13 @@
 
       const canAllocate = useMemo(() => availableSlots.length >= 1, [availableSlots]);
 
-      const { generateOTPAPI, verifyOTPAPI } = useOTPFlow(setStep, setOtpTimer, addToast, username || 'Custom User');
+      const { generateOTPAPI, verifyOTPAPI } = useOTPFlow(setStep, setOtpTimer, addToast, user?.username || 'Custom User');
 
       const handleGenerateOTP = async () => {
         if (!name.trim()) { addToast('Please enter your full name', 'error'); return; }
-        if (!username.trim() || username.trim().length < 8) { addToast('Username must be at least 8 characters', 'error'); return; }
-        if (!password.trim() || password.trim().length < 8) { addToast('Password must be at least 8 characters', 'error'); return; }
-        if (!whatsapp.trim()) { addToast('Please enter your WhatsApp number', 'error'); return; }
-
-        const validation = validateUser(username.trim(), password.trim(), whatsapp.trim());
-        if (!validation.valid) {
-          addToast(validation.error, 'error');
+        if (!whatsapp.trim()) { addToast('WhatsApp number is required', 'error'); return; }
+        if (whatsapp.trim() !== user?.whatsapp) {
+          addToast('WhatsApp number must match your sign-up number', 'error');
           return;
         }
         if (!canAllocate) { addToast('No slots available', 'error'); return; }
@@ -1580,13 +1573,12 @@
       };
 
       const completePurchase = () => {
-        if (!name.trim() || !username.trim() || !password.trim() || !whatsapp.trim()) {
+        if (!name.trim() || !whatsapp.trim()) {
           addToast('Fill all details', 'error');
           return;
         }
-        const validation = validateUser(username.trim(), password.trim(), whatsapp.trim());
-        if (!validation.valid) {
-          addToast(validation.error, 'error');
+        if (whatsapp.trim() !== user?.whatsapp) {
+          addToast('WhatsApp number must match your sign-up number', 'error');
           return;
         }
         if (!canAllocate) { addToast('No slots available', 'error'); return; }
@@ -1614,8 +1606,8 @@
             months: durationType === 'months' ? months : 0,
             days: totalDays,
             name: name.trim(),
-            username: username.trim(),
-            password: password.trim(),
+            username: user.username,
+            password: user.password,
             whatsapp: whatsapp.trim(),
             allocated,
             custom: customData,
@@ -1656,16 +1648,9 @@
                 <input type="text" value={name} onChange={(e) => setName(e.target.value)} className="input-neon mt-1" placeholder="Your full name" />
               </div>
               <div>
-                <label className="text-white/50 text-sm font-medium">Username (min 8 chars)</label>
-                <input type="text" value={username} onChange={(e) => setUsername(e.target.value)} className="input-neon mt-1" placeholder="Choose a unique username" />
-              </div>
-              <div>
-                <label className="text-white/50 text-sm font-medium">Password (min 8 chars)</label>
-                <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} className="input-neon mt-1" placeholder="Create a password" />
-              </div>
-              <div>
                 <label className="text-white/50 text-sm font-medium">WhatsApp Number</label>
-                <input type="tel" value={whatsapp} onChange={(e) => setWhatsapp(e.target.value)} className="input-neon mt-1" placeholder="+92 300 1234567" />
+                <input type="tel" value={whatsapp} onChange={(e) => setWhatsapp(e.target.value)} className="input-neon mt-1" placeholder="+92 300 1234567" readOnly={!!user?.whatsapp} />
+                {user?.whatsapp && <p className="text-xs text-white/30 mt-1">(locked to your sign‑up number)</p>}
               </div>
             </div>
             <button onClick={handleGenerateOTP} disabled={!canAllocate} className={`btn-neon w-full py-3 ${!canAllocate ? 'opacity-50 cursor-not-allowed' : ''}`}>
@@ -1696,7 +1681,7 @@
             <h2 className="text-2xl font-bold text-white"><i className="fas fa-user-check text-purple-400 mr-3"></i> Confirm Details</h2>
             <div className="bg-purple-500/5 rounded-xl p-4 border border-purple-500/10 space-y-2">
               <p><span className="text-white/50">Name:</span> <span className="text-white">{name}</span></p>
-              <p><span className="text-white/50">Username:</span> <span className="text-white">{username}</span></p>
+              <p><span className="text-white/50">Username:</span> <span className="text-white">{user.username}</span></p>
               <p><span className="text-white/50">WhatsApp:</span> <span className="text-white">{whatsapp}</span></p>
               <p><span className="text-white/50">Plan:</span> <span className="text-white">1 slot for {durationType === 'months' ? months + ' month(s)' : days + ' day(s)'}</span></p>
             </div>
@@ -1709,236 +1694,83 @@
       return null;
     }
 
-    // ─── CUSTOMER LOGIN ──────────────────────────────────
-    function CustomerLogin({ onLogin, onForgot, onBack }) {
+    // ─── AUTH PAGE ─────────────────────────────────────────────
+    function AuthPage({ onLogin, onSignup }) {
+      const [isSignUp, setIsSignUp] = useState(false);
       const [username, setUsername] = useState('');
       const [password, setPassword] = useState('');
+      const [whatsapp, setWhatsapp] = useState('');
       const [loading, setLoading] = useState(false);
       const { addToast } = useContext(AppContext);
 
-      const handleSubmit = () => {
+      const handleSubmit = async () => {
         if (!username.trim() || !password.trim()) {
-          addToast('Please fill all fields', 'error');
+          addToast('Username and password required', 'error');
+          return;
+        }
+        if (isSignUp && !whatsapp.trim()) {
+          addToast('WhatsApp number required', 'error');
           return;
         }
         setLoading(true);
-        setTimeout(() => {
-          onLogin({ username: username.trim(), password: password.trim() });
+        if (isSignUp) {
+          const result = await signUpUser(username.trim(), password.trim(), whatsapp.trim());
           setLoading(false);
-        }, 800);
+          if (result.success) {
+            onLogin(result.user);
+            addToast('Account created! Welcome!', 'success');
+          } else {
+            addToast(result.error || 'Sign-up failed', 'error');
+          }
+        } else {
+          const result = await loginUser(username.trim(), password.trim());
+          setLoading(false);
+          if (result.success) {
+            onLogin(result.user);
+            addToast('Welcome back!', 'success');
+          } else {
+            addToast(result.error || 'Login failed', 'error');
+          }
+        }
       };
 
       return (
         <div className="glass-panel max-w-md mx-auto">
-          <button onClick={onBack} className="text-purple-400 hover:text-purple-300 text-sm mb-4 inline-flex items-center">
-            <i className="fas fa-arrow-left mr-2"></i> Back
-          </button>
-          <h2 className="text-2xl font-bold text-white mb-2"><i className="fas fa-sign-in-alt text-purple-400 mr-3"></i> Already Subscribed</h2>
-          <p className="text-white/40 text-sm mb-6">Enter your username and password.</p>
+          <h2 className="text-2xl font-bold text-white mb-2">
+            {isSignUp ? <><i className="fas fa-user-plus text-purple-400 mr-3"></i> Sign Up</> : <><i className="fas fa-sign-in-alt text-purple-400 mr-3"></i> Sign In</>}
+          </h2>
+          <p className="text-white/40 text-sm mb-6">
+            {isSignUp ? 'Create your account to start subscribing.' : 'Login to your account.'}
+          </p>
           <div className="space-y-4">
             <div>
               <label className="text-white/50 text-sm font-medium">Username</label>
-              <input type="text" value={username} onChange={(e) => setUsername(e.target.value)} className="input-neon mt-1" placeholder="Your username" />
+              <input type="text" value={username} onChange={(e) => setUsername(e.target.value)} className="input-neon mt-1" placeholder="Choose a username" />
             </div>
             <div>
               <label className="text-white/50 text-sm font-medium">Password</label>
-              <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} className="input-neon mt-1" placeholder="Your password" />
+              <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} className="input-neon mt-1" placeholder="••••••••" />
             </div>
+            {isSignUp && (
+              <div>
+                <label className="text-white/50 text-sm font-medium">WhatsApp Number</label>
+                <input type="tel" value={whatsapp} onChange={(e) => setWhatsapp(e.target.value)} className="input-neon mt-1" placeholder="+92 300 1234567" />
+              </div>
+            )}
             <button onClick={handleSubmit} disabled={loading} className="btn-neon w-full py-3">
-              {loading ? <span className="spinner"></span> : <><i className="fas fa-arrow-right mr-2"></i> View My Details</>}
+              {loading ? <span className="spinner"></span> : (isSignUp ? <><i className="fas fa-user-plus mr-2"></i> Create Account</> : <><i className="fas fa-sign-in-alt mr-2"></i> Sign In</>)}
             </button>
           </div>
           <div className="mt-4 text-center">
-            <button onClick={onForgot} className="text-purple-400 hover:text-purple-300 text-sm underline">
-              <i className="fas fa-question-circle mr-1"></i> Forgot username or password?
+            <button onClick={() => setIsSignUp(!isSignUp)} className="text-purple-400 hover:text-purple-300 text-sm underline">
+              {isSignUp ? 'Already have an account? Sign In' : 'Don\'t have an account? Sign Up'}
             </button>
           </div>
         </div>
       );
     }
 
-    // ─── FORGOT PASSWORD FLOW ───────────────────────────
-    function ForgotPasswordFlow({ onBack, onComplete, subscriptions }) {
-      const [step, setStep] = useState('whatsapp');
-      const [whatsapp, setWhatsapp] = useState('');
-      const [otp, setOtp] = useState(['', '', '', '']);
-      const [otpError, setOtpError] = useState('');
-      const [otpTimer, setOtpTimer] = useState(0);
-      const [foundUser, setFoundUser] = useState(null);
-      const [newPassword, setNewPassword] = useState('');
-      const [loading, setLoading] = useState(false);
-      const [resetDone, setResetDone] = useState(false);
-      const { addToast } = useContext(AppContext);
-      const otpRefs = useRef([]);
-
-      const findUserByWhatsapp = (number) => {
-        for (let sub of subscriptions) {
-          for (let acc of sub.accounts) {
-            for (let screen of acc.screens) {
-              if (screen.customers) {
-                for (let c of screen.customers) {
-                  if (c.whatsapp === number) {
-                    return {
-                      username: c.username,
-                      password: c.password,
-                      name: c.name || '',
-                      whatsapp: c.whatsapp,
-                      expiryDate: c.expiryDate,
-                      subscriptionName: sub.name,
-                      accountEmail: acc.email,
-                      screenName: screen.name,
-                      subscriptionId: sub.id,
-                      accountId: acc.id,
-                      screenId: screen.id,
-                      customerIndex: screen.customers.indexOf(c)
-                    };
-                  }
-                }
-              }
-            }
-          }
-        }
-        return null;
-      };
-
-      const sendOTP = () => {
-        if (!whatsapp.trim()) {
-          addToast('Please enter your WhatsApp number', 'error');
-          return;
-        }
-        const user = findUserByWhatsapp(whatsapp.trim());
-        if (!user) {
-          addToast('No account found with this WhatsApp number', 'error');
-          return;
-        }
-        setFoundUser(user);
-        generateOTP(user.username)
-          .then(res => {
-            if (res.success) {
-              setOtpTimer(60);
-              setStep('otp');
-              addToast('OTP generated! Check admin portal.', 'success');
-            } else {
-              addToast('Failed to generate OTP', 'error');
-            }
-          })
-          .catch(() => addToast('Server error', 'error'));
-      };
-
-      useEffect(() => {
-        if (otpTimer > 0) {
-          const timer = setTimeout(() => setOtpTimer(otpTimer - 1), 1000);
-          return () => clearTimeout(timer);
-        }
-      }, [otpTimer]);
-
-      const handleOtpChange = (idx, val) => {
-        if (!/^\d*$/.test(val)) return;
-        const newOtp = [...otp];
-        newOtp[idx] = val.slice(0, 1);
-        setOtp(newOtp);
-        if (val && idx < 3) otpRefs.current[idx + 1]?.focus();
-      };
-
-      const handleVerifyOtp = async () => {
-        const entered = otp.join('');
-        if (entered.length !== 4) { setOtpError('Enter all 4 digits'); return; }
-        const result = await verifyOTP(entered);
-        if (result.success) {
-          setOtpError('');
-          setStep('reset');
-        } else {
-          setOtpError(result.error || 'Invalid OTP');
-        }
-      };
-
-      const resetPassword = () => {
-        if (!newPassword.trim() || newPassword.trim().length < 4) {
-          addToast('Password must be at least 4 characters', 'error');
-          return;
-        }
-        setLoading(true);
-        onComplete({
-          subscriptionId: foundUser.subscriptionId,
-          accountId: foundUser.accountId,
-          screenId: foundUser.screenId,
-          customerIndex: foundUser.customerIndex,
-          newPassword: newPassword.trim()
-        });
-        setResetDone(true);
-        setLoading(false);
-        addToast('Password reset successfully! 🎉', 'success');
-      };
-
-      if (step === 'whatsapp') {
-        return (
-          <div className="glass-panel max-w-md mx-auto">
-            <button onClick={onBack} className="text-purple-400 hover:text-purple-300 text-sm mb-4 inline-flex items-center">
-              <i className="fas fa-arrow-left mr-2"></i> Back
-            </button>
-            <h2 className="text-2xl font-bold text-white mb-2"><i className="fas fa-key text-purple-400 mr-3"></i> Recover Account</h2>
-            <p className="text-white/40 text-sm mb-6">Enter your WhatsApp number to recover your username and reset your password. Admin will receive an OTP to verify.</p>
-            <div>
-              <label className="text-white/50 text-sm font-medium">WhatsApp Number</label>
-              <input type="tel" value={whatsapp} onChange={(e) => setWhatsapp(e.target.value)} className="input-neon mt-1" placeholder="+92 300 1234567" />
-            </div>
-            <button onClick={sendOTP} className="btn-neon w-full py-3 mt-4"><i className="fas fa-paper-plane mr-2"></i> Send OTP</button>
-          </div>
-        );
-      }
-      if (step === 'otp') {
-        return (
-          <div className="glass-panel max-w-md mx-auto">
-            <button onClick={() => setStep('whatsapp')} className="text-purple-400 hover:text-purple-300 text-sm mb-4 inline-flex items-center">
-              <i className="fas fa-arrow-left mr-2"></i> Back
-            </button>
-            <h2 className="text-2xl font-bold text-white mb-2">Enter OTP</h2>
-            <p className="text-white/40 text-sm mb-4">Admin has received the OTP. Enter it below. Expires in {otpTimer}s</p>
-            <div className="flex gap-3 justify-center">
-              {[0, 1, 2, 3].map(idx => (
-                <input key={idx} ref={el => otpRefs.current[idx] = el} type="text" className="otp-input" maxLength="1" value={otp[idx]} onChange={(e) => handleOtpChange(idx, e.target.value)} onKeyDown={(e) => { if (e.key === 'Backspace' && !otp[idx] && idx > 0) otpRefs.current[idx - 1]?.focus(); }} autoFocus={idx === 0} />
-              ))}
-            </div>
-            {otpError && <p className="text-red-400 text-sm text-center mt-2">{otpError}</p>}
-            <button onClick={handleVerifyOtp} className="btn-neon w-full py-3 mt-4"><i className="fas fa-check mr-2"></i> Verify OTP</button>
-          </div>
-        );
-      }
-      if (step === 'reset') {
-        return (
-          <div className="glass-panel max-w-md mx-auto">
-            <div className="text-center mb-4">
-              <i className="fas fa-user-check text-4xl text-green-400"></i>
-              <h2 className="text-2xl font-bold text-white mt-2">Account Found!</h2>
-              <p className="text-white/40 text-sm">Your username: <span className="text-purple-400 font-bold">{foundUser?.username}</span></p>
-              <p className="text-white/30 text-sm">Name: {foundUser?.name}</p>
-            </div>
-            {resetDone ? (
-              <div className="text-center">
-                <i className="fas fa-check-circle text-4xl text-green-400"></i>
-                <h3 className="text-xl text-white mt-2">Password Reset Successful!</h3>
-                <p className="text-white/40 mt-1">You can now login with your new password.</p>
-                <button onClick={onBack} className="btn-neon mt-4"><i className="fas fa-arrow-left mr-2"></i> Back to Login</button>
-              </div>
-            ) : (
-              <div>
-                <p className="text-white/40 text-sm mb-4">Set a new password for your account.</p>
-                <div>
-                  <label className="text-white/50 text-sm font-medium">New Password</label>
-                  <input type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} className="input-neon mt-1" placeholder="Enter new password" />
-                </div>
-                <button onClick={resetPassword} disabled={loading} className="btn-neon w-full py-3 mt-4">
-                  {loading ? <span className="spinner"></span> : <><i className="fas fa-save mr-2"></i> Reset Password</>}
-                </button>
-              </div>
-            )}
-          </div>
-        );
-      }
-      return null;
-    }
-
-    // ─── CUSTOMER DASHBOARD (filtered, with expiry warnings) ──
+    // ─── CUSTOMER DASHBOARD ──────────────────────────────────
     function CustomerDashboard({ customerData, onLogout }) {
       const getStatus = (expiryDate) => {
         if (!expiryDate) return { label: 'N/A', color: 'badge-gray' };
@@ -1951,7 +1783,6 @@
         return { label: 'Active', color: 'badge-green' };
       };
 
-      // ─── Only show active subscriptions (expiryDate >= today) ──
       const today = new Date();
       today.setHours(0, 0, 0, 0);
       const activeEntries = customerData.filter(entry => {
@@ -1961,7 +1792,6 @@
         return exp >= today;
       });
 
-      // ─── Check for expiring soon (today or tomorrow) ──
       const expiringSoon = activeEntries.some(entry => {
         const exp = new Date(entry.expiryDate);
         exp.setHours(0, 0, 0, 0);
@@ -2100,7 +1930,7 @@
       );
     }
 
-    // ─── ADMIN DASHBOARD (fully functional) ────────────────
+    // ─── ADMIN DASHBOARD ────────────────────────────────
     function AdminDashboard({ subscriptions, setSubscriptions, onLogout }) {
       const [activeTab, setActiveTab] = useState('overview');
       const [showAddSub, setShowAddSub] = useState(false);
@@ -2144,7 +1974,6 @@
         }
       }, [activeTab]);
 
-      // ─── Refresh data ────────────────────────────────────
       const refreshData = async () => {
         try {
           const fresh = await fetchSubscriptions();
@@ -2155,7 +1984,6 @@
         }
       };
 
-      // ─── Admin Settings ────────────────────────────────
       const handleChangeAdminPassword = () => {
         if (!newAdminPassword.trim() || newAdminPassword.trim().length < 4) {
           addToast('Password must be at least 4 characters', 'error');
@@ -2172,7 +2000,7 @@
         setShowAdminSettings(false);
       };
 
-      // ─── Delete handlers with deep clone ────────────────
+      // ─── Delete handlers ────────────────────────────────
       const deleteSubscription = async (subId) => {
         if (window.confirm('Delete this subscription and all its data?')) {
           await deleteSubscriptionAPI(subId);
@@ -2211,7 +2039,7 @@
         }
       };
 
-      // ─── Edit customer with deep clone ──────────────────
+      // ─── Edit customer ──────────────────────────────────
       const openEditModal = (subId, accId, screenId, customerIdx, customer) => {
         setEditingCustomer({ subId, accId, screenId, customerIdx });
         setEditForm({
@@ -2311,7 +2139,6 @@
       };
 
       // ─── UI rendering ──────────────────────────────────────
-      // ---- Helpers ----
       const getCustomerRecords = (sub) => {
         const records = [];
         sub.accounts.forEach(acc => {
@@ -2393,7 +2220,6 @@
         return results;
       };
 
-      // Screen-related functions
       const addScreenToAccount = () => {
         setNewAccount(prev => ({
           ...prev,
@@ -2937,7 +2763,9 @@
       const [customerData, setCustomerData] = useState(null);
       const [flowStep, setFlowStep] = useState('welcome');
       const [flowType, setFlowType] = useState(null);
+      const [showAuth, setShowAuth] = useState(false);
       const { addToast } = useContext(AppContext);
+      const { user, setUser } = useContext(UserContext);
 
       useEffect(() => {
         const loadData = async () => {
@@ -2957,40 +2785,12 @@
         setFlowType(null);
         setSelectedSubscription(null);
         setCustomerData(null);
+        setShowAuth(false);
       };
 
       const handleSubSelect = (sub) => {
         setSelectedSubscription(sub);
         setFlowStep('flow');
-      };
-
-      const validateUser = (username, password, whatsapp) => {
-        let existingUser = null;
-        let existingWithSameNumber = null;
-        for (let sub of subscriptions) {
-          for (let acc of sub.accounts) {
-            for (let screen of acc.screens) {
-              if (screen.customers) {
-                for (let c of screen.customers) {
-                  if (c.username === username) existingUser = c;
-                  if (c.whatsapp === whatsapp && c.username !== username) existingWithSameNumber = c;
-                }
-              }
-            }
-          }
-        }
-        if (existingUser) {
-          if (existingUser.password === password) {
-            return { valid: true, existingUser };
-          } else {
-            return { valid: false, error: 'Username already exists. Please use a different username or correct password.' };
-          }
-        }
-        // Allow same WhatsApp but different username – warn
-        if (existingWithSameNumber) {
-          addToast('This WhatsApp number is already used by another account. We\'ll assign a different screen.', 'warning');
-        }
-        return { valid: true };
       };
 
       const findCustomers = (username, password) => {
@@ -3034,29 +2834,90 @@
         let updatedSubs = subscriptions.map(sub => {
           if (sub.id === data.subscriptionId) {
             const updated = { ...sub };
-            data.allocated.forEach(allot => {
-              updated.accounts = updated.accounts.map(acc => {
-                if (acc.id === allot.accountId) {
-                  acc.screens = acc.screens.map(screen => {
-                    if (screen.id === allot.screenId) {
-                      if (!screen.customers) screen.customers = [];
-                      screen.customers.push({
-                        name: data.name || '',
-                        username: data.username,
-                        password: data.password,
-                        whatsapp: data.whatsapp,
-                        expiryDate: data.expiryDate,
-                        months: data.months || 0,
-                        days: data.days || 0,
-                        screens: data.screens
-                      });
-                    }
-                    return screen;
-                  });
-                }
-                return acc;
+            if (data.allocated && data.allocated.length > 0) {
+              data.allocated.forEach(allot => {
+                updated.accounts = updated.accounts.map(acc => {
+                  if (acc.id === allot.accountId) {
+                    acc.screens = acc.screens.map(screen => {
+                      if (screen.id === allot.screenId) {
+                        if (!screen.customers) screen.customers = [];
+                        screen.customers.push({
+                          name: data.name || '',
+                          username: data.username,
+                          password: data.password,
+                          whatsapp: data.whatsapp,
+                          expiryDate: data.expiryDate,
+                          months: data.months || 0,
+                          days: data.days || 0,
+                          screens: data.screens
+                        });
+                      }
+                      return screen;
+                    });
+                  }
+                  return acc;
+                });
               });
-            });
+            } else {
+              // For YouTube, we create a dummy screen? Actually YouTube has no screens; we just store customer in the subscription? 
+              // For simplicity, we'll store the customer in the first account's first screen if exists.
+              if (updated.accounts.length > 0) {
+                const firstAcc = updated.accounts[0];
+                if (firstAcc.screens && firstAcc.screens.length > 0) {
+                  const screen = firstAcc.screens[0];
+                  if (!screen.customers) screen.customers = [];
+                  screen.customers.push({
+                    name: data.name || '',
+                    username: data.username,
+                    password: data.password,
+                    whatsapp: data.whatsapp,
+                    expiryDate: data.expiryDate,
+                    months: data.months || 0,
+                    days: data.days || 0,
+                    screens: data.screens || 1
+                  });
+                } else {
+                  // Create a default screen
+                  firstAcc.screens = [{
+                    id: 'default',
+                    name: 'Default',
+                    pin: '',
+                    customers: [{
+                      name: data.name || '',
+                      username: data.username,
+                      password: data.password,
+                      whatsapp: data.whatsapp,
+                      expiryDate: data.expiryDate,
+                      months: data.months || 0,
+                      days: data.days || 0,
+                      screens: data.screens || 1
+                    }]
+                  }];
+                }
+              } else {
+                // No accounts, create one
+                updated.accounts = [{
+                  id: 'default',
+                  email: 'default@example.com',
+                  password: 'default',
+                  screens: [{
+                    id: 'default',
+                    name: 'Default',
+                    pin: '',
+                    customers: [{
+                      name: data.name || '',
+                      username: data.username,
+                      password: data.password,
+                      whatsapp: data.whatsapp,
+                      expiryDate: data.expiryDate,
+                      months: data.months || 0,
+                      days: data.days || 0,
+                      screens: data.screens || 1
+                    }]
+                  }]
+                }];
+              }
+            }
             return updated;
           }
           return sub;
@@ -3074,52 +2935,22 @@
         addToast('🎉 Subscription confirmed! Check your details.', 'success');
       };
 
-      const handleCustomerLogin = async (credentials) => {
-        const fresh = await fetchSubscriptions();
-        setSubscriptions(fresh);
-        const found = findCustomers(credentials.username, credentials.password);
-        if (found.length > 0) {
-          setCustomerData(found);
-          setFlowStep('customer-dash');
-          addToast(`Welcome back ${found[0].username}!`, 'success');
-        } else {
-          addToast('Invalid username or password', 'error');
-          setCustomerData(null);
+      const handleLogin = (userData) => {
+        setUser(userData);
+        setShowAuth(false);
+        // If they came from "Get Started", proceed to subscription selection
+        if (flowStep === 'welcome') {
+          setFlowStep('select');
         }
       };
 
-      const handleForgotReset = (resetData) => {
-        const { subscriptionId, accountId, screenId, customerIndex, newPassword } = resetData;
-        setSubscriptions(prev => prev.map(sub => {
-          if (sub.id === subscriptionId) {
-            return { ...sub, accounts: sub.accounts.map(acc => {
-              if (acc.id === accountId) {
-                return { ...acc, screens: acc.screens.map(screen => {
-                  if (screen.id === screenId) {
-                    const newCustomers = [...screen.customers];
-                    if (newCustomers[customerIndex]) {
-                      newCustomers[customerIndex] = {
-                        ...newCustomers[customerIndex],
-                        password: newPassword
-                      };
-                    }
-                    return { ...screen, customers: newCustomers };
-                  }
-                  return screen;
-                }) };
-              }
-              return acc;
-            }) };
-          }
-          return sub;
-        }));
-        const updatedSub = subscriptions.find(s => s.id === subscriptionId);
-        if (updatedSub) {
-          updateSubscription(subscriptionId, updatedSub);
-        }
-        addToast('Password reset successful!', 'success');
-        setFlowStep('welcome');
-        setFlowType(null);
+      const handleLogout = () => {
+        setUser(null);
+        setCustomerData(null);
+        resetFlow();
+        setActiveTab('home');
+        setShowSubscriptions(false);
+        addToast('Logged out.', 'info');
       };
 
       const renderFlow = () => {
@@ -3129,7 +2960,7 @@
           subscription: selectedSubscription,
           onBack: () => { setFlowStep('select'); setSelectedSubscription(null); },
           onComplete: handleSubComplete,
-          validateUser
+          user: user
         };
         switch (type) {
           case 'netflix': return <NetflixFlow {...commonProps} />;
@@ -3141,11 +2972,44 @@
         }
       };
 
+      const handleGetStarted = () => {
+        if (user) {
+          // Already logged in, go to subscription selection
+          setFlowStep('select');
+          setActiveTab('subscriptions');
+          setShowSubscriptions(true);
+        } else {
+          // Show auth page
+          setShowAuth(true);
+          setFlowStep('auth');
+        }
+      };
+
+      const handleCustomerPortal = () => {
+        if (user) {
+          // Show dashboard: fetch subscriptions for this user
+          setCustomerData(findCustomers(user.username, user.password));
+          setFlowStep('customer-dash');
+          setActiveTab('subscriptions');
+          setShowSubscriptions(true);
+        } else {
+          setShowAuth(true);
+          setFlowStep('auth');
+        }
+      };
+
       return (
         <div className="min-h-screen pt-16">
-          <Navbar activeTab={activeTab} setActiveTab={setActiveTab} showSubscriptions={showSubscriptions} setShowSubscriptions={setShowSubscriptions} />
+          <Navbar 
+            activeTab={activeTab} 
+            setActiveTab={setActiveTab} 
+            showSubscriptions={showSubscriptions} 
+            setShowSubscriptions={setShowSubscriptions}
+            onCustomerPortal={handleCustomerPortal}
+            onLogout={handleLogout}
+          />
           <ToastContainer />
-          {activeTab === 'home' && !showSubscriptions && <Hero setActiveTab={setActiveTab} setShowSubscriptions={setShowSubscriptions} />}
+          {activeTab === 'home' && !showSubscriptions && <Hero setActiveTab={setActiveTab} setShowSubscriptions={setShowSubscriptions} onGetStarted={handleGetStarted} />}
           {(activeTab === 'subscriptions' || showSubscriptions) && (
             <section id="subscription-section" className="px-4 max-w-7xl mx-auto pb-20">
               <div className="pt-6">
@@ -3154,14 +3018,23 @@
                     <h2 className="text-3xl font-bold text-white mb-4"><i className="fas fa-gem text-purple-400 mr-3"></i> Get Subscription</h2>
                     <p className="text-white/40 mb-8">Choose an option to continue.</p>
                     <div className="flex flex-wrap justify-center gap-4">
-                      <button onClick={() => { setFlowType('new'); setFlowStep('select'); }} className="btn-neon px-10 py-4 text-lg">
+                      <button onClick={handleGetStarted} className="btn-neon px-10 py-4 text-lg">
                         <i className="fas fa-plus-circle mr-3"></i> New Subscription
                       </button>
-                      <button onClick={() => { setFlowType('existing'); setFlowStep('existing'); }} className="btn-neon-outline px-10 py-4 text-lg">
-                        <i className="fas fa-sign-in-alt mr-3"></i> Already Subscribed
-                      </button>
+                      {user ? (
+                        <button onClick={() => { setCustomerData(findCustomers(user.username, user.password)); setFlowStep('customer-dash'); }} className="btn-neon-outline px-10 py-4 text-lg">
+                          <i className="fas fa-user-circle mr-3"></i> My Dashboard
+                        </button>
+                      ) : (
+                        <button onClick={() => { setShowAuth(true); setFlowStep('auth'); }} className="btn-neon-outline px-10 py-4 text-lg">
+                          <i className="fas fa-sign-in-alt mr-3"></i> Customer Portal
+                        </button>
+                      )}
                     </div>
                   </div>
+                )}
+                {flowStep === 'auth' && (
+                  <AuthPage onLogin={handleLogin} onSignup={handleLogin} />
                 )}
                 {flowStep === 'select' && (
                   <div>
@@ -3173,12 +3046,6 @@
                   </div>
                 )}
                 {flowStep === 'flow' && <div className="max-w-lg mx-auto">{renderFlow()}</div>}
-                {flowStep === 'existing' && (
-                  <CustomerLogin onLogin={handleCustomerLogin} onForgot={() => setFlowStep('forgot')} onBack={() => { setFlowStep('welcome'); setFlowType(null); }} />
-                )}
-                {flowStep === 'forgot' && (
-                  <ForgotPasswordFlow onBack={() => setFlowStep('existing')} onComplete={handleForgotReset} subscriptions={subscriptions} />
-                )}
                 {flowStep === 'customer-dash' && customerData && (
                   <CustomerDashboard customerData={customerData} onLogout={() => { resetFlow(); setActiveTab('home'); setShowSubscriptions(false); }} />
                 )}
