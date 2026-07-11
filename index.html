@@ -127,34 +127,23 @@
       margin-right: 4px;
       filter: drop-shadow(0 0 6px rgba(229,9,20,0.5));
     }
-    /* ===== NEW CAROUSEL (Continuous Scroll) ===== */
+    /* ===== CAROUSEL (fixed for mobile) ===== */
     .carousel-container {
       position: relative;
       overflow: hidden;
       border-radius: 16px;
       width: 100%;
+      touch-action: pan-y;
     }
     .carousel-track {
       display: flex;
       will-change: transform;
-      width: max-content;
       gap: 8px;
+      width: max-content;
     }
-    .carousel-track .carousel-slide {
+    .carousel-slide {
       flex: 0 0 auto;
-      width: calc((100% / var(--items-per-view, 4)) - 8px);
-      min-width: 120px;
-      max-width: 280px;
-      padding: 0 4px;
-    }
-    @media (max-width:1200px) {
-      .carousel-track .carousel-slide { width: calc((100% / 3) - 8px); }
-    }
-    @media (max-width:992px) {
-      .carousel-track .carousel-slide { width: calc((100% / 2) - 8px); }
-    }
-    @media (max-width:640px) {
-      .carousel-track .carousel-slide { width: calc(100% - 8px); max-width: 100%; min-width: unset; }
+      /* width set inline via JS */;
     }
     .carousel-dots {
       display: flex;
@@ -591,16 +580,17 @@
       );
     }
 
-    // ─── DEALS CAROUSEL (Continuous Infinite Scroll) ───
+    // ─── DEALS CAROUSEL (Fixed mobile sizing) ─────────────────
     function DealsCarousel({ deals, subscriptions, onPurchaseClick }) {
       const [itemsPerView, setItemsPerView] = useState(4);
       const [offset, setOffset] = useState(0);
       const [isPaused, setIsPaused] = useState(false);
       const [pauseTimer, setPauseTimer] = useState(null);
+      const [containerWidth, setContainerWidth] = useState(0);
       const containerRef = useRef(null);
       const trackRef = useRef(null);
       const animationRef = useRef(null);
-      const speed = 30; // pixels per second (cinematic slow scroll)
+      const speed = 30; // pixels per second
 
       const icons = { netflix: 'fa-netflix', amazon: 'fa-amazon', youtube: 'fa-youtube', spotify: 'fa-spotify', chatgpt: 'fa-robot', custom: 'fa-plus-circle' };
       const colors = { netflix: '#e50914', amazon: '#ff9900', youtube: '#ff0000', spotify: '#1db954', chatgpt: '#10a37f', custom: '#ef4444' };
@@ -617,14 +607,11 @@
       }, [deals, subscriptions]);
 
       const totalItems = activeDeals.length;
-      // Duplicate items 3 times to ensure seamless looping
       const repeatedDeals = useMemo(() => {
         if (totalItems === 0) return [];
         const reps = 3;
         const arr = [];
-        for (let i = 0; i < reps; i++) {
-          arr.push(...activeDeals);
-        }
+        for (let i = 0; i < reps; i++) arr.push(...activeDeals);
         return arr;
       }, [activeDeals, totalItems]);
 
@@ -647,21 +634,27 @@
         return () => window.removeEventListener('resize', handleResize);
       }, []);
 
-      // Compute total width of one set of items
-      const [oneSetWidth, setOneSetWidth] = useState(0);
-
+      // Measure container width
       useEffect(() => {
-        if (trackRef.current && containerRef.current) {
-          const containerWidth = containerRef.current.getBoundingClientRect().width;
-          const itemWidth = (containerWidth / itemsPerView) - 8; // gap included
-          const total = itemWidth * totalItems;
-          setOneSetWidth(total);
-        }
-      }, [itemsPerView, totalItems, activeDeals]);
+        if (!containerRef.current) return;
+        const measure = () => {
+          const width = containerRef.current.getBoundingClientRect().width;
+          setContainerWidth(width);
+        };
+        measure();
+        const ro = new ResizeObserver(measure);
+        ro.observe(containerRef.current);
+        return () => ro.disconnect();
+      }, [itemsPerView]);
+
+      // Compute slide width and oneSetWidth
+      const gap = 8;
+      const slideWidth = containerWidth > 0 ? (containerWidth / itemsPerView) - gap : 0;
+      const oneSetWidth = slideWidth * totalItems + gap * (totalItems - 1);
 
       // Animation loop
       useEffect(() => {
-        if (isPaused || totalItems === 0 || oneSetWidth === 0) {
+        if (isPaused || totalItems === 0 || oneSetWidth === 0 || slideWidth === 0) {
           if (animationRef.current) {
             cancelAnimationFrame(animationRef.current);
             animationRef.current = null;
@@ -691,36 +684,30 @@
             animationRef.current = null;
           }
         };
-      }, [isPaused, totalItems, oneSetWidth, speed]);
+      }, [isPaused, totalItems, oneSetWidth, slideWidth, speed]);
 
-      // Pause/Resume on hover
       const handlePause = () => {
         setIsPaused(true);
         if (pauseTimer) clearTimeout(pauseTimer);
       };
 
       const handleResume = () => {
-        const timer = setTimeout(() => {
-          setIsPaused(false);
-        }, 3000);
+        const timer = setTimeout(() => setIsPaused(false), 3000);
         setPauseTimer(timer);
       };
 
-      // Manual navigation
       const goToPrev = () => {
+        if (slideWidth === 0) return;
         handlePause();
-        const containerWidth = containerRef.current?.getBoundingClientRect().width || 0;
-        const itemWidth = containerWidth / itemsPerView;
-        setOffset(prev => Math.max(prev - itemWidth, 0));
+        setOffset(prev => Math.max(prev - slideWidth, 0));
         setTimeout(handleResume, 3000);
       };
 
       const goToNext = () => {
+        if (slideWidth === 0) return;
         handlePause();
-        const containerWidth = containerRef.current?.getBoundingClientRect().width || 0;
-        const itemWidth = containerWidth / itemsPerView;
         setOffset(prev => {
-          let newOffset = prev + itemWidth;
+          let newOffset = prev + slideWidth;
           if (newOffset >= oneSetWidth) newOffset = newOffset - oneSetWidth;
           return newOffset;
         });
@@ -728,10 +715,9 @@
       };
 
       const goToSlide = (index) => {
+        if (slideWidth === 0) return;
         handlePause();
-        const containerWidth = containerRef.current?.getBoundingClientRect().width || 0;
-        const itemWidth = containerWidth / itemsPerView;
-        setOffset(index * itemWidth);
+        setOffset(index * slideWidth);
         setTimeout(handleResume, 3000);
       };
 
@@ -752,7 +738,6 @@
             onMouseLeave={handleResume}
             onTouchStart={handlePause}
             onTouchEnd={handleResume}
-            style={{ '--items-per-view': itemsPerView }}
           >
             <div
               className="carousel-track"
@@ -760,7 +745,7 @@
               style={{
                 transform: `translateX(-${offset}px)`,
                 transition: 'none',
-                gap: '8px',
+                gap: `${gap}px`,
               }}
             >
               {repeatedDeals.map((deal, idx) => {
@@ -771,10 +756,9 @@
                 const isCombo = deal.subscriptions.length > 1;
                 const isNetflix = deal.subscriptions.some(s => s.type === 'netflix');
                 return (
-                  <div key={deal.id + '-' + idx} className="carousel-slide">
+                  <div key={deal.id + '-' + idx} className="carousel-slide" style={{ width: slideWidth }}>
                     <div className="deal-card relative">
                       <div className="discount-badge">-{discount}%</div>
-                      {/* Brand Z watermark */}
                       <div className="absolute top-2 left-2 text-white/10 text-3xl font-black select-none pointer-events-none" style={{ fontFamily: 'Georgia, serif', transform: 'rotate(-8deg)' }}>Z</div>
                       <div className="flex-1">
                         <div className="flex items-center gap-2 mb-1">
@@ -839,7 +823,7 @@
                   {Array.from({ length: Math.ceil(totalItems / itemsPerView) }).map((_, idx) => (
                     <button
                       key={idx}
-                      className={`carousel-dot ${idx === Math.floor(offset / (containerRef.current?.getBoundingClientRect().width || 1) * itemsPerView) ? 'active' : ''}`}
+                      className={`carousel-dot ${idx === Math.floor(offset / slideWidth) ? 'active' : ''}`}
                       onClick={() => goToSlide(idx * itemsPerView)}
                     />
                   ))}
