@@ -79,23 +79,125 @@
     .deal-card .deal-desc { font-size:.65rem; color:rgba(255,255,255,0.4); }
     .deal-card .btn-neon-sm { font-size:.75rem; padding:6px 12px; border-radius:30px; background:linear-gradient(135deg,#ef4444,#dc2626); color:#fff; border:none; font-weight:600; transition:all .3s ease; cursor:pointer; }
     .deal-card .btn-neon-sm:hover { transform:scale(1.02); box-shadow:0 0 20px rgba(239,68,68,0.3); }
-    /* Carousel styles - multi-item */
-    .carousel-container { position:relative; overflow:hidden; border-radius:16px; }
-    .carousel-track { display:flex; transition:transform 0.7s cubic-bezier(0.25, 0.46, 0.45, 0.94); will-change:transform; }
-    .carousel-slide { flex:0 0 25%; padding:0 8px; }
-    @media (max-width:1200px) { .carousel-slide { flex:0 0 33.333%; } }
-    @media (max-width:992px) { .carousel-slide { flex:0 0 50%; } }
-    @media (max-width:640px) { .carousel-slide { flex:0 0 100%; } }
-    .carousel-dots { display:flex; justify-content:center; gap:8px; margin-top:10px; }
-    .carousel-dot { width:8px; height:8px; border-radius:50%; background:rgba(255,255,255,0.12); border:none; cursor:pointer; transition:all .3s ease; }
-    .carousel-dot.active { background:#ef4444; box-shadow:0 0 16px rgba(239,68,68,0.4); width:24px; border-radius:20px; }
+    /* ===== BRAND "Z" LOGO ===== */
+    .brand-z {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-family: 'Georgia', serif;
+      font-weight: 900;
+      font-size: 1.2rem;
+      color: #fff;
+      background: linear-gradient(135deg, #ef4444, #f97316);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      text-shadow: 0 0 20px rgba(239,68,68,0.5), 0 0 60px rgba(239,68,68,0.2);
+      transform: rotate(-4deg) scale(1.1);
+      letter-spacing: -2px;
+      line-height: 1;
+      filter: drop-shadow(0 0 10px rgba(239,68,68,0.3));
+      transition: transform 0.3s ease;
+    }
+    .brand-z:hover {
+      transform: rotate(-2deg) scale(1.2);
+    }
+    .brand-z-sm {
+      font-size: 1.8rem;
+      margin-right: 4px;
+    }
+    .brand-z-lg {
+      font-size: 3rem;
+      margin-right: 8px;
+    }
+    /* ===== NEW CAROUSEL (Continuous Scroll) ===== */
+    .carousel-container {
+      position: relative;
+      overflow: hidden;
+      border-radius: 16px;
+      width: 100%;
+    }
+    .carousel-track {
+      display: flex;
+      will-change: transform;
+      width: max-content;
+      gap: 8px; /* consistent gap between cards */
+    }
+    .carousel-track .carousel-slide {
+      flex: 0 0 auto;
+      width: calc((100% / var(--items-per-view, 4)) - 8px);
+      min-width: 120px;
+      max-width: 280px;
+      padding: 0 4px;
+    }
+    @media (max-width:1200px) {
+      .carousel-track .carousel-slide { width: calc((100% / 3) - 8px); }
+    }
+    @media (max-width:992px) {
+      .carousel-track .carousel-slide { width: calc((100% / 2) - 8px); }
+    }
+    @media (max-width:640px) {
+      .carousel-track .carousel-slide { width: calc(100% - 8px); max-width: 100%; }
+    }
+    .carousel-dots {
+      display: flex;
+      justify-content: center;
+      gap: 8px;
+      margin-top: 10px;
+    }
+    .carousel-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.12);
+      border: none;
+      cursor: pointer;
+      transition: all .3s ease;
+    }
+    .carousel-dot.active {
+      background: #ef4444;
+      box-shadow: 0 0 16px rgba(239,68,68,0.4);
+      width: 24px;
+      border-radius: 20px;
+    }
     .carousel-dot:hover { background:rgba(239,68,68,0.5); }
-    .carousel-btn { position:absolute; top:50%; transform:translateY(-50%); z-index:10; background:rgba(10,10,10,0.8); backdrop-filter:blur(6px); border:1px solid rgba(239,68,68,0.2); color:white; width:36px; height:36px; border-radius:50%; cursor:pointer; transition:all .3s ease; display:flex; align-items:center; justify-content:center; font-size:.9rem; }
+    .carousel-btn {
+      position: absolute;
+      top: 50%;
+      transform: translateY(-50%);
+      z-index: 10;
+      background: rgba(10,10,10,0.8);
+      backdrop-filter: blur(6px);
+      border: 1px solid rgba(239,68,68,0.2);
+      color: white;
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      cursor: pointer;
+      transition: all .3s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: .9rem;
+    }
     .carousel-btn:hover { background:rgba(239,68,68,0.25); border-color:#ef4444; box-shadow:0 0 20px rgba(239,68,68,0.15); }
-    .carousel-btn.prev { left:-4px; }
-    .carousel-btn.next { right:-4px; }
-    @media (max-width:640px) { .carousel-btn { width:30px; height:30px; font-size:.8rem; } .carousel-btn.prev { left:-2px; } .carousel-btn.next { right:-2px; } }
-    @media (max-width:640px) { .sub-icon { font-size:2.2rem; } .otp-input { width:44px; height:52px; font-size:1.3rem; } .toast-container { left:16px; right:16px; max-width:100%; bottom:16px; } .admin-table th,.admin-table td { padding:8px 10px; font-size:.75rem; } }
+    .carousel-btn.prev { left: 4px; }
+    .carousel-btn.next { right: 4px; }
+    @media (max-width:640px) {
+      .carousel-btn { width:30px; height:30px; font-size:.8rem; }
+      .carousel-btn.prev { left:2px; }
+      .carousel-btn.next { right:2px; }
+    }
+    /* pause on hover */
+    .carousel-container.paused .carousel-track {
+      animation-play-state: paused;
+    }
+    /* ===== other responsive overrides ===== */
+    @media (max-width:640px) {
+      .sub-icon { font-size:2.2rem; }
+      .otp-input { width:44px; height:52px; font-size:1.3rem; }
+      .toast-container { left:16px; right:16px; max-width:100%; bottom:16px; }
+      .admin-table th,.admin-table td { padding:8px 10px; font-size:.75rem; }
+    }
     .fade-up { opacity:0; transform:translateY(30px); transition:all .6s ease; }
     .fade-up.visible { opacity:1; transform:translateY(0); }
     ::selection { background:rgba(239,68,68,0.30); color:#fff; }
@@ -407,9 +509,9 @@
           <nav className="navbar-glass fixed top-0 left-0 right-0 z-50 px-4 md:px-8 py-3">
             <div className="max-w-7xl mx-auto flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <i className="fas fa-bolt text-red-500 text-2xl neon-text"></i>
+                <span className="brand-z brand-z-sm">Z</span>
                 <span className="text-xl font-bold tracking-tight">
-                  <span className="logo-primary">Zetlify</span>
+                  <span className="logo-primary">etlify</span>
                 </span>
               </div>
               <div className="hidden md:flex items-center gap-1">
@@ -471,17 +573,16 @@
       );
     }
 
-    // ─── DEALS CAROUSEL (With buttons & responsive sizing) ───
+    // ─── DEALS CAROUSEL (Continuous Infinite Scroll) ───
     function DealsCarousel({ deals, subscriptions, onPurchaseClick }) {
-      const [currentIndex, setCurrentIndex] = useState(0);
+      const [itemsPerView, setItemsPerView] = useState(4);
+      const [offset, setOffset] = useState(0);
       const [isPaused, setIsPaused] = useState(false);
       const [pauseTimer, setPauseTimer] = useState(null);
-      const [touchStartX, setTouchStartX] = useState(0);
-      const [touchStartY, setTouchStartY] = useState(0);
-      const [isDragging, setIsDragging] = useState(false);
-      const carouselRef = useRef(null);
-      const slideInterval = 4000;
-      const pauseDuration = 5000;
+      const containerRef = useRef(null);
+      const trackRef = useRef(null);
+      const animationRef = useRef(null);
+      const speed = 40; // pixels per second
 
       const icons = { netflix: 'fa-netflix', amazon: 'fa-amazon', youtube: 'fa-youtube', spotify: 'fa-spotify', chatgpt: 'fa-robot', custom: 'fa-plus-circle' };
       const colors = { netflix: '#e50914', amazon: '#ff9900', youtube: '#ff0000', spotify: '#1db954', chatgpt: '#10a37f', custom: '#ef4444' };
@@ -498,6 +599,16 @@
       }, [deals, subscriptions]);
 
       const totalItems = activeDeals.length;
+      // Duplicate items 3 times to ensure seamless looping
+      const repeatedDeals = useMemo(() => {
+        if (totalItems === 0) return [];
+        const reps = 3;
+        const arr = [];
+        for (let i = 0; i < reps; i++) {
+          arr.push(...activeDeals);
+        }
+        return arr;
+      }, [activeDeals, totalItems]);
 
       // Responsive items per view
       const getItemsPerView = () => {
@@ -509,208 +620,179 @@
         return 1;
       };
 
-      const [itemsPerView, setItemsPerView] = useState(getItemsPerView());
-
       useEffect(() => {
-        const handleResize = () => setItemsPerView(getItemsPerView());
+        const handleResize = () => {
+          setItemsPerView(getItemsPerView());
+        };
         window.addEventListener('resize', handleResize);
+        handleResize();
         return () => window.removeEventListener('resize', handleResize);
       }, []);
 
-      // Auto-slide
-      useEffect(() => {
-        if (isPaused || totalItems <= itemsPerView) return;
-        const interval = setInterval(() => {
-          const maxIndex = Math.max(0, totalItems - itemsPerView);
-          setCurrentIndex(prev => (prev + 1) % (maxIndex + 1));
-        }, slideInterval);
-        return () => clearInterval(interval);
-      }, [isPaused, totalItems, itemsPerView]);
+      // Compute total width of one set of items
+      const [oneSetWidth, setOneSetWidth] = useState(0);
 
       useEffect(() => {
-        return () => {
-          if (pauseTimer) clearTimeout(pauseTimer);
+        if (trackRef.current && containerRef.current) {
+          const containerWidth = containerRef.current.getBoundingClientRect().width;
+          const itemWidth = (containerWidth / itemsPerView) - 8; // gap included
+          const total = itemWidth * totalItems;
+          setOneSetWidth(total);
+        }
+      }, [itemsPerView, totalItems, activeDeals]);
+
+      // Animation loop
+      useEffect(() => {
+        if (isPaused || totalItems === 0 || oneSetWidth === 0) {
+          if (animationRef.current) {
+            cancelAnimationFrame(animationRef.current);
+            animationRef.current = null;
+          }
+          return;
+        }
+
+        let lastTimestamp = performance.now();
+
+        const animate = (timestamp) => {
+          const delta = (timestamp - lastTimestamp) / 1000;
+          lastTimestamp = timestamp;
+          setOffset(prev => {
+            let newOffset = prev + speed * delta;
+            if (newOffset >= oneSetWidth) {
+              newOffset = newOffset - oneSetWidth;
+            }
+            return newOffset;
+          });
+          animationRef.current = requestAnimationFrame(animate);
         };
-      }, [pauseTimer]);
 
+        animationRef.current = requestAnimationFrame(animate);
+        return () => {
+          if (animationRef.current) {
+            cancelAnimationFrame(animationRef.current);
+            animationRef.current = null;
+          }
+        };
+      }, [isPaused, totalItems, oneSetWidth, speed]);
+
+      // Pause/Resume on hover
       const handlePause = () => {
         setIsPaused(true);
-        if (pauseTimer) {
-          clearTimeout(pauseTimer);
-          setPauseTimer(null);
-        }
+        if (pauseTimer) clearTimeout(pauseTimer);
       };
 
       const handleResume = () => {
         const timer = setTimeout(() => {
           setIsPaused(false);
-        }, pauseDuration);
+        }, 3000);
         setPauseTimer(timer);
       };
 
+      // Manual navigation
       const goToPrev = () => {
-        const maxIndex = Math.max(0, totalItems - itemsPerView);
-        setCurrentIndex(prev => Math.max(prev - 1, 0));
         handlePause();
+        const containerWidth = containerRef.current?.getBoundingClientRect().width || 0;
+        const itemWidth = containerWidth / itemsPerView;
+        setOffset(prev => Math.max(prev - itemWidth, 0));
         setTimeout(handleResume, 3000);
       };
 
       const goToNext = () => {
-        const maxIndex = Math.max(0, totalItems - itemsPerView);
-        setCurrentIndex(prev => Math.min(prev + 1, maxIndex));
         handlePause();
+        const containerWidth = containerRef.current?.getBoundingClientRect().width || 0;
+        const itemWidth = containerWidth / itemsPerView;
+        setOffset(prev => {
+          let newOffset = prev + itemWidth;
+          if (newOffset >= oneSetWidth) newOffset = newOffset - oneSetWidth;
+          return newOffset;
+        });
         setTimeout(handleResume, 3000);
       };
 
       const goToSlide = (index) => {
-        setCurrentIndex(index);
         handlePause();
+        const containerWidth = containerRef.current?.getBoundingClientRect().width || 0;
+        const itemWidth = containerWidth / itemsPerView;
+        setOffset(index * itemWidth);
         setTimeout(handleResume, 3000);
-      };
-
-      const handleTouchStart = (e) => {
-        handlePause();
-        setTouchStartX(e.touches[0].clientX);
-        setTouchStartY(e.touches[0].clientY);
-        setIsDragging(true);
-      };
-
-      const handleTouchMove = (e) => {
-        if (!isDragging) return;
-        const currentX = e.touches[0].clientX;
-        const diff = touchStartX - currentX;
-        const currentY = e.touches[0].clientY;
-        const diffY = Math.abs(touchStartY - currentY);
-        if (Math.abs(diff) > diffY && Math.abs(diff) > 10) {
-          e.preventDefault();
-        }
-      };
-
-      const handleTouchEnd = (e) => {
-        setIsDragging(false);
-        const touchEndX = e.changedTouches[0].clientX;
-        const diff = touchStartX - touchEndX;
-        const maxIndex = Math.max(0, totalItems - itemsPerView);
-        if (Math.abs(diff) > 50) {
-          if (diff > 0) {
-            setCurrentIndex(prev => Math.min(prev + 1, maxIndex));
-          } else {
-            setCurrentIndex(prev => Math.max(prev - 1, 0));
-          }
-        }
-        handleResume();
-      };
-
-      const handleMouseDown = (e) => {
-        handlePause();
-        setTouchStartX(e.clientX);
-        setTouchStartY(e.clientY);
-        setIsDragging(true);
-      };
-
-      const handleMouseMove = (e) => {
-        if (!isDragging) return;
-        const diff = touchStartX - e.clientX;
-        if (Math.abs(diff) > 10) {
-          e.preventDefault();
-        }
-      };
-
-      const handleMouseUp = (e) => {
-        if (!isDragging) return;
-        setIsDragging(false);
-        const diff = touchStartX - e.clientX;
-        const maxIndex = Math.max(0, totalItems - itemsPerView);
-        if (Math.abs(diff) > 50) {
-          if (diff > 0) {
-            setCurrentIndex(prev => Math.min(prev + 1, maxIndex));
-          } else {
-            setCurrentIndex(prev => Math.max(prev - 1, 0));
-          }
-        }
-        handleResume();
       };
 
       if (activeDeals.length === 0) return null;
 
-      const maxIndex = Math.max(0, totalItems - itemsPerView);
-      const currentSlide = Math.min(currentIndex, maxIndex);
-
       return (
         <div className="max-w-7xl mx-auto px-4 py-4 relative">
           <div className="flex items-center gap-3 mb-4">
-            <i className="fas fa-bolt text-red-500 text-xl"></i>
+            <span className="brand-z brand-z-sm">Z</span>
             <h2 className="text-xl font-bold text-white">🔥 Hot Deals!</h2>
             <span className="text-white/30 text-xs ml-2">Limited time offers</span>
           </div>
 
-          <div className="relative">
+          <div
+            className={`carousel-container ${isPaused ? 'paused' : ''}`}
+            ref={containerRef}
+            onMouseEnter={handlePause}
+            onMouseLeave={handleResume}
+            onTouchStart={handlePause}
+            onTouchEnd={handleResume}
+            style={{ '--items-per-view': itemsPerView }}
+          >
             <div
-              className="carousel-container relative"
-              ref={carouselRef}
-              onTouchStart={handleTouchStart}
-              onTouchMove={handleTouchMove}
-              onTouchEnd={handleTouchEnd}
-              onMouseDown={handleMouseDown}
-              onMouseMove={handleMouseMove}
-              onMouseUp={handleMouseUp}
-              onMouseLeave={handleMouseUp}
-              style={{ touchAction: 'none' }}
+              className="carousel-track"
+              ref={trackRef}
+              style={{
+                transform: `translateX(-${offset}px)`,
+                transition: 'none',
+                gap: '8px',
+              }}
             >
-              <div
-                className="carousel-track"
-                style={{
-                  transform: `translateX(-${currentSlide * (100 / itemsPerView)}%)`,
-                  width: `${(totalItems / itemsPerView) * 100}%`
-                }}
-              >
-                {activeDeals.map((deal, idx) => {
-                  const firstSub = deal.subscriptions[0];
-                  const icon = icons[firstSub?.type] || 'fa-crown';
-                  const color = colors[firstSub?.type] || '#ef4444';
-                  const discount = Math.round((1 - deal.discountPrice / deal.actualPrice) * 100);
-                  const isCombo = deal.subscriptions.length > 1;
-
-                  return (
-                    <div key={deal.id} className="carousel-slide">
-                      <div className="deal-card">
-                        <div className="discount-badge">-{discount}%</div>
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-1">
-                            <i className={`fab ${icon} text-xl`} style={{ color }}></i>
-                            <div className="min-w-0">
-                              <h3 className="deal-title truncate">{deal.title}</h3>
-                              <p className="deal-desc truncate">{deal.description || firstSub?.name || ''}</p>
-                            </div>
+              {repeatedDeals.map((deal, idx) => {
+                const firstSub = deal.subscriptions[0];
+                const icon = icons[firstSub?.type] || 'fa-crown';
+                const color = colors[firstSub?.type] || '#ef4444';
+                const discount = Math.round((1 - deal.discountPrice / deal.actualPrice) * 100);
+                const isCombo = deal.subscriptions.length > 1;
+                // Add brand Z on each card
+                return (
+                  <div key={deal.id + '-' + idx} className="carousel-slide">
+                    <div className="deal-card relative">
+                      <div className="discount-badge">-{discount}%</div>
+                      {/* Brand Z watermark */}
+                      <div className="absolute top-2 left-2 text-white/10 text-3xl font-black select-none pointer-events-none" style={{ fontFamily: 'Georgia, serif', transform: 'rotate(-8deg)' }}>Z</div>
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-1">
+                          <i className={`fab ${icon} text-xl`} style={{ color }}></i>
+                          <div className="min-w-0">
+                            <h3 className="deal-title truncate">{deal.title}</h3>
+                            <p className="deal-desc truncate">{deal.description || firstSub?.name || ''}</p>
                           </div>
-                          {isCombo && (
-                            <div className="deal-sub-badges">
-                              {deal.subscriptions.map(sub => (
-                                <span key={sub.id} className="deal-sub-badge">
-                                  <i className={`fab ${icons[sub.type] || 'fa-crown'}`} style={{ color: colors[sub.type] || '#ef4444' }}></i>
-                                  {sub.name}
-                                </span>
-                              ))}
-                            </div>
-                          )}
                         </div>
-                        <div className="mt-1 flex items-center justify-between">
-                          <div>
-                            <span className="deal-price-original">RS {deal.actualPrice}</span>
-                            <span className="deal-price-discount ml-1">RS {deal.discountPrice}</span>
+                        {isCombo && (
+                          <div className="deal-sub-badges">
+                            {deal.subscriptions.map(sub => (
+                              <span key={sub.id} className="deal-sub-badge">
+                                <i className={`fab ${icons[sub.type] || 'fa-crown'}`} style={{ color: colors[sub.type] || '#ef4444' }}></i>
+                                {sub.name}
+                              </span>
+                            ))}
                           </div>
-                          <button
-                            onClick={(e) => { e.stopPropagation(); onPurchaseClick(deal); }}
-                            className="btn-neon-sm"
-                          >
-                            <i className="fas fa-shopping-cart mr-1"></i> Buy
-                          </button>
+                        )}
+                      </div>
+                      <div className="mt-1 flex items-center justify-between">
+                        <div>
+                          <span className="deal-price-original">RS {deal.actualPrice}</span>
+                          <span className="deal-price-discount ml-1">RS {deal.discountPrice}</span>
                         </div>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); onPurchaseClick(deal); }}
+                          className="btn-neon-sm"
+                        >
+                          <i className="fas fa-shopping-cart mr-1"></i> Buy
+                        </button>
                       </div>
                     </div>
-                  );
-                })}
-              </div>
+                  </div>
+                );
+              })}
             </div>
 
             {totalItems > itemsPerView && (
@@ -725,8 +807,8 @@
                   {Array.from({ length: Math.ceil(totalItems / itemsPerView) }).map((_, idx) => (
                     <button
                       key={idx}
-                      className={`carousel-dot ${idx === Math.floor(currentSlide / Math.ceil(totalItems / itemsPerView)) ? 'active' : ''}`}
-                      onClick={() => goToSlide(idx * Math.ceil(totalItems / itemsPerView))}
+                      className={`carousel-dot ${idx === Math.floor(offset / (containerRef.current?.getBoundingClientRect().width || 1) * itemsPerView) ? 'active' : ''}`}
+                      onClick={() => goToSlide(idx * itemsPerView)}
                     />
                   ))}
                 </div>
@@ -743,7 +825,8 @@
         <section className="pt-12 pb-14 px-4 max-w-7xl mx-auto">
           <div className="text-center">
             <div className="inline-block mb-4 px-5 py-2 rounded-full bg-red-500/10 border border-red-500/20 text-red-300 text-sm font-medium">
-              <i className="fas fa-bolt mr-2"></i> Unlimited Subscriptions
+              <span className="brand-z brand-z-sm" style={{ fontSize: '1.2rem', marginRight: '6px' }}>Z</span>
+              Unlimited Subscriptions
             </div>
             <h1 className="text-4xl md:text-6xl lg:text-7xl font-bold leading-tight">
               Get Your Favorite <br className="sm:hidden" />
@@ -1935,7 +2018,7 @@
         if (activeDeals.length === 0) return null;
         return (
           <div>
-            <h3 className="text-xl font-bold text-white mb-4"><i className="fas fa-fire text-orange-400 mr-2"></i> Hot Deals</h3>
+            <h3 className="text-xl font-bold text-white mb-4"><span className="brand-z brand-z-sm">Z</span> Hot Deals</h3>
             <DealsCarousel
               deals={activeDeals}
               subscriptions={subscriptions || []}
@@ -1952,7 +2035,7 @@
             <div className="glass-panel max-w-4xl mx-auto">
               <div className="flex justify-between items-start mb-6">
                 <div>
-                  <h2 className="text-2xl font-bold text-white"><i className="fas fa-user-circle text-red-400 mr-3"></i> {displayName}</h2>
+                  <h2 className="text-2xl font-bold text-white"><span className="brand-z brand-z-sm">Z</span> {displayName}</h2>
                   <p className="text-white/30 text-sm"><i className="fab fa-whatsapp mr-1"></i> {displayWhatsapp}</p>
                   <p className="text-white/30 text-sm"><i className="fas fa-coins mr-1"></i> Credits: {userCredits}</p>
                 </div>
@@ -1975,7 +2058,7 @@
             <div className="glass-panel max-w-4xl mx-auto">
               <div className="flex justify-between items-start mb-6">
                 <div>
-                  <h2 className="text-2xl font-bold text-white"><i className="fas fa-user-circle text-red-400 mr-3"></i> {displayName}</h2>
+                  <h2 className="text-2xl font-bold text-white"><span className="brand-z brand-z-sm">Z</span> {displayName}</h2>
                   <p className="text-white/30 text-sm"><i className="fab fa-whatsapp mr-1"></i> {displayWhatsapp}</p>
                   <p className="text-white/30 text-sm"><i className="fas fa-coins mr-1"></i> Credits: {userCredits}</p>
                 </div>
@@ -1997,7 +2080,7 @@
           <div className="glass-panel max-w-4xl mx-auto">
             <div className="flex justify-between items-start mb-6">
               <div>
-                <h2 className="text-2xl font-bold text-white"><i className="fas fa-user-circle text-red-400 mr-3"></i> {displayName}</h2>
+                <h2 className="text-2xl font-bold text-white"><span className="brand-z brand-z-sm">Z</span> {displayName}</h2>
                 <p className="text-white/30 text-sm"><i className="fab fa-whatsapp mr-1"></i> {displayWhatsapp}</p>
                 <p className="text-white/30 text-sm"><i className="fas fa-coins mr-1"></i> Credits: {userCredits}</p>
               </div>
@@ -2664,7 +2747,7 @@
         <div className="space-y-6">
           <div className="flex flex-wrap justify-between items-center gap-4">
             <div>
-              <h2 className="text-2xl font-bold text-white"><i className="fas fa-user-shield text-red-400 mr-3"></i> Admin Dashboard</h2>
+              <h2 className="text-2xl font-bold text-white"><span className="brand-z brand-z-sm">Z</span> Admin Dashboard</h2>
               <p className="text-white/30 text-sm">Manage everything.</p>
             </div>
             <div className="flex flex-wrap gap-2">
@@ -3640,7 +3723,7 @@
               <div className="pt-6">
                 {flowStep === 'welcome' && (
                   <div className="text-center">
-                    <h2 className="text-3xl font-bold text-white mb-4"><i className="fas fa-gem text-red-400 mr-3"></i> Get Subscription</h2>
+                    <h2 className="text-3xl font-bold text-white mb-4"><span className="brand-z brand-z-sm">Z</span> Get Subscription</h2>
                     <p className="text-white/40 mb-8">Choose an option to continue.</p>
                     <div className="flex flex-wrap justify-center gap-4">
                       <button onClick={handleGetStarted} className="btn-neon px-10 py-4 text-lg">
@@ -3666,11 +3749,11 @@
                     <button onClick={() => { setFlowStep('welcome'); setFlowType(null); }} className="text-red-400 hover:text-red-300 text-sm mb-6 inline-flex items-center">
                       <i className="fas fa-arrow-left mr-2"></i> Back
                     </button>
-                    <h2 className="text-2xl font-bold text-white mb-6"><i className="fas fa-crown text-red-400 mr-3"></i> Choose Subscription</h2>
+                    <h2 className="text-2xl font-bold text-white mb-6"><span className="brand-z brand-z-sm">Z</span> Choose Subscription</h2>
                     <SubscriptionSelection subscriptions={subscriptions} onSelect={handleSubSelect} selected={selectedSubscription} />
                     {dealsWithSub.length > 0 && (
                       <div className="mt-8">
-                        <h3 className="text-xl font-bold text-white mb-4"><i className="fas fa-fire text-orange-400 mr-2"></i> 🔥 Hot Deals</h3>
+                        <h3 className="text-xl font-bold text-white mb-4"><span className="brand-z brand-z-sm">Z</span> Hot Deals</h3>
                         <DealsCarousel deals={dealsWithSub} subscriptions={subscriptions} onPurchaseClick={handleDealPurchase} />
                       </div>
                     )}
@@ -3693,7 +3776,7 @@
           {activeTab === 'contact' && (
             <section id="contact-section" className="px-4 max-w-3xl mx-auto py-20">
               <div className="glass-panel">
-                <h2 className="text-3xl font-bold text-white mb-2"><i className="fas fa-envelope text-red-400 mr-3"></i> Contact Us</h2>
+                <h2 className="text-3xl font-bold text-white mb-2"><span className="brand-z brand-z-sm">Z</span> Contact Us</h2>
                 <p className="text-white/40 mb-6">Have questions? Reach out.</p>
                 <div className="space-y-4">
                   <div className="flex items-center gap-4 p-3 rounded-xl bg-white/5"><i className="fas fa-envelope text-red-400 w-6"></i> <span className="text-white/60">support@zetlify.com</span></div>
@@ -3706,7 +3789,7 @@
           {activeTab === 'social' && (
             <section id="social-section" className="px-4 max-w-3xl mx-auto py-20">
               <div className="glass-panel">
-                <h2 className="text-3xl font-bold text-white mb-2"><i className="fas fa-share-alt text-red-400 mr-3"></i> Social Media</h2>
+                <h2 className="text-3xl font-bold text-white mb-2"><span className="brand-z brand-z-sm">Z</span> Social Media</h2>
                 <p className="text-white/40 mb-6">Follow us.</p>
                 <div className="flex flex-wrap gap-4">
                   <a href="#" className="flex items-center gap-3 px-6 py-3 rounded-xl bg-white/5 hover:bg-white/10 transition border border-white/5"><i className="fab fa-facebook text-blue-400 text-xl"></i> <span className="text-white/60">Facebook</span></a>
