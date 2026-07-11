@@ -127,23 +127,25 @@
       margin-right: 4px;
       filter: drop-shadow(0 0 6px rgba(229,9,20,0.5));
     }
-    /* ===== CAROUSEL (fixed for mobile) ===== */
+    /* ===== CAROUSEL ===== */
     .carousel-container {
       position: relative;
       overflow: hidden;
       border-radius: 16px;
       width: 100%;
       touch-action: pan-y;
+      user-select: none;
     }
     .carousel-track {
       display: flex;
       will-change: transform;
       gap: 8px;
       width: max-content;
+      transition: none;
     }
     .carousel-slide {
       flex: 0 0 auto;
-      /* width set inline via JS */;
+      /* width set inline via JS */
     }
     .carousel-dots {
       display: flex;
@@ -189,14 +191,43 @@
     .carousel-btn:hover { background:rgba(239,68,68,0.25); border-color:#ef4444; box-shadow:0 0 20px rgba(239,68,68,0.15); }
     .carousel-btn.prev { left: 4px; }
     .carousel-btn.next { right: 4px; }
+    /* Hide buttons on mobile (swipe-only) */
     @media (max-width:640px) {
-      .carousel-btn { width:30px; height:30px; font-size:.8rem; }
-      .carousel-btn.prev { left:2px; }
-      .carousel-btn.next { right:2px; }
+      .carousel-btn { display: none; }
+      .carousel-btn.prev, .carousel-btn.next { display: none; }
     }
     /* pause on hover */
     .carousel-container.paused .carousel-track {
       animation-play-state: paused;
+    }
+    /* ===== WHATSAPP FLOATING BUTTON ===== */
+    .whatsapp-float {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      z-index: 999;
+      background: #25D366;
+      color: #fff;
+      border-radius: 50%;
+      width: 60px;
+      height: 60px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 2.4rem;
+      box-shadow: 0 4px 20px rgba(37,211,102,0.4);
+      transition: transform 0.3s ease, box-shadow 0.3s ease;
+      text-decoration: none;
+      animation: pulse 2s infinite;
+    }
+    .whatsapp-float:hover {
+      transform: scale(1.1);
+      box-shadow: 0 6px 30px rgba(37,211,102,0.6);
+    }
+    @keyframes pulse {
+      0% { box-shadow: 0 0 0 0 rgba(37,211,102,0.5); }
+      70% { box-shadow: 0 0 0 15px rgba(37,211,102,0); }
+      100% { box-shadow: 0 0 0 0 rgba(37,211,102,0); }
     }
     /* ===== other responsive overrides ===== */
     @media (max-width:640px) {
@@ -204,6 +235,7 @@
       .otp-input { width:44px; height:52px; font-size:1.3rem; }
       .toast-container { left:16px; right:16px; max-width:100%; bottom:16px; }
       .admin-table th,.admin-table td { padding:8px 10px; font-size:.75rem; }
+      .whatsapp-float { width:50px; height:50px; font-size:2rem; bottom:16px; right:16px; }
     }
     .fade-up { opacity:0; transform:translateY(30px); transition:all .6s ease; }
     .fade-up.visible { opacity:1; transform:translateY(0); }
@@ -224,6 +256,7 @@
     .logo-primary { font-size:1.6rem; font-weight:800; letter-spacing:-0.5px; background:linear-gradient(135deg,#ef4444,#dc2626); -webkit-background-clip:text; -webkit-text-fill-color:transparent; }
     .logo-secondary { font-weight:700; color:#fca5a5; }
     .logo-icon { color:#ef4444; }
+    /* remove extra lines around netflix logo? not needed */
   </style>
 </head>
 <body>
@@ -580,17 +613,25 @@
       );
     }
 
-    // ─── DEALS CAROUSEL (Fixed mobile sizing) ─────────────────
+    // ─── DEALS CAROUSEL (with touch drag + momentum) ────────
     function DealsCarousel({ deals, subscriptions, onPurchaseClick }) {
       const [itemsPerView, setItemsPerView] = useState(4);
       const [offset, setOffset] = useState(0);
       const [isPaused, setIsPaused] = useState(false);
-      const [pauseTimer, setPauseTimer] = useState(null);
       const [containerWidth, setContainerWidth] = useState(0);
       const containerRef = useRef(null);
       const trackRef = useRef(null);
       const animationRef = useRef(null);
-      const speed = 30; // pixels per second
+      const speed = 30; // base auto-scroll speed (pixels/sec)
+
+      // Touch drag state
+      const [isDragging, setIsDragging] = useState(false);
+      const [dragStartX, setDragStartX] = useState(0);
+      const [dragOffsetStart, setDragOffsetStart] = useState(0);
+      const [dragVelocity, setDragVelocity] = useState(0);
+      const lastMoveTime = useRef(0);
+      const lastMoveX = useRef(0);
+      const momentumId = useRef(null);
 
       const icons = { netflix: 'fa-netflix', amazon: 'fa-amazon', youtube: 'fa-youtube', spotify: 'fa-spotify', chatgpt: 'fa-robot', custom: 'fa-plus-circle' };
       const colors = { netflix: '#e50914', amazon: '#ff9900', youtube: '#ff0000', spotify: '#1db954', chatgpt: '#10a37f', custom: '#ef4444' };
@@ -647,14 +688,13 @@
         return () => ro.disconnect();
       }, [itemsPerView]);
 
-      // Compute slide width and oneSetWidth
       const gap = 8;
       const slideWidth = containerWidth > 0 ? (containerWidth / itemsPerView) - gap : 0;
       const oneSetWidth = slideWidth * totalItems + gap * (totalItems - 1);
 
-      // Animation loop
+      // Auto-animation (only if not dragging and not paused)
       useEffect(() => {
-        if (isPaused || totalItems === 0 || oneSetWidth === 0 || slideWidth === 0) {
+        if (isPaused || totalItems === 0 || oneSetWidth === 0 || slideWidth === 0 || isDragging) {
           if (animationRef.current) {
             cancelAnimationFrame(animationRef.current);
             animationRef.current = null;
@@ -684,41 +724,144 @@
             animationRef.current = null;
           }
         };
-      }, [isPaused, totalItems, oneSetWidth, slideWidth, speed]);
+      }, [isPaused, totalItems, oneSetWidth, slideWidth, speed, isDragging]);
 
+      // Handle drag start
+      const handleDragStart = (clientX) => {
+        setIsDragging(true);
+        setIsPaused(true);
+        setDragStartX(clientX);
+        setDragOffsetStart(offset);
+        setDragVelocity(0);
+        lastMoveTime.current = Date.now();
+        lastMoveX.current = clientX;
+        if (momentumId.current) {
+          cancelAnimationFrame(momentumId.current);
+          momentumId.current = null;
+        }
+        if (animationRef.current) {
+          cancelAnimationFrame(animationRef.current);
+          animationRef.current = null;
+        }
+      };
+
+      const handleDragMove = (clientX) => {
+        if (!isDragging) return;
+        const diff = clientX - dragStartX;
+        let newOffset = dragOffsetStart - diff;
+        // Clamp to bounds (0 to oneSetWidth)
+        if (newOffset < 0) newOffset = 0;
+        if (newOffset > oneSetWidth) newOffset = oneSetWidth;
+        setOffset(newOffset);
+
+        // Update velocity
+        const now = Date.now();
+        const dt = now - lastMoveTime.current;
+        if (dt > 0) {
+          const dx = clientX - lastMoveX.current;
+          const vel = dx / dt; // pixels per ms
+          setDragVelocity(vel);
+        }
+        lastMoveTime.current = now;
+        lastMoveX.current = clientX;
+      };
+
+      const handleDragEnd = () => {
+        if (!isDragging) return;
+        setIsDragging(false);
+        // Apply momentum if velocity is significant
+        const vel = dragVelocity;
+        if (Math.abs(vel) > 0.2) {
+          // Apply momentum scroll
+          let momentumOffset = offset;
+          const momentumStep = () => {
+            const dt = 16; // ~60fps
+            const decay = 0.97;
+            let velDecay = vel * decay;
+            momentumOffset = momentumOffset - velDecay * dt;
+            if (momentumOffset < 0) {
+              momentumOffset = 0;
+              velDecay = 0;
+            } else if (momentumOffset > oneSetWidth) {
+              momentumOffset = oneSetWidth;
+              velDecay = 0;
+            }
+            setOffset(momentumOffset);
+            if (Math.abs(velDecay) > 0.1 && momentumOffset > 0 && momentumOffset < oneSetWidth) {
+              momentumId.current = requestAnimationFrame(momentumStep);
+            } else {
+              // Snap to nearest slide?
+              // Resume auto after a delay
+              setTimeout(() => {
+                setIsPaused(false);
+              }, 2000);
+            }
+          };
+          momentumId.current = requestAnimationFrame(momentumStep);
+        } else {
+          // No significant velocity, resume auto after delay
+          setTimeout(() => {
+            setIsPaused(false);
+          }, 2000);
+        }
+        setDragVelocity(0);
+      };
+
+      // Touch event handlers
+      const onTouchStart = (e) => {
+        const touch = e.touches[0];
+        handleDragStart(touch.clientX);
+      };
+      const onTouchMove = (e) => {
+        e.preventDefault(); // prevent page scroll
+        const touch = e.touches[0];
+        handleDragMove(touch.clientX);
+      };
+      const onTouchEnd = (e) => {
+        handleDragEnd();
+      };
+
+      // Mouse events (for desktop testing)
+      const onMouseDown = (e) => {
+        if (e.button !== 0) return;
+        handleDragStart(e.clientX);
+        const onMouseMove = (ev) => handleDragMove(ev.clientX);
+        const onMouseUp = () => {
+          document.removeEventListener('mousemove', onMouseMove);
+          document.removeEventListener('mouseup', onMouseUp);
+          handleDragEnd();
+        };
+        document.addEventListener('mousemove', onMouseMove);
+        document.addEventListener('mouseup', onMouseUp);
+      };
+
+      // Pause/resume on hover
       const handlePause = () => {
         setIsPaused(true);
-        if (pauseTimer) clearTimeout(pauseTimer);
       };
-
       const handleResume = () => {
-        const timer = setTimeout(() => setIsPaused(false), 3000);
-        setPauseTimer(timer);
+        // Only resume if not dragging
+        if (!isDragging) {
+          setTimeout(() => setIsPaused(false), 3000);
+        }
       };
 
+      // Manual navigation buttons (only for desktop)
       const goToPrev = () => {
         if (slideWidth === 0) return;
-        handlePause();
+        setIsPaused(true);
         setOffset(prev => Math.max(prev - slideWidth, 0));
-        setTimeout(handleResume, 3000);
+        setTimeout(() => setIsPaused(false), 3000);
       };
-
       const goToNext = () => {
         if (slideWidth === 0) return;
-        handlePause();
+        setIsPaused(true);
         setOffset(prev => {
           let newOffset = prev + slideWidth;
           if (newOffset >= oneSetWidth) newOffset = newOffset - oneSetWidth;
           return newOffset;
         });
-        setTimeout(handleResume, 3000);
-      };
-
-      const goToSlide = (index) => {
-        if (slideWidth === 0) return;
-        handlePause();
-        setOffset(index * slideWidth);
-        setTimeout(handleResume, 3000);
+        setTimeout(() => setIsPaused(false), 3000);
       };
 
       if (activeDeals.length === 0) return null;
@@ -736,15 +879,18 @@
             ref={containerRef}
             onMouseEnter={handlePause}
             onMouseLeave={handleResume}
-            onTouchStart={handlePause}
-            onTouchEnd={handleResume}
+            onTouchStart={onTouchStart}
+            onTouchMove={onTouchMove}
+            onTouchEnd={onTouchEnd}
+            onMouseDown={onMouseDown}
+            style={{ touchAction: 'none' }}
           >
             <div
               className="carousel-track"
               ref={trackRef}
               style={{
                 transform: `translateX(-${offset}px)`,
-                transition: 'none',
+                transition: isDragging ? 'none' : 'none',
                 gap: `${gap}px`,
               }}
             >
@@ -824,7 +970,11 @@
                     <button
                       key={idx}
                       className={`carousel-dot ${idx === Math.floor(offset / slideWidth) ? 'active' : ''}`}
-                      onClick={() => goToSlide(idx * itemsPerView)}
+                      onClick={() => {
+                        setIsPaused(true);
+                        setOffset(idx * slideWidth);
+                        setTimeout(() => setIsPaused(false), 3000);
+                      }}
                     />
                   ))}
                 </div>
@@ -832,6 +982,22 @@
             )}
           </div>
         </div>
+      );
+    }
+
+    // ─── WHATSAPP FLOATING BUTTON ─────────────────────────────
+    function WhatsAppButton() {
+      const whatsappLink = 'https://wa.me/923079163485';
+      return (
+        <a
+          href={whatsappLink}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="whatsapp-float"
+          aria-label="Chat on WhatsApp"
+        >
+          <i className="fab fa-whatsapp"></i>
+        </a>
       );
     }
 
@@ -3783,6 +3949,8 @@
                 </div>
               )}
               <Hero setActiveTab={setActiveTab} setShowSubscriptions={setShowSubscriptions} onGetStarted={handleGetStarted} />
+              {/* WhatsApp floating button on home */}
+              <WhatsAppButton />
             </>
           )}
           {(activeTab === 'subscriptions' || showSubscriptions) && (
@@ -3829,13 +3997,17 @@
                 {flowStep === 'flow' && <div className="max-w-lg mx-auto">{renderFlow()}</div>}
                 {flowStep === 'deal-purchase' && <div className="max-w-lg mx-auto">{renderFlow()}</div>}
                 {flowStep === 'customer-dash' && customerData !== null && (
-                  <CustomerDashboard 
-                    customerData={customerData} 
-                    onLogout={() => { resetFlow(); setActiveTab('home'); setShowSubscriptions(false); }}
-                    deals={dealsWithSub}
-                    onDealPurchase={handleDealPurchase}
-                    subscriptions={subscriptions}
-                  />
+                  <>
+                    <CustomerDashboard 
+                      customerData={customerData} 
+                      onLogout={() => { resetFlow(); setActiveTab('home'); setShowSubscriptions(false); }}
+                      deals={dealsWithSub}
+                      onDealPurchase={handleDealPurchase}
+                      subscriptions={subscriptions}
+                    />
+                    {/* WhatsApp button on customer dashboard */}
+                    <WhatsAppButton />
+                  </>
                 )}
               </div>
             </section>
@@ -3847,8 +4019,8 @@
                 <p className="text-white/40 mb-6">Have questions? Reach out.</p>
                 <div className="space-y-4">
                   <div className="flex items-center gap-4 p-3 rounded-xl bg-white/5"><i className="fas fa-envelope text-red-400 w-6"></i> <span className="text-white/60">support@zetlify.com</span></div>
-                  <div className="flex items-center gap-4 p-3 rounded-xl bg-white/5"><i className="fab fa-whatsapp text-green-400 w-6"></i> <span className="text-white/60">+92 300 1234567</span></div>
-                  <div className="flex items-center gap-4 p-3 rounded-xl bg-white/5"><i className="fas fa-phone text-red-400 w-6"></i> <span className="text-white/60">+1 (555) 123-4567</span></div>
+                  <div className="flex items-center gap-4 p-3 rounded-xl bg-white/5"><i className="fab fa-whatsapp text-green-400 w-6"></i> <span className="text-white/60"><a href="https://wa.me/923079163485" target="_blank" rel="noopener noreferrer" className="hover:text-white transition">+92 307 9163485</a></span></div>
+                  <div className="flex items-center gap-4 p-3 rounded-xl bg-white/5"><i className="fas fa-phone text-red-400 w-6"></i> <span className="text-white/60">+92 307 9163485</span></div>
                 </div>
               </div>
             </section>
