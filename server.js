@@ -139,7 +139,7 @@ async function seedData() {
     const defaultDeals = [
       {
         id: 'd1',
-        subscriptionId: '1',
+        subscriptionIds: ['1'],
         title: 'Netflix Premium',
         description: 'Watch unlimited movies & TV shows',
         actualPrice: 500,
@@ -149,11 +149,21 @@ async function seedData() {
       },
       {
         id: 'd2',
-        subscriptionId: '2',
+        subscriptionIds: ['2'],
         title: 'Amazon Prime',
         description: 'Prime Video, Music & Free Delivery',
         actualPrice: 200,
         discountPrice: 150,
+        active: true,
+        createdAt: new Date()
+      },
+      {
+        id: 'd3',
+        subscriptionIds: ['1', '2'],
+        title: 'Netflix + Amazon Combo',
+        description: 'Get both Netflix and Amazon Prime together',
+        actualPrice: 700,
+        discountPrice: 450,
         active: true,
         createdAt: new Date()
       }
@@ -353,7 +363,7 @@ app.post('/api/users/:username/deductCredits', async (req, res) => {
   }
 });
 
-// ---- Deals ----
+// ---- Deals (with subscriptionIds array) ----
 app.get('/api/deals', async (req, res) => {
   try {
     const deals = await dealsCollection.find({}).toArray();
@@ -374,8 +384,8 @@ app.get('/api/deals/active', async (req, res) => {
 
 app.post('/api/deals', async (req, res) => {
   try {
-    const { id, subscriptionId, title, description, actualPrice, discountPrice, active } = req.body;
-    if (!id || !subscriptionId || !title || actualPrice == null || discountPrice == null) {
+    const { id, subscriptionIds, title, description, actualPrice, discountPrice, active } = req.body;
+    if (!id || !subscriptionIds || !subscriptionIds.length || !title || actualPrice == null || discountPrice == null) {
       return res.status(400).json({ error: 'Missing required fields' });
     }
     const existing = await dealsCollection.findOne({ id });
@@ -384,7 +394,7 @@ app.post('/api/deals', async (req, res) => {
     }
     const newDeal = {
       id,
-      subscriptionId,
+      subscriptionIds,
       title,
       description: description || '',
       actualPrice,
@@ -401,9 +411,9 @@ app.post('/api/deals', async (req, res) => {
 
 app.put('/api/deals/:id', async (req, res) => {
   try {
-    const { subscriptionId, title, description, actualPrice, discountPrice, active } = req.body;
+    const { subscriptionIds, title, description, actualPrice, discountPrice, active } = req.body;
     const update = {};
-    if (subscriptionId !== undefined) update.subscriptionId = subscriptionId;
+    if (subscriptionIds !== undefined) update.subscriptionIds = subscriptionIds;
     if (title !== undefined) update.title = title;
     if (description !== undefined) update.description = description;
     if (actualPrice !== undefined) update.actualPrice = actualPrice;

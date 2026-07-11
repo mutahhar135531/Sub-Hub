@@ -66,12 +66,27 @@
     .badge-yellow { background:rgba(251,191,36,0.15); color:#fbbf24; }
     .badge-purple { background:rgba(124,58,237,0.15); color:#a78bfa; }
     .badge-gray { background:rgba(255,255,255,0.05); color:#9ca3af; }
-    .deal-card { background:rgba(18,18,45,0.80); backdrop-filter:blur(12px); border:2px solid rgba(124,58,237,0.30); border-radius:24px; padding:28px 24px; transition:all .3s ease; position:relative; overflow:hidden; }
+    .deal-card { background:rgba(18,18,45,0.80); backdrop-filter:blur(12px); border:2px solid rgba(124,58,237,0.30); border-radius:24px; padding:28px 24px; transition:all .3s ease; position:relative; overflow:hidden; min-height:220px; display:flex; flex-direction:column; justify-content:space-between; }
     .deal-card:hover { border-color:#7c3aed; box-shadow:0 0 60px rgba(124,58,237,0.15); transform:translateY(-4px); }
     .deal-card .discount-badge { position:absolute; top:12px; right:12px; background:linear-gradient(135deg,#fbbf24,#f59e0b); color:#0b0b1a; font-weight:700; padding:4px 14px; border-radius:40px; font-size:.75rem; box-shadow:0 0 30px rgba(251,191,36,0.3); }
     .deal-price-original { color:rgba(255,255,255,0.3); font-size:1.1rem; text-decoration:line-through; }
     .deal-price-discount { color:#34d399; font-size:2.2rem; font-weight:800; text-shadow:0 0 30px rgba(52,211,153,0.2); }
     .deal-price-currency { font-size:1.2rem; font-weight:600; }
+    .deal-sub-badges { display:flex; flex-wrap:wrap; gap:6px; margin-top:8px; }
+    .deal-sub-badge { background:rgba(124,58,237,0.15); border:1px solid rgba(124,58,237,0.20); padding:2px 10px; border-radius:20px; font-size:.7rem; color:#a78bfa; display:inline-flex; align-items:center; gap:4px; }
+    /* Carousel styles */
+    .carousel-container { position:relative; overflow:hidden; border-radius:24px; }
+    .carousel-track { display:flex; transition:transform 0.7s cubic-bezier(0.25, 0.46, 0.45, 0.94); will-change:transform; }
+    .carousel-slide { min-width:100%; padding:0 8px; }
+    .carousel-dots { display:flex; justify-content:center; gap:10px; margin-top:16px; }
+    .carousel-dot { width:10px; height:10px; border-radius:50%; background:rgba(255,255,255,0.15); border:none; cursor:pointer; transition:all .3s ease; }
+    .carousel-dot.active { background:#7c3aed; box-shadow:0 0 20px rgba(124,58,237,0.4); width:28px; border-radius:20px; }
+    .carousel-dot:hover { background:rgba(124,58,237,0.5); }
+    .carousel-btn { position:absolute; top:50%; transform:translateY(-50%); z-index:10; background:rgba(11,11,26,0.7); backdrop-filter:blur(8px); border:1px solid rgba(124,58,237,0.2); color:white; width:40px; height:40px; border-radius:50%; cursor:pointer; transition:all .3s ease; display:flex; align-items:center; justify-content:center; font-size:1.1rem; }
+    .carousel-btn:hover { background:rgba(124,58,237,0.3); border-color:#7c3aed; }
+    .carousel-btn.prev { left:12px; }
+    .carousel-btn.next { right:12px; }
+    @media (max-width:640px) { .carousel-btn { width:32px; height:32px; font-size:.9rem; } .carousel-btn.prev { left:6px; } .carousel-btn.next { right:6px; } }
     @media (max-width:640px) { .sub-icon { font-size:2.2rem; } .otp-input { width:44px; height:52px; font-size:1.3rem; } .toast-container { left:16px; right:16px; max-width:100%; bottom:16px; } .admin-table th,.admin-table td { padding:8px 10px; font-size:.75rem; } }
     .fade-up { opacity:0; transform:translateY(30px); transition:all .6s ease; }
     .fade-up.visible { opacity:1; transform:translateY(0); }
@@ -282,7 +297,7 @@
     // ─── AMAZON PRICING ───────────────────────────────────────
     const getAmazonCredits = (months) => {
       const prices = {
-        1: 150,  // 30 days
+        1: 150,
         3: 450,
         6: 600,
         12: 850
@@ -314,7 +329,6 @@
       };
       const removeToast = (id) => setToasts(prev => prev.filter(t => t.id !== id));
 
-      // Refresh user data from server
       const refreshUser = async () => {
         if (!user?.username) return null;
         try {
@@ -444,20 +458,104 @@
       );
     }
 
-    // ─── DEALS SECTION ────────────────────────────────────────
-    function DealsSection({ deals, subscriptions, onPurchaseClick }) {
+    // ─── DEALS CAROUSEL ──────────────────────────────────────
+    function DealsCarousel({ deals, subscriptions, onPurchaseClick }) {
+      const [currentIndex, setCurrentIndex] = useState(0);
+      const [isPaused, setIsPaused] = useState(false);
+      const [pauseTimer, setPauseTimer] = useState(null);
+      const [touchStartX, setTouchStartX] = useState(0);
+      const carouselRef = useRef(null);
+      const slideInterval = 4000;
+      const pauseDuration = 5000;
+
       const icons = { netflix: 'fa-netflix', amazon: 'fa-amazon', youtube: 'fa-youtube', spotify: 'fa-spotify', chatgpt: 'fa-robot', custom: 'fa-plus-circle' };
       const colors = { netflix: '#e50914', amazon: '#ff9900', youtube: '#ff0000', spotify: '#1db954', chatgpt: '#10a37f', custom: '#7c3aed' };
 
-      if (!deals || deals.length === 0) return null;
+      // Filter active deals with valid subscriptions
+      const activeDeals = useMemo(() => {
+        return deals
+          .map(deal => {
+            const subs = deal.subscriptionIds
+              ? deal.subscriptionIds.map(id => subscriptions.find(s => s.id === id)).filter(Boolean)
+              : [];
+            return { ...deal, subscriptions: subs };
+          })
+          .filter(d => d.subscriptions.length > 0);
+      }, [deals, subscriptions]);
 
-      // Get subscription details for each deal
-      const dealsWithSub = deals.map(deal => {
-        const sub = subscriptions.find(s => s.id === deal.subscriptionId);
-        return { ...deal, subscription: sub };
-      }).filter(d => d.subscription);
+      // Auto-slide effect
+      useEffect(() => {
+        if (isPaused || activeDeals.length <= 1) return;
+        const interval = setInterval(() => {
+          setCurrentIndex(prev => (prev + 1) % activeDeals.length);
+        }, slideInterval);
+        return () => clearInterval(interval);
+      }, [isPaused, activeDeals.length]);
 
-      if (dealsWithSub.length === 0) return null;
+      // Clean up pause timer
+      useEffect(() => {
+        return () => {
+          if (pauseTimer) clearTimeout(pauseTimer);
+        };
+      }, [pauseTimer]);
+
+      const handlePause = () => {
+        setIsPaused(true);
+        if (pauseTimer) {
+          clearTimeout(pauseTimer);
+          setPauseTimer(null);
+        }
+      };
+
+      const handleResume = () => {
+        const timer = setTimeout(() => {
+          setIsPaused(false);
+        }, pauseDuration);
+        setPauseTimer(timer);
+      };
+
+      const handleMouseEnter = () => {
+        handlePause();
+      };
+
+      const handleMouseLeave = () => {
+        handleResume();
+      };
+
+      const handleTouchStart = (e) => {
+        handlePause();
+        setTouchStartX(e.touches[0].clientX);
+      };
+
+      const handleTouchEnd = (e) => {
+        const touchEndX = e.changedTouches[0].clientX;
+        const diff = touchStartX - touchEndX;
+        if (Math.abs(diff) > 50) {
+          if (diff > 0) {
+            goToNext();
+          } else {
+            goToPrev();
+          }
+        }
+        handleResume();
+      };
+
+      const goToNext = () => {
+        setCurrentIndex(prev => (prev + 1) % activeDeals.length);
+      };
+
+      const goToPrev = () => {
+        setCurrentIndex(prev => (prev - 1 + activeDeals.length) % activeDeals.length);
+      };
+
+      const goToSlide = (index) => {
+        setCurrentIndex(index);
+        // Pause briefly on dot click
+        handlePause();
+        setTimeout(handleResume, 3000);
+      };
+
+      if (activeDeals.length === 0) return null;
 
       return (
         <div className="max-w-7xl mx-auto px-4 py-6">
@@ -466,35 +564,86 @@
             <h2 className="text-2xl font-bold text-white">🔥 Hot Deals!</h2>
             <span className="text-white/30 text-sm ml-2">Limited time offers</span>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-            {dealsWithSub.map(deal => {
-              const sub = deal.subscription;
-              const icon = icons[sub?.type] || 'fa-crown';
-              const color = colors[sub?.type] || '#7c3aed';
-              const discount = Math.round((1 - deal.discountPrice / deal.actualPrice) * 100);
-              return (
-                <div key={deal.id} className="deal-card">
-                  <div className="discount-badge">-{discount}% OFF</div>
-                  <div className="flex items-center gap-4 mb-3">
-                    <i className={`fab ${icon} text-3xl`} style={{ color }}></i>
-                    <div>
-                      <h3 className="text-xl font-bold text-white">{deal.title}</h3>
-                      <p className="text-white/40 text-sm">{deal.description || sub?.name || ''}</p>
+
+          <div
+            className="carousel-container relative"
+            ref={carouselRef}
+            onMouseEnter={handleMouseEnter}
+            onMouseLeave={handleMouseLeave}
+            onTouchStart={handleTouchStart}
+            onTouchEnd={handleTouchEnd}
+          >
+            <div
+              className="carousel-track"
+              style={{ transform: `translateX(-${currentIndex * 100}%)` }}
+            >
+              {activeDeals.map((deal, idx) => {
+                const firstSub = deal.subscriptions[0];
+                const icon = icons[firstSub?.type] || 'fa-crown';
+                const color = colors[firstSub?.type] || '#7c3aed';
+                const discount = Math.round((1 - deal.discountPrice / deal.actualPrice) * 100);
+                const isCombo = deal.subscriptions.length > 1;
+
+                return (
+                  <div key={deal.id} className="carousel-slide">
+                    <div className="deal-card" style={{ minHeight: '240px' }}>
+                      <div className="discount-badge">-{discount}% OFF</div>
+                      <div>
+                        <div className="flex items-center gap-4 mb-2">
+                          <i className={`fab ${icon} text-3xl`} style={{ color }}></i>
+                          <div>
+                            <h3 className="text-xl font-bold text-white">{deal.title}</h3>
+                            <p className="text-white/40 text-sm">{deal.description || firstSub?.name || ''}</p>
+                          </div>
+                        </div>
+                        {isCombo && (
+                          <div className="deal-sub-badges">
+                            {deal.subscriptions.map(sub => (
+                              <span key={sub.id} className="deal-sub-badge">
+                                <i className={`fab ${icons[sub.type] || 'fa-crown'}`} style={{ color: colors[sub.type] || '#7c3aed' }}></i>
+                                {sub.name}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                      <div>
+                        <div className="flex items-end gap-3 mt-2">
+                          <span className="deal-price-original">${deal.actualPrice}</span>
+                          <span className="deal-price-discount">${deal.discountPrice}</span>
+                        </div>
+                        <button
+                          onClick={() => onPurchaseClick(deal)}
+                          className="btn-neon w-full mt-3 py-2.5 text-sm"
+                        >
+                          <i className="fas fa-shopping-cart mr-2"></i> Purchase Now
+                        </button>
+                      </div>
                     </div>
                   </div>
-                  <div className="flex items-end gap-3 mt-2">
-                    <span className="deal-price-original">${deal.actualPrice}</span>
-                    <span className="deal-price-discount">${deal.discountPrice}</span>
-                  </div>
-                  <button
-                    onClick={() => onPurchaseClick(deal)}
-                    className="btn-neon w-full mt-4 py-2.5 text-sm"
-                  >
-                    <i className="fas fa-shopping-cart mr-2"></i> Purchase Now
-                  </button>
+                );
+              })}
+            </div>
+
+            {activeDeals.length > 1 && (
+              <>
+                <button className="carousel-btn prev" onClick={goToPrev}>
+                  <i className="fas fa-chevron-left"></i>
+                </button>
+                <button className="carousel-btn next" onClick={goToNext}>
+                  <i className="fas fa-chevron-right"></i>
+                </button>
+                <div className="carousel-dots">
+                  {activeDeals.map((_, idx) => (
+                    <button
+                      key={idx}
+                      className={`carousel-dot ${idx === currentIndex ? 'active' : ''}`}
+                      onClick={() => goToSlide(idx)}
+                    />
+                  ))}
                 </div>
-              );
-            })}
+              </>
+            )}
           </div>
         </div>
       );
@@ -661,7 +810,7 @@
     };
 
     // ─── NETFLIX FLOW ────────────────────────────────────────
-    function NetflixFlow({ subscription, onBack, onComplete, user, onCreditPurchase }) {
+    function NetflixFlow({ subscription, onBack, onComplete, user }) {
       const [screens, setScreens] = useState(1);
       const [durationType, setDurationType] = useState('months');
       const [months, setMonths] = useState(1);
@@ -990,7 +1139,7 @@
     }
 
     // ─── AMAZON FLOW ──────────────────────────────────────────
-    function AmazonFlow({ subscription, onBack, onComplete, user, onCreditPurchase }) {
+    function AmazonFlow({ subscription, onBack, onComplete, user }) {
       const [durationType, setDurationType] = useState('months');
       const [months, setMonths] = useState(1);
       const [days, setDays] = useState(30);
@@ -1255,8 +1404,8 @@
       return null;
     }
 
-    // ─── DEAL PURCHASE FLOW ──────────────────────────────────
-    function DealPurchaseFlow({ deal, subscription, onBack, onComplete, user }) {
+    // ─── DEAL PURCHASE FLOW (supports multiple subscriptions) ──
+    function DealPurchaseFlow({ deal, subscriptions, onBack, onComplete, user }) {
       const [step, setStep] = useState('plan');
       const [name, setName] = useState('');
       const [whatsapp, setWhatsapp] = useState(user?.whatsapp || '');
@@ -1269,11 +1418,18 @@
       const { user: currentUser, setUser } = useContext(UserContext);
       const otpRefs = useRef([]);
 
+      // Get all subscriptions for this deal
+      const dealSubs = useMemo(() => {
+        if (!deal.subscriptionIds) return [];
+        return subscriptions.filter(s => deal.subscriptionIds.includes(s.id));
+      }, [deal, subscriptions]);
+
       const creditsNeeded = deal.discountPrice;
       const canUseCredits = (currentUser?.credits || 0) >= creditsNeeded && creditsNeeded > 0;
 
       const getDescription = () => {
-        return `Deal: ${deal.title} - ${deal.subscription?.name || ''}`;
+        const subNames = dealSubs.map(s => s.name).join(' + ');
+        return `Deal: ${deal.title} - ${subNames}`;
       };
 
       const { generateOTPAPI, verifyOTPAPI } = useOTPFlow(setStep, setOtpTimer, addToast, user?.username || 'Deal User', getDescription());
@@ -1323,7 +1479,7 @@
 
         setLoading(true);
         const now = new Date();
-        const totalDays = 30; // Default 1 month for deals
+        const totalDays = 30;
         const expiry = new Date(now);
         expiry.setDate(expiry.getDate() + totalDays);
 
@@ -1339,31 +1495,100 @@
           }
         }
 
-        // Get the subscription details for allocation
-        const sub = subscription;
-        let allocated = [];
-        let screens = 1;
-        let months = 1;
+        // For each subscription in the deal, allocate a screen
+        let allAllocated = [];
+        let allSubscriptions = [];
 
-        // Simplified allocation for deals (single screen)
-        if (sub && sub.accounts && sub.accounts.length > 0) {
-          const firstAccount = sub.accounts[0];
-          if (firstAccount.screens && firstAccount.screens.length > 0) {
-            const screen = firstAccount.screens[0];
-            allocated = [{
-              accountId: firstAccount.id,
-              screenId: screen.id,
-              screenName: screen.name,
-              accountEmail: firstAccount.email,
-              accountPassword: firstAccount.password || '••••••••',
-              screenPin: screen.pin || 'N/A'
-            }];
+        for (const sub of dealSubs) {
+          const subType = sub.type;
+          let allocatedForSub = [];
+
+          if (subType === 'netflix') {
+            // Allocate 1 Netflix screen
+            const availableSlots = [];
+            sub.accounts.forEach(acc => {
+              if (acc.screens) {
+                acc.screens.forEach(screen => {
+                  const customerCount = screen.customers?.length || 0;
+                  if (customerCount < 3) {
+                    availableSlots.push({ account: acc, screen, used: customerCount });
+                  }
+                });
+              }
+            });
+            const result = allocateScreens(availableSlots, 1, user.username, whatsapp.trim(), null);
+            if (result && !result.error) {
+              allocatedForSub = result.map(slot => ({
+                accountId: slot.account.id,
+                screenId: slot.screen.id,
+                screenName: slot.screen.name,
+                accountEmail: slot.account.email,
+                accountPassword: slot.account.password || '••••••••',
+                screenPin: slot.screen.pin || 'N/A',
+                subscriptionId: sub.id,
+                subscriptionName: sub.name
+              }));
+            }
+          } else if (subType === 'amazon') {
+            // Allocate 1 Amazon slot
+            const availableSlots = [];
+            sub.accounts.forEach(acc => {
+              if (acc.screens) {
+                acc.screens.forEach(screen => {
+                  availableSlots.push({ account: acc, screen, used: 0 });
+                });
+              }
+            });
+            const purchaseCount = user.purchaseCount || 0;
+            const slot = allocateAmazonScreen(availableSlots, user.username, whatsapp.trim(), purchaseCount);
+            if (slot) {
+              allocatedForSub = [{
+                accountId: slot.account.id,
+                screenId: slot.screen.id,
+                screenName: slot.screen.name,
+                accountEmail: slot.account.email,
+                accountPassword: slot.account.password || '••••••••',
+                screenPin: slot.screen.pin || 'N/A',
+                subscriptionId: sub.id,
+                subscriptionName: sub.name
+              }];
+            }
+          } else {
+            // For other types, try to allocate from first account/screen
+            if (sub.accounts && sub.accounts.length > 0) {
+              const firstAcc = sub.accounts[0];
+              if (firstAcc.screens && firstAcc.screens.length > 0) {
+                const screen = firstAcc.screens[0];
+                allocatedForSub = [{
+                  accountId: firstAcc.id,
+                  screenId: screen.id,
+                  screenName: screen.name,
+                  accountEmail: firstAcc.email,
+                  accountPassword: firstAcc.password || '••••••••',
+                  screenPin: screen.pin || 'N/A',
+                  subscriptionId: sub.id,
+                  subscriptionName: sub.name
+                }];
+              }
+            }
           }
+
+          if (allocatedForSub.length > 0) {
+            allAllocated = allAllocated.concat(allocatedForSub);
+            allSubscriptions.push(sub.id);
+          }
+        }
+
+        // Increment purchase count
+        try {
+          await incrementPurchase(user.username);
+        } catch (err) {
+          console.error('Failed to increment purchase count', err);
         }
 
         setTimeout(() => {
           onComplete({
-            subscriptionId: deal.subscriptionId,
+            subscriptionId: deal.subscriptionIds?.[0] || 'deal',
             screens: 1,
             months: 1,
             days: totalDays,
@@ -1371,11 +1596,13 @@
             username: user.username,
             password: user.password,
             whatsapp: whatsapp.trim(),
-            allocated: allocated,
+            allocated: allAllocated,
             expiryDate: expiry.toISOString().split('T')[0],
             paidWithCredits: useCreditsFlag,
             isDeal: true,
-            dealTitle: deal.title
+            dealTitle: deal.title,
+            dealSubscriptionIds: deal.subscriptionIds || [],
+            dealSubscriptions: allSubscriptions
           });
           setLoading(false);
         }, 1200);
@@ -1400,6 +1627,16 @@
             <div className="bg-purple-500/5 rounded-xl p-4 border border-purple-500/10">
               <h3 className="text-xl font-bold text-white">{deal.title}</h3>
               <p className="text-white/40 text-sm">{deal.description || ''}</p>
+              {dealSubs.length > 0 && (
+                <div className="flex flex-wrap gap-2 mt-2">
+                  {dealSubs.map(sub => (
+                    <span key={sub.id} className="deal-sub-badge">
+                      <i className={`fab ${sub.type === 'netflix' ? 'fa-netflix' : sub.type === 'amazon' ? 'fa-amazon' : sub.type === 'youtube' ? 'fa-youtube' : sub.type === 'spotify' ? 'fa-spotify' : sub.type === 'chatgpt' ? 'fa-robot' : 'fa-crown'}`} style={{ color: sub.type === 'netflix' ? '#e50914' : sub.type === 'amazon' ? '#ff9900' : sub.type === 'youtube' ? '#ff0000' : sub.type === 'spotify' ? '#1db954' : sub.type === 'chatgpt' ? '#10a37f' : '#7c3aed' }}></i>
+                      {sub.name}
+                    </span>
+                  ))}
+                </div>
+              )}
               <div className="flex items-center gap-3 mt-2">
                 <span className="text-white/30 line-through">${deal.actualPrice}</span>
                 <span className="text-2xl font-bold text-green-400">${deal.discountPrice}</span>
@@ -1474,9 +1711,17 @@
       return null;
     }
 
-    // ─── YOUTUBE, SPOTIFY, CHATGPT, CUSTOM flows omitted for brevity ───
-    // (Same credit/OTP changes as Netflix/Amazon; implement similarly)
-    // ─── Full code is provided in the final file ─────────────
+    // ─── CUSTOM FLOW ──────────────────────────────────────────
+    function CustomFlow({ subscription, onBack, onComplete, user }) {
+      return (
+        <div className="space-y-6">
+          <button onClick={onBack} className="text-purple-400 hover:text-purple-300 text-sm"><i className="fas fa-arrow-left mr-2"></i> Back</button>
+          <h2 className="text-2xl font-bold text-white"><i className="fas fa-plus-circle text-purple-400 mr-3"></i> {subscription.name}</h2>
+          <p className="text-white/40">This subscription is not fully implemented yet.</p>
+          <button onClick={() => onComplete({ subscriptionId: subscription.id, screens: 1, months: 1, days: 30, name: 'Test', username: user.username, password: user.password, whatsapp: user.whatsapp, allocated: [], expiryDate: new Date().toISOString().split('T')[0] })} className="btn-neon w-full">Complete</button>
+        </div>
+      );
+    }
 
     // ─── AUTH PAGE ─────────────────────────────────────────────
     function AuthPage({ onLogin, onSignup }) {
@@ -1560,7 +1805,6 @@
       const { user, refreshUser } = useContext(UserContext);
       const [userCredits, setUserCredits] = useState(user?.credits || 0);
 
-      // Refresh user data when component mounts
       useEffect(() => {
         if (user) {
           refreshUser().then(updated => {
@@ -1569,7 +1813,6 @@
         }
       }, []);
 
-      // Update credits when user changes
       useEffect(() => {
         setUserCredits(user?.credits || 0);
       }, [user]);
@@ -1604,40 +1847,27 @@
       const displayName = customerData && customerData.length > 0 ? customerData[0].name : user?.username || 'User';
       const displayWhatsapp = customerData && customerData.length > 0 ? customerData[0].whatsapp : user?.whatsapp || 'N/A';
 
+      // Filter active deals for portal
+      const activeDeals = (deals || []).filter(d => d.active);
+
+      const renderDealsSection = () => {
+        if (activeDeals.length === 0) return null;
+        return (
+          <div>
+            <h3 className="text-xl font-bold text-white mb-4"><i className="fas fa-fire text-orange-400 mr-2"></i> Hot Deals</h3>
+            <DealsCarousel
+              deals={activeDeals}
+              subscriptions={[]} // We'll pass subscriptions from parent
+              onPurchaseClick={onDealPurchase}
+            />
+          </div>
+        );
+      };
+
       if (!customerData || customerData.length === 0) {
         return (
           <div className="space-y-6">
-            {/* Deals section */}
-            {deals && deals.length > 0 && (
-              <div>
-                <h3 className="text-xl font-bold text-white mb-4"><i className="fas fa-fire text-orange-400 mr-2"></i> Hot Deals</h3>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {deals.map(deal => {
-                    const sub = deal.subscription;
-                    const icon = sub?.type === 'netflix' ? 'fa-netflix' : sub?.type === 'amazon' ? 'fa-amazon' : sub?.type === 'youtube' ? 'fa-youtube' : sub?.type === 'spotify' ? 'fa-spotify' : sub?.type === 'chatgpt' ? 'fa-robot' : 'fa-crown';
-                    const color = sub?.type === 'netflix' ? '#e50914' : sub?.type === 'amazon' ? '#ff9900' : sub?.type === 'youtube' ? '#ff0000' : sub?.type === 'spotify' ? '#1db954' : sub?.type === 'chatgpt' ? '#10a37f' : '#7c3aed';
-                    const discount = Math.round((1 - deal.discountPrice / deal.actualPrice) * 100);
-                    return (
-                      <div key={deal.id} className="deal-card">
-                        <div className="discount-badge">-{discount}% OFF</div>
-                        <div className="flex items-center gap-3 mb-2">
-                          <i className={`fab ${icon} text-2xl`} style={{ color }}></i>
-                          <h4 className="text-white font-bold">{deal.title}</h4>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <span className="text-white/30 text-sm line-through">${deal.actualPrice}</span>
-                          <span className="text-xl font-bold text-green-400">${deal.discountPrice}</span>
-                        </div>
-                        <button onClick={() => onDealPurchase(deal)} className="btn-neon w-full mt-3 py-2 text-sm">
-                          <i className="fas fa-shopping-cart mr-2"></i> Purchase
-                        </button>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-
+            {renderDealsSection()}
             <div className="glass-panel max-w-4xl mx-auto">
               <div className="flex justify-between items-start mb-6">
                 <div>
@@ -1660,36 +1890,7 @@
       if (activeEntries.length === 0) {
         return (
           <div className="space-y-6">
-            {deals && deals.length > 0 && (
-              <div>
-                <h3 className="text-xl font-bold text-white mb-4"><i className="fas fa-fire text-orange-400 mr-2"></i> Hot Deals</h3>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {deals.map(deal => {
-                    const sub = deal.subscription;
-                    const icon = sub?.type === 'netflix' ? 'fa-netflix' : sub?.type === 'amazon' ? 'fa-amazon' : sub?.type === 'youtube' ? 'fa-youtube' : sub?.type === 'spotify' ? 'fa-spotify' : sub?.type === 'chatgpt' ? 'fa-robot' : 'fa-crown';
-                    const color = sub?.type === 'netflix' ? '#e50914' : sub?.type === 'amazon' ? '#ff9900' : sub?.type === 'youtube' ? '#ff0000' : sub?.type === 'spotify' ? '#1db954' : sub?.type === 'chatgpt' ? '#10a37f' : '#7c3aed';
-                    const discount = Math.round((1 - deal.discountPrice / deal.actualPrice) * 100);
-                    return (
-                      <div key={deal.id} className="deal-card">
-                        <div className="discount-badge">-{discount}% OFF</div>
-                        <div className="flex items-center gap-3 mb-2">
-                          <i className={`fab ${icon} text-2xl`} style={{ color }}></i>
-                          <h4 className="text-white font-bold">{deal.title}</h4>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <span className="text-white/30 text-sm line-through">${deal.actualPrice}</span>
-                          <span className="text-xl font-bold text-green-400">${deal.discountPrice}</span>
-                        </div>
-                        <button onClick={() => onDealPurchase(deal)} className="btn-neon w-full mt-3 py-2 text-sm">
-                          <i className="fas fa-shopping-cart mr-2"></i> Purchase
-                        </button>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-
+            {renderDealsSection()}
             <div className="glass-panel max-w-4xl mx-auto">
               <div className="flex justify-between items-start mb-6">
                 <div>
@@ -1711,36 +1912,7 @@
 
       return (
         <div className="space-y-6">
-          {deals && deals.length > 0 && (
-            <div>
-              <h3 className="text-xl font-bold text-white mb-4"><i className="fas fa-fire text-orange-400 mr-2"></i> Hot Deals</h3>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                {deals.map(deal => {
-                  const sub = deal.subscription;
-                  const icon = sub?.type === 'netflix' ? 'fa-netflix' : sub?.type === 'amazon' ? 'fa-amazon' : sub?.type === 'youtube' ? 'fa-youtube' : sub?.type === 'spotify' ? 'fa-spotify' : sub?.type === 'chatgpt' ? 'fa-robot' : 'fa-crown';
-                  const color = sub?.type === 'netflix' ? '#e50914' : sub?.type === 'amazon' ? '#ff9900' : sub?.type === 'youtube' ? '#ff0000' : sub?.type === 'spotify' ? '#1db954' : sub?.type === 'chatgpt' ? '#10a37f' : '#7c3aed';
-                  const discount = Math.round((1 - deal.discountPrice / deal.actualPrice) * 100);
-                  return (
-                    <div key={deal.id} className="deal-card">
-                      <div className="discount-badge">-{discount}% OFF</div>
-                      <div className="flex items-center gap-3 mb-2">
-                        <i className={`fab ${icon} text-2xl`} style={{ color }}></i>
-                        <h4 className="text-white font-bold">{deal.title}</h4>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-white/30 text-sm line-through">${deal.actualPrice}</span>
-                        <span className="text-xl font-bold text-green-400">${deal.discountPrice}</span>
-                      </div>
-                      <button onClick={() => onDealPurchase(deal)} className="btn-neon w-full mt-3 py-2 text-sm">
-                        <i className="fas fa-shopping-cart mr-2"></i> Purchase
-                      </button>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
+          {renderDealsSection()}
           <div className="glass-panel max-w-4xl mx-auto">
             <div className="flex justify-between items-start mb-6">
               <div>
@@ -1849,7 +2021,7 @@
       );
     }
 
-    // ─── ADMIN DASHBOARD (with Deals tab) ────────────────
+    // ─── ADMIN DASHBOARD ────────────────────────────────
     function AdminDashboard({ subscriptions, setSubscriptions, onLogout, deals, setDeals }) {
       const [activeTab, setActiveTab] = useState('overview');
       const [showAddSub, setShowAddSub] = useState(false);
@@ -1870,7 +2042,7 @@
       const [editingDeal, setEditingDeal] = useState(null);
       const [dealForm, setDealForm] = useState({
         id: '',
-        subscriptionId: '',
+        subscriptionIds: [],
         title: '',
         description: '',
         actualPrice: '',
@@ -1994,7 +2166,7 @@
           setEditingDeal(deal);
           setDealForm({
             id: deal.id,
-            subscriptionId: deal.subscriptionId,
+            subscriptionIds: deal.subscriptionIds || [],
             title: deal.title,
             description: deal.description || '',
             actualPrice: deal.actualPrice,
@@ -2005,7 +2177,7 @@
           setEditingDeal(null);
           setDealForm({
             id: 'd' + Date.now().toString(),
-            subscriptionId: subscriptions[0]?.id || '',
+            subscriptionIds: [],
             title: '',
             description: '',
             actualPrice: '',
@@ -2016,14 +2188,29 @@
         setShowDealModal(true);
       };
 
+      const toggleSubscriptionInDeal = (subId) => {
+        setDealForm(prev => {
+          const ids = prev.subscriptionIds || [];
+          if (ids.includes(subId)) {
+            return { ...prev, subscriptionIds: ids.filter(id => id !== subId) };
+          } else {
+            return { ...prev, subscriptionIds: [...ids, subId] };
+          }
+        });
+      };
+
       const saveDeal = async () => {
-        if (!dealForm.subscriptionId || !dealForm.title || !dealForm.actualPrice || !dealForm.discountPrice) {
+        if (!dealForm.subscriptionIds || dealForm.subscriptionIds.length === 0) {
+          addToast('Please select at least one subscription', 'error');
+          return;
+        }
+        if (!dealForm.title || !dealForm.actualPrice || !dealForm.discountPrice) {
           addToast('Please fill all required fields', 'error');
           return;
         }
         const data = {
           id: dealForm.id,
-          subscriptionId: dealForm.subscriptionId,
+          subscriptionIds: dealForm.subscriptionIds,
           title: dealForm.title,
           description: dealForm.description,
           actualPrice: parseFloat(dealForm.actualPrice),
@@ -2399,7 +2586,7 @@
       };
       const generatePin = () => String(Math.floor(1000 + Math.random() * 9000));
 
-      // ---- Render ----
+      // ─── Render ──────────────────────────────────────────
       return (
         <div className="space-y-6">
           <div className="flex flex-wrap justify-between items-center gap-4">
@@ -2824,15 +3011,19 @@
                 <div className="overflow-x-auto">
                   <table className="admin-table text-sm">
                     <thead>
-                      <tr><th>Title</th><th>Subscription</th><th>Original</th><th>Discount</th><th>Status</th><th>Actions</th></tr>
+                      <tr><th>Title</th><th>Subscriptions</th><th>Original</th><th>Discount</th><th>Status</th><th>Actions</th></tr>
                     </thead>
                     <tbody>
                       {deals.map(deal => {
-                        const sub = subscriptions.find(s => s.id === deal.subscriptionId);
+                        const subNames = (deal.subscriptionIds || [])
+                          .map(id => subscriptions.find(s => s.id === id))
+                          .filter(Boolean)
+                          .map(s => s.name)
+                          .join(', ');
                         return (
                           <tr key={deal.id}>
                             <td className="font-semibold">{deal.title}</td>
-                            <td>{sub?.name || 'N/A'}</td>
+                            <td className="text-xs text-white/40">{subNames || 'N/A'}</td>
                             <td className="text-white/40">${deal.actualPrice}</td>
                             <td className="text-green-400 font-bold">${deal.discountPrice}</td>
                             <td>
@@ -2904,19 +3095,6 @@
                 </h3>
                 <div className="space-y-4">
                   <div>
-                    <label className="text-white/50 text-sm">Subscription</label>
-                    <select
-                      value={dealForm.subscriptionId}
-                      onChange={(e) => setDealForm({ ...dealForm, subscriptionId: e.target.value })}
-                      className="input-neon mt-1"
-                    >
-                      <option value="">Select a subscription</option>
-                      {subscriptions.map(sub => (
-                        <option key={sub.id} value={sub.id}>{sub.name}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
                     <label className="text-white/50 text-sm">Title</label>
                     <input
                       type="text"
@@ -2935,6 +3113,26 @@
                       className="input-neon mt-1"
                       placeholder="e.g. Watch unlimited movies & TV shows"
                     />
+                  </div>
+                  <div>
+                    <label className="text-white/50 text-sm">Select Subscriptions</label>
+                    <div className="mt-2 space-y-2 max-h-40 overflow-y-auto bg-purple-500/5 rounded-xl p-3 border border-purple-500/10">
+                      {subscriptions.map(sub => (
+                        <label key={sub.id} className="flex items-center gap-3 text-white/70 text-sm cursor-pointer hover:text-white">
+                          <input
+                            type="checkbox"
+                            checked={(dealForm.subscriptionIds || []).includes(sub.id)}
+                            onChange={() => toggleSubscriptionInDeal(sub.id)}
+                            className="w-4 h-4 accent-purple-400"
+                          />
+                          <i className={`fab ${sub.type === 'netflix' ? 'fa-netflix' : sub.type === 'amazon' ? 'fa-amazon' : sub.type === 'youtube' ? 'fa-youtube' : sub.type === 'spotify' ? 'fa-spotify' : sub.type === 'chatgpt' ? 'fa-robot' : 'fa-crown'}`} style={{ color: sub.type === 'netflix' ? '#e50914' : sub.type === 'amazon' ? '#ff9900' : sub.type === 'youtube' ? '#ff0000' : sub.type === 'spotify' ? '#1db954' : sub.type === 'chatgpt' ? '#10a37f' : '#7c3aed' }}></i>
+                          {sub.name}
+                        </label>
+                      ))}
+                    </div>
+                    {(!dealForm.subscriptionIds || dealForm.subscriptionIds.length === 0) && (
+                      <p className="text-red-400 text-xs mt-1">Please select at least one subscription</p>
+                    )}
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div>
@@ -3113,76 +3311,98 @@
       const handleSubComplete = async (data) => {
         addToast('Subscription activated! 🎉', 'success');
         console.log('Subscription data:', data);
+
+        // Handle deal with multiple subscriptions
         let updatedSubs = subscriptions.map(sub => {
-          if (sub.id === data.subscriptionId) {
-            const updated = { ...sub };
-            if (data.allocated && data.allocated.length > 0) {
-              data.allocated.forEach(allot => {
-                updated.accounts = updated.accounts.map(acc => {
-                  if (acc.id === allot.accountId) {
-                    acc.screens = acc.screens.map(screen => {
-                      if (screen.id === allot.screenId) {
-                        if (!screen.customers) screen.customers = [];
-                        screen.customers.push({
-                          name: data.name || '',
-                          username: data.username,
-                          password: data.password,
-                          whatsapp: data.whatsapp,
-                          expiryDate: data.expiryDate,
-                          months: data.months || 0,
-                          days: data.days || 0,
-                          screens: data.screens
-                        });
-                      }
-                      return screen;
+          if (data.isDeal) {
+            // For deals, we need to add the customer to each subscription in the deal
+            const dealSubIds = data.dealSubscriptionIds || [];
+            if (dealSubIds.includes(sub.id)) {
+              const updated = { ...sub };
+              // Find the allocated data for this subscription
+              const allocatedForSub = (data.allocated || []).filter(a => a.subscriptionId === sub.id);
+              if (allocatedForSub.length > 0) {
+                allocatedForSub.forEach(allot => {
+                  updated.accounts = updated.accounts.map(acc => {
+                    if (acc.id === allot.accountId) {
+                      acc.screens = acc.screens.map(screen => {
+                        if (screen.id === allot.screenId) {
+                          if (!screen.customers) screen.customers = [];
+                          screen.customers.push({
+                            name: data.name || '',
+                            username: data.username,
+                            password: data.password,
+                            whatsapp: data.whatsapp,
+                            expiryDate: data.expiryDate,
+                            months: data.months || 0,
+                            days: data.days || 0,
+                            screens: data.screens || 1
+                          });
+                        }
+                        return screen;
+                      });
+                    }
+                    return acc;
+                  });
+                });
+              } else {
+                // Fallback: add to first account/screen
+                if (updated.accounts.length > 0) {
+                  const firstAcc = updated.accounts[0];
+                  if (firstAcc.screens && firstAcc.screens.length > 0) {
+                    const screen = firstAcc.screens[0];
+                    if (!screen.customers) screen.customers = [];
+                    screen.customers.push({
+                      name: data.name || '',
+                      username: data.username,
+                      password: data.password,
+                      whatsapp: data.whatsapp,
+                      expiryDate: data.expiryDate,
+                      months: data.months || 0,
+                      days: data.days || 0,
+                      screens: data.screens || 1
                     });
                   }
-                  return acc;
-                });
-              });
-            } else {
-              if (updated.accounts.length > 0) {
-                const firstAcc = updated.accounts[0];
-                if (firstAcc.screens && firstAcc.screens.length > 0) {
-                  const screen = firstAcc.screens[0];
-                  if (!screen.customers) screen.customers = [];
-                  screen.customers.push({
-                    name: data.name || '',
-                    username: data.username,
-                    password: data.password,
-                    whatsapp: data.whatsapp,
-                    expiryDate: data.expiryDate,
-                    months: data.months || 0,
-                    days: data.days || 0,
-                    screens: data.screens || 1
-                  });
-                } else {
-                  firstAcc.screens = [{
-                    id: 'default',
-                    name: 'Default',
-                    pin: '',
-                    customers: [{
-                      name: data.name || '',
-                      username: data.username,
-                      password: data.password,
-                      whatsapp: data.whatsapp,
-                      expiryDate: data.expiryDate,
-                      months: data.months || 0,
-                      days: data.days || 0,
-                      screens: data.screens || 1
-                    }]
-                  }];
                 }
+              }
+              return updated;
+            }
+            return sub;
+          } else {
+            // Regular subscription purchase
+            if (sub.id === data.subscriptionId) {
+              const updated = { ...sub };
+              if (data.allocated && data.allocated.length > 0) {
+                data.allocated.forEach(allot => {
+                  updated.accounts = updated.accounts.map(acc => {
+                    if (acc.id === allot.accountId) {
+                      acc.screens = acc.screens.map(screen => {
+                        if (screen.id === allot.screenId) {
+                          if (!screen.customers) screen.customers = [];
+                          screen.customers.push({
+                            name: data.name || '',
+                            username: data.username,
+                            password: data.password,
+                            whatsapp: data.whatsapp,
+                            expiryDate: data.expiryDate,
+                            months: data.months || 0,
+                            days: data.days || 0,
+                            screens: data.screens
+                          });
+                        }
+                        return screen;
+                      });
+                    }
+                    return acc;
+                  });
+                });
               } else {
-                updated.accounts = [{
-                  id: 'default',
-                  email: 'default@example.com',
-                  password: 'default',
-                  screens: [{
-                    id: 'default',
-                    name: 'Default',
-                    pin: '',
-                    customers: [{
+                if (updated.accounts.length > 0) {
+                  const firstAcc = updated.accounts[0];
+                  if (firstAcc.screens && firstAcc.screens.length > 0) {
+                    const screen = firstAcc.screens[0];
+                    if (!screen.customers) screen.customers = [];
+                    screen.customers.push({
                       name: data.name || '',
                       username: data.username,
                       password: data.password,
@@ -3191,20 +3411,29 @@
                       months: data.months || 0,
                       days: data.days || 0,
                       screens: data.screens || 1
-                    }]
-                  }]
-                }];
+                    });
+                  }
+                }
               }
+              return updated;
             }
-            return updated;
+            return sub;
           }
-          return sub;
         });
+
         setSubscriptions(updatedSubs);
-        const updatedSub = updatedSubs.find(s => s.id === data.subscriptionId);
-        if (updatedSub) {
-          await updateSubscription(data.subscriptionId, updatedSub);
+        // Update each subscription
+        for (const sub of updatedSubs) {
+          if (data.isDeal) {
+            const dealSubIds = data.dealSubscriptionIds || [];
+            if (dealSubIds.includes(sub.id)) {
+              await updateSubscription(sub.id, sub);
+            }
+          } else if (sub.id === data.subscriptionId) {
+            await updateSubscription(sub.id, sub);
+          }
         }
+
         const fresh = await fetchSubscriptions();
         setSubscriptions(fresh);
         const dealsData = await fetchDeals();
@@ -3213,6 +3442,7 @@
         setActiveTab('home');
         setShowSubscriptions(false);
         addToast('🎉 Subscription confirmed! Check your details.', 'success');
+
         // Redirect to customer portal
         if (user) {
           const found = findCustomers(user.username);
@@ -3226,7 +3456,6 @@
       const handleLogin = async (userData) => {
         setUser(userData);
         setShowAuth(false);
-        // Refresh user to get latest credits
         await refreshUser();
         setFlowStep('select');
         setActiveTab('subscriptions');
@@ -3244,11 +3473,10 @@
 
       const renderFlow = () => {
         if (selectedDeal && flowStep === 'deal-purchase') {
-          const dealSub = subscriptions.find(s => s.id === selectedDeal.subscriptionId);
           return (
             <DealPurchaseFlow
               deal={selectedDeal}
-              subscription={dealSub}
+              subscriptions={subscriptions}
               onBack={() => { setFlowStep('select'); setSelectedDeal(null); }}
               onComplete={handleSubComplete}
               user={user}
@@ -3270,18 +3498,6 @@
         }
       };
 
-      // Placeholder custom flow
-      function CustomFlow({ subscription, onBack, onComplete, user }) {
-        return (
-          <div className="space-y-6">
-            <button onClick={onBack} className="text-purple-400 hover:text-purple-300 text-sm"><i className="fas fa-arrow-left mr-2"></i> Back</button>
-            <h2 className="text-2xl font-bold text-white"><i className="fas fa-plus-circle text-purple-400 mr-3"></i> {subscription.name}</h2>
-            <p className="text-white/40">This subscription is not fully implemented yet.</p>
-            <button onClick={() => onComplete({ subscriptionId: subscription.id, screens: 1, months: 1, days: 30, name: 'Test', username: user.username, password: user.password, whatsapp: user.whatsapp, allocated: [], expiryDate: new Date().toISOString().split('T')[0] })} className="btn-neon w-full">Complete</button>
-          </div>
-        );
-      }
-
       const handleGetStarted = () => {
         if (user) {
           setFlowStep('select');
@@ -3296,7 +3512,6 @@
 
       const handleCustomerPortal = async () => {
         if (user) {
-          // Refresh user data first
           await refreshUser();
           const found = findCustomers(user.username);
           setCustomerData(found);
@@ -3324,11 +3539,16 @@
         setShowSubscriptions(true);
       };
 
-      // Build deals with subscription data
-      const dealsWithSub = deals.map(deal => {
-        const sub = subscriptions.find(s => s.id === deal.subscriptionId);
-        return { ...deal, subscription: sub };
-      }).filter(d => d.subscription && d.active);
+      // Build deals with subscription data for carousel
+      const dealsWithSub = deals
+        .filter(d => d.active)
+        .map(deal => {
+          const subs = (deal.subscriptionIds || [])
+            .map(id => subscriptions.find(s => s.id === id))
+            .filter(Boolean);
+          return { ...deal, subscriptions: subs };
+        })
+        .filter(d => d.subscriptions.length > 0);
 
       return (
         <div className="min-h-screen pt-16">
@@ -3343,10 +3563,9 @@
           <ToastContainer />
           {activeTab === 'home' && !showSubscriptions && (
             <>
-              {/* Deals section on home page */}
               {dealsWithSub.length > 0 && (
                 <div className="pt-6">
-                  <DealsSection deals={dealsWithSub} subscriptions={subscriptions} onPurchaseClick={handleDealPurchase} />
+                  <DealsCarousel deals={dealsWithSub} subscriptions={subscriptions} onPurchaseClick={handleDealPurchase} />
                 </div>
               )}
               <Hero setActiveTab={setActiveTab} setShowSubscriptions={setShowSubscriptions} onGetStarted={handleGetStarted} />
@@ -3388,29 +3607,7 @@
                     {dealsWithSub.length > 0 && (
                       <div className="mt-8">
                         <h3 className="text-xl font-bold text-white mb-4"><i className="fas fa-fire text-orange-400 mr-2"></i> 🔥 Hot Deals</h3>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                          {dealsWithSub.map(deal => {
-                            const icon = deal.subscription?.type === 'netflix' ? 'fa-netflix' : deal.subscription?.type === 'amazon' ? 'fa-amazon' : deal.subscription?.type === 'youtube' ? 'fa-youtube' : deal.subscription?.type === 'spotify' ? 'fa-spotify' : deal.subscription?.type === 'chatgpt' ? 'fa-robot' : 'fa-crown';
-                            const color = deal.subscription?.type === 'netflix' ? '#e50914' : deal.subscription?.type === 'amazon' ? '#ff9900' : deal.subscription?.type === 'youtube' ? '#ff0000' : deal.subscription?.type === 'spotify' ? '#1db954' : deal.subscription?.type === 'chatgpt' ? '#10a37f' : '#7c3aed';
-                            const discount = Math.round((1 - deal.discountPrice / deal.actualPrice) * 100);
-                            return (
-                              <div key={deal.id} className="deal-card">
-                                <div className="discount-badge">-{discount}% OFF</div>
-                                <div className="flex items-center gap-3 mb-2">
-                                  <i className={`fab ${icon} text-2xl`} style={{ color }}></i>
-                                  <h4 className="text-white font-bold">{deal.title}</h4>
-                                </div>
-                                <div className="flex items-center gap-2">
-                                  <span className="text-white/30 text-sm line-through">${deal.actualPrice}</span>
-                                  <span className="text-xl font-bold text-green-400">${deal.discountPrice}</span>
-                                </div>
-                                <button onClick={() => handleDealPurchase(deal)} className="btn-neon w-full mt-3 py-2 text-sm">
-                                  <i className="fas fa-shopping-cart mr-2"></i> Purchase
-                                </button>
-                              </div>
-                            );
-                          })}
-                        </div>
+                        <DealsCarousel deals={dealsWithSub} subscriptions={subscriptions} onPurchaseClick={handleDealPurchase} />
                       </div>
                     )}
                   </div>
