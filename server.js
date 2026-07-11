@@ -23,6 +23,7 @@ let db;
 let subscriptionsCollection;
 let otpsCollection;
 let usersCollection;
+let dealsCollection;
 
 async function connectDB() {
   const client = new MongoClient(MONGODB_URI, {
@@ -33,6 +34,7 @@ async function connectDB() {
   subscriptionsCollection = db.collection('subscriptions');
   otpsCollection = db.collection('otps');
   usersCollection = db.collection('users');
+  dealsCollection = db.collection('deals');
   console.log('✅ Connected to MongoDB');
 }
 
@@ -130,6 +132,35 @@ async function seedData() {
     await subscriptionsCollection.insertMany(initialSubscriptions);
     console.log('✅ Initial subscriptions seeded');
   }
+
+  // Seed default deals if none exist
+  const dealCount = await dealsCollection.countDocuments();
+  if (dealCount === 0) {
+    const defaultDeals = [
+      {
+        id: 'd1',
+        subscriptionId: '1',
+        title: 'Netflix Premium',
+        description: 'Watch unlimited movies & TV shows',
+        actualPrice: 500,
+        discountPrice: 350,
+        active: true,
+        createdAt: new Date()
+      },
+      {
+        id: 'd2',
+        subscriptionId: '2',
+        title: 'Amazon Prime',
+        description: 'Prime Video, Music & Free Delivery',
+        actualPrice: 200,
+        discountPrice: 150,
+        active: true,
+        createdAt: new Date()
+      }
+    ];
+    await dealsCollection.insertMany(defaultDeals);
+    console.log('✅ Default deals seeded');
+  }
 }
 
 // ─── Routes ──────────────────────────────────────────────────
@@ -222,7 +253,6 @@ app.post('/api/users/signup', async (req, res) => {
       createdAt: new Date()
     };
     await usersCollection.insertOne(newUser);
-    // Return user with password (for frontend)
     res.json({ success: true, user: newUser });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -245,7 +275,6 @@ app.post('/api/users/login', async (req, res) => {
 app.get('/api/users', async (req, res) => {
   try {
     const users = await usersCollection.find({}).toArray();
-    // Remove passwords for security
     const sanitized = users.map(u => {
       const { password, ...rest } = u;
       return rest;
@@ -282,7 +311,6 @@ app.put('/api/users/:username/incrementPurchase', async (req, res) => {
   }
 });
 
-// Add credits (admin only – no auth for simplicity, but we rely on frontend)
 app.post('/api/users/:username/addCredits', async (req, res) => {
   try {
     const { amount } = req.body;
@@ -303,7 +331,6 @@ app.post('/api/users/:username/addCredits', async (req, res) => {
   }
 });
 
-// Deduct credits (used during credit-based purchase)
 app.post('/api/users/:username/deductCredits', async (req, res) => {
   try {
     const { amount } = req.body;
@@ -321,6 +348,88 @@ app.post('/api/users/:username/deductCredits', async (req, res) => {
     );
     const updated = await usersCollection.findOne({ username: req.params.username });
     res.json(updated);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ---- Deals ----
+app.get('/api/deals', async (req, res) => {
+  try {
+    const deals = await dealsCollection.find({}).toArray();
+    res.json(deals);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/deals/active', async (req, res) => {
+  try {
+    const deals = await dealsCollection.find({ active: true }).toArray();
+    res.json(deals);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/deals', async (req, res) => {
+  try {
+    const { id, subscriptionId, title, description, actualPrice, discountPrice, active } = req.body;
+    if (!id || !subscriptionId || !title || actualPrice == null || discountPrice == null) {
+      return res.status(400).json({ error: 'Missing required fields' });
+    }
+    const existing = await dealsCollection.findOne({ id });
+    if (existing) {
+      return res.status(400).json({ error: 'Deal id already exists' });
+    }
+    const newDeal = {
+      id,
+      subscriptionId,
+      title,
+      description: description || '',
+      actualPrice,
+      discountPrice,
+      active: active !== undefined ? active : true,
+      createdAt: new Date()
+    };
+    await dealsCollection.insertOne(newDeal);
+    res.json(newDeal);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.put('/api/deals/:id', async (req, res) => {
+  try {
+    const { subscriptionId, title, description, actualPrice, discountPrice, active } = req.body;
+    const update = {};
+    if (subscriptionId !== undefined) update.subscriptionId = subscriptionId;
+    if (title !== undefined) update.title = title;
+    if (description !== undefined) update.description = description;
+    if (actualPrice !== undefined) update.actualPrice = actualPrice;
+    if (discountPrice !== undefined) update.discountPrice = discountPrice;
+    if (active !== undefined) update.active = active;
+    const result = await dealsCollection.updateOne(
+      { id: req.params.id },
+      { $set: update }
+    );
+    if (result.matchedCount === 0) {
+      return res.status(404).json({ error: 'Deal not found' });
+    }
+    const updated = await dealsCollection.findOne({ id: req.params.id });
+    res.json(updated);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.delete('/api/deals/:id', async (req, res) => {
+  try {
+    const result = await dealsCollection.deleteOne({ id: req.params.id });
+    if (result.deletedCount === 0) {
+      return res.status(404).json({ error: 'Deal not found' });
+    }
+    res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
