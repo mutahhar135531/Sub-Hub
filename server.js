@@ -133,7 +133,6 @@ async function seedData() {
     console.log('✅ Initial subscriptions seeded');
   }
 
-  // Seed default deals if none exist
   const dealCount = await dealsCollection.countDocuments();
   if (dealCount === 0) {
     const defaultDeals = [
@@ -175,7 +174,6 @@ async function seedData() {
 
 // ─── Routes ──────────────────────────────────────────────────
 
-// ---- Subscriptions ----
 app.get('/api/subscriptions', async (req, res) => {
   try {
     const subs = await subscriptionsCollection.find({}).toArray();
@@ -363,7 +361,7 @@ app.post('/api/users/:username/deductCredits', async (req, res) => {
   }
 });
 
-// ---- Deals (with subscriptionIds array) ----
+// ---- Deals ----
 app.get('/api/deals', async (req, res) => {
   try {
     const deals = await dealsCollection.find({}).toArray();

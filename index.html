@@ -6,104 +6,105 @@
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
   <meta http-equiv="Pragma" content="no-cache" />
   <meta http-equiv="Expires" content="0" />
-  <title>Subscription Hub</title>
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><text y='14' font-size='14'>📺</text></svg>" />
+  <title>Zetlify - Unlimited Subscriptions</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><text y='14' font-size='14'>⚡</text></svg>" />
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
   <style>
-    /* ===== NEON THEME ===== */
+    /* ===== RED/BLACK NEON THEME ===== */
     * { margin:0; padding:0; box-sizing:border-box; }
-    body { background:#0b0b1a; color:#e0e0ff; font-family:'Segoe UI',system-ui,sans-serif; min-height:100vh; scroll-behavior:smooth; }
+    body { background:#0a0a0a; color:#e0e0e0; font-family:'Segoe UI',system-ui,sans-serif; min-height:100vh; scroll-behavior:smooth; }
     ::-webkit-scrollbar { width:6px; }
-    ::-webkit-scrollbar-track { background:#14142b; }
-    ::-webkit-scrollbar-thumb { background:#7c3aed; border-radius:8px; }
-    .neon-glow { box-shadow:0 0 20px rgba(124,58,237,0.25),0 0 60px rgba(124,58,237,0.08); }
-    .neon-border { border:1px solid rgba(124,58,237,0.35); box-shadow:0 0 15px rgba(124,58,237,0.10); }
-    .neon-text { text-shadow:0 0 12px rgba(124,58,237,0.5),0 0 30px rgba(124,58,237,0.15); }
-    .neon-card { background:rgba(18,18,45,0.85); backdrop-filter:blur(12px); border:1px solid rgba(124,58,237,0.20); border-radius:20px; box-shadow:0 8px 40px rgba(0,0,0,0.6),0 0 40px rgba(124,58,237,0.05); transition:all .3s ease; }
-    .neon-card:hover { border-color:rgba(124,58,237,0.50); box-shadow:0 8px 50px rgba(124,58,237,0.12),0 0 60px rgba(124,58,237,0.05); transform:translateY(-2px); }
-    .btn-neon { background:linear-gradient(135deg,#7c3aed,#6d28d9); color:#fff; border:none; padding:10px 28px; border-radius:40px; font-weight:600; letter-spacing:.3px; transition:all .3s ease; box-shadow:0 0 25px rgba(124,58,237,0.25); cursor:pointer; }
-    .btn-neon:hover { transform:scale(1.03); box-shadow:0 0 45px rgba(124,58,237,0.40); background:linear-gradient(135deg,#8b5cf6,#7c3aed); }
-    .btn-neon-outline { background:transparent; color:#c4b5fd; border:1.5px solid rgba(124,58,237,0.40); padding:10px 28px; border-radius:40px; font-weight:600; transition:all .3s ease; cursor:pointer; }
-    .btn-neon-outline:hover { background:rgba(124,58,237,0.12); border-color:#7c3aed; box-shadow:0 0 30px rgba(124,58,237,0.12); }
+    ::-webkit-scrollbar-track { background:#1a1a1a; }
+    ::-webkit-scrollbar-thumb { background:#ef4444; border-radius:8px; }
+    .neon-glow { box-shadow:0 0 20px rgba(239,68,68,0.25),0 0 60px rgba(239,68,68,0.08); }
+    .neon-border { border:1px solid rgba(239,68,68,0.35); box-shadow:0 0 15px rgba(239,68,68,0.10); }
+    .neon-text { text-shadow:0 0 12px rgba(239,68,68,0.5),0 0 30px rgba(239,68,68,0.15); }
+    .neon-card { background:rgba(20,20,20,0.92); backdrop-filter:blur(12px); border:1px solid rgba(239,68,68,0.20); border-radius:20px; box-shadow:0 8px 40px rgba(0,0,0,0.6),0 0 40px rgba(239,68,68,0.05); transition:all .3s ease; }
+    .neon-card:hover { border-color:rgba(239,68,68,0.50); box-shadow:0 8px 50px rgba(239,68,68,0.12),0 0 60px rgba(239,68,68,0.05); transform:translateY(-2px); }
+    .btn-neon { background:linear-gradient(135deg,#ef4444,#dc2626); color:#fff; border:none; padding:10px 28px; border-radius:40px; font-weight:600; letter-spacing:.3px; transition:all .3s ease; box-shadow:0 0 25px rgba(239,68,68,0.25); cursor:pointer; }
+    .btn-neon:hover { transform:scale(1.03); box-shadow:0 0 45px rgba(239,68,68,0.40); background:linear-gradient(135deg,#f87171,#ef4444); }
+    .btn-neon-outline { background:transparent; color:#fca5a5; border:1.5px solid rgba(239,68,68,0.40); padding:10px 28px; border-radius:40px; font-weight:600; transition:all .3s ease; cursor:pointer; }
+    .btn-neon-outline:hover { background:rgba(239,68,68,0.12); border-color:#ef4444; box-shadow:0 0 30px rgba(239,68,68,0.12); }
     .btn-danger { background:rgba(239,68,68,0.15); color:#f87171; border:1px solid rgba(239,68,68,0.25); padding:6px 16px; border-radius:30px; font-size:.8rem; transition:all .3s ease; cursor:pointer; }
     .btn-danger:hover { background:rgba(239,68,68,0.25); border-color:#f87171; }
     .btn-warning { background:rgba(251,191,36,0.15); color:#fbbf24; border:1px solid rgba(251,191,36,0.25); padding:6px 16px; border-radius:30px; font-size:.8rem; transition:all .3s ease; cursor:pointer; }
     .btn-warning:hover { background:rgba(251,191,36,0.25); border-color:#fbbf24; }
-    .btn-purple { background:rgba(124,58,237,0.15); color:#a78bfa; border:1px solid rgba(124,58,237,0.25); padding:4px 12px; border-radius:20px; font-size:.75rem; transition:all .3s ease; cursor:pointer; }
-    .btn-purple:hover { background:rgba(124,58,237,0.25); border-color:#7c3aed; }
+    .btn-red { background:rgba(239,68,68,0.15); color:#fca5a5; border:1px solid rgba(239,68,68,0.25); padding:4px 12px; border-radius:20px; font-size:.75rem; transition:all .3s ease; cursor:pointer; }
+    .btn-red:hover { background:rgba(239,68,68,0.25); border-color:#ef4444; }
     .btn-success { background:rgba(52,211,153,0.15); color:#34d399; border:1px solid rgba(52,211,153,0.25); padding:6px 16px; border-radius:30px; font-size:.8rem; transition:all .3s ease; cursor:pointer; }
     .btn-success:hover { background:rgba(52,211,153,0.25); border-color:#34d399; }
-    .input-neon { background:rgba(255,255,255,0.04); border:1px solid rgba(124,58,237,0.25); border-radius:14px; padding:12px 18px; color:#e0e0ff; width:100%; transition:all .3s ease; outline:none; font-size:.95rem; }
-    .input-neon:focus { border-color:#7c3aed; box-shadow:0 0 30px rgba(124,58,237,0.08),inset 0 0 30px rgba(124,58,237,0.03); background:rgba(255,255,255,0.06); }
+    .input-neon { background:rgba(255,255,255,0.04); border:1px solid rgba(239,68,68,0.25); border-radius:14px; padding:12px 18px; color:#e0e0e0; width:100%; transition:all .3s ease; outline:none; font-size:.95rem; }
+    .input-neon:focus { border-color:#ef4444; box-shadow:0 0 30px rgba(239,68,68,0.08),inset 0 0 30px rgba(239,68,68,0.03); background:rgba(255,255,255,0.06); }
     .input-neon::placeholder { color:rgba(255,255,255,0.25); }
-    select.input-neon { appearance:none; background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%237c3aed' d='M6 8L1 3h10z'/%3E%3C/svg%3E"); background-repeat:no-repeat; background-position:right 16px center; padding-right:42px; cursor:pointer; }
-    select.input-neon option { background:#1a1a3e; color:#e0e0ff; }
-    .navbar-glass { background:rgba(11,11,26,0.80); backdrop-filter:blur(18px); border-bottom:1px solid rgba(124,58,237,0.12); }
+    select.input-neon { appearance:none; background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23ef4444' d='M6 8L1 3h10z'/%3E%3C/svg%3E"); background-repeat:no-repeat; background-position:right 16px center; padding-right:42px; cursor:pointer; }
+    select.input-neon option { background:#1a1a1a; color:#e0e0e0; }
+    .navbar-glass { background:rgba(10,10,10,0.92); backdrop-filter:blur(18px); border-bottom:1px solid rgba(239,68,68,0.12); }
     .nav-link { color:rgba(255,255,255,0.65); transition:all .25s ease; font-weight:500; font-size:.92rem; padding:6px 14px; border-radius:30px; }
-    .nav-link:hover { color:#c4b5fd; background:rgba(124,58,237,0.08); }
-    .nav-link.active { color:#a78bfa; background:rgba(124,58,237,0.12); }
-    .mobile-menu { background:rgba(11,11,26,0.96); backdrop-filter:blur(20px); border-bottom:1px solid rgba(124,58,237,0.12); }
-    .sub-card { cursor:pointer; transition:all .3s ease; background:rgba(18,18,45,0.70); backdrop-filter:blur(8px); border:1px solid rgba(124,58,237,0.12); border-radius:20px; padding:24px 20px; text-align:center; }
-    .sub-card:hover { border-color:rgba(124,58,237,0.40); transform:translateY(-6px); box-shadow:0 12px 50px rgba(124,58,237,0.08); }
-    .sub-card.selected { border-color:#7c3aed; box-shadow:0 0 50px rgba(124,58,237,0.12),inset 0 0 30px rgba(124,58,237,0.03); }
+    .nav-link:hover { color:#fca5a5; background:rgba(239,68,68,0.08); }
+    .nav-link.active { color:#fca5a5; background:rgba(239,68,68,0.12); }
+    .mobile-menu { background:rgba(10,10,10,0.98); backdrop-filter:blur(20px); border-bottom:1px solid rgba(239,68,68,0.12); }
+    .sub-card { cursor:pointer; transition:all .3s ease; background:rgba(20,20,20,0.85); backdrop-filter:blur(8px); border:1px solid rgba(239,68,68,0.12); border-radius:20px; padding:24px 20px; text-align:center; }
+    .sub-card:hover { border-color:rgba(239,68,68,0.40); transform:translateY(-6px); box-shadow:0 12px 50px rgba(239,68,68,0.08); }
+    .sub-card.selected { border-color:#ef4444; box-shadow:0 0 50px rgba(239,68,68,0.12),inset 0 0 30px rgba(239,68,68,0.03); }
     .sub-icon { font-size:2.8rem; margin-bottom:10px; display:block; }
-    .otp-input { width:52px; height:60px; text-align:center; font-size:1.6rem; font-weight:600; background:rgba(255,255,255,0.04); border:2px solid rgba(124,58,237,0.25); border-radius:14px; color:#e0e0ff; transition:all .3s ease; outline:none; }
-    .otp-input:focus { border-color:#7c3aed; box-shadow:0 0 30px rgba(124,58,237,0.10); }
+    .otp-input { width:52px; height:60px; text-align:center; font-size:1.6rem; font-weight:600; background:rgba(255,255,255,0.04); border:2px solid rgba(239,68,68,0.25); border-radius:14px; color:#e0e0e0; transition:all .3s ease; outline:none; }
+    .otp-input:focus { border-color:#ef4444; box-shadow:0 0 30px rgba(239,68,68,0.10); }
     .toast-container { position:fixed; bottom:30px; right:30px; z-index:9999; display:flex; flex-direction:column; gap:12px; max-width:380px; width:100%; }
-    .toast { background:rgba(18,18,45,0.92); backdrop-filter:blur(16px); border:1px solid rgba(124,58,237,0.25); border-radius:16px; padding:16px 22px; color:#e0e0ff; box-shadow:0 8px 40px rgba(0,0,0,0.5); animation:slideIn .4s ease; display:flex; align-items:center; gap:12px; }
+    .toast { background:rgba(20,20,20,0.95); backdrop-filter:blur(16px); border:1px solid rgba(239,68,68,0.25); border-radius:16px; padding:16px 22px; color:#e0e0e0; box-shadow:0 8px 40px rgba(0,0,0,0.5); animation:slideIn .4s ease; display:flex; align-items:center; gap:12px; }
     .toast.success { border-left:4px solid #34d399; }
     .toast.error { border-left:4px solid #f87171; }
     .toast.warning { border-left:4px solid #fbbf24; }
     @keyframes slideIn { from { opacity:0; transform:translateX(60px); } to { opacity:1; transform:translateX(0); } }
     .admin-table { width:100%; border-collapse:collapse; font-size:.9rem; }
-    .admin-table th { text-align:left; padding:14px 16px; color:#a78bfa; font-weight:600; border-bottom:1px solid rgba(124,58,237,0.15); background:rgba(124,58,237,0.04); }
-    .admin-table td { padding:12px 16px; border-bottom:1px solid rgba(124,58,237,0.06); color:#d4d4f0; }
-    .admin-table tr:hover td { background:rgba(124,58,237,0.04); }
+    .admin-table th { text-align:left; padding:14px 16px; color:#fca5a5; font-weight:600; border-bottom:1px solid rgba(239,68,68,0.15); background:rgba(239,68,68,0.04); }
+    .admin-table td { padding:12px 16px; border-bottom:1px solid rgba(239,68,68,0.06); color:#d4d4d0; }
+    .admin-table tr:hover td { background:rgba(239,68,68,0.04); }
     .badge { display:inline-block; padding:4px 14px; border-radius:40px; font-size:.75rem; font-weight:600; letter-spacing:.3px; }
     .badge-green { background:rgba(52,211,153,0.15); color:#34d399; }
     .badge-red { background:rgba(248,113,113,0.15); color:#f87171; }
     .badge-yellow { background:rgba(251,191,36,0.15); color:#fbbf24; }
-    .badge-purple { background:rgba(124,58,237,0.15); color:#a78bfa; }
+    .badge-red-light { background:rgba(239,68,68,0.15); color:#fca5a5; }
     .badge-gray { background:rgba(255,255,255,0.05); color:#9ca3af; }
-    .deal-card { background:rgba(18,18,45,0.80); backdrop-filter:blur(12px); border:2px solid rgba(124,58,237,0.30); border-radius:24px; padding:28px 24px; transition:all .3s ease; position:relative; overflow:hidden; min-height:220px; display:flex; flex-direction:column; justify-content:space-between; }
-    .deal-card:hover { border-color:#7c3aed; box-shadow:0 0 60px rgba(124,58,237,0.15); transform:translateY(-4px); }
-    .deal-card .discount-badge { position:absolute; top:12px; right:12px; background:linear-gradient(135deg,#fbbf24,#f59e0b); color:#0b0b1a; font-weight:700; padding:4px 14px; border-radius:40px; font-size:.75rem; box-shadow:0 0 30px rgba(251,191,36,0.3); }
-    .deal-price-original { color:rgba(255,255,255,0.3); font-size:1.1rem; text-decoration:line-through; }
-    .deal-price-discount { color:#34d399; font-size:2.2rem; font-weight:800; text-shadow:0 0 30px rgba(52,211,153,0.2); }
-    .deal-price-currency { font-size:1.2rem; font-weight:600; }
-    .deal-sub-badges { display:flex; flex-wrap:wrap; gap:6px; margin-top:8px; }
-    .deal-sub-badge { background:rgba(124,58,237,0.15); border:1px solid rgba(124,58,237,0.20); padding:2px 10px; border-radius:20px; font-size:.7rem; color:#a78bfa; display:inline-flex; align-items:center; gap:4px; }
-    /* Carousel styles */
-    .carousel-container { position:relative; overflow:hidden; border-radius:24px; }
-    .carousel-track { display:flex; transition:transform 0.7s cubic-bezier(0.25, 0.46, 0.45, 0.94); will-change:transform; }
-    .carousel-slide { min-width:100%; padding:0 8px; }
-    .carousel-dots { display:flex; justify-content:center; gap:10px; margin-top:16px; }
-    .carousel-dot { width:10px; height:10px; border-radius:50%; background:rgba(255,255,255,0.15); border:none; cursor:pointer; transition:all .3s ease; }
-    .carousel-dot.active { background:#7c3aed; box-shadow:0 0 20px rgba(124,58,237,0.4); width:28px; border-radius:20px; }
-    .carousel-dot:hover { background:rgba(124,58,237,0.5); }
-    .carousel-btn { position:absolute; top:50%; transform:translateY(-50%); z-index:10; background:rgba(11,11,26,0.7); backdrop-filter:blur(8px); border:1px solid rgba(124,58,237,0.2); color:white; width:40px; height:40px; border-radius:50%; cursor:pointer; transition:all .3s ease; display:flex; align-items:center; justify-content:center; font-size:1.1rem; }
-    .carousel-btn:hover { background:rgba(124,58,237,0.3); border-color:#7c3aed; }
-    .carousel-btn.prev { left:12px; }
-    .carousel-btn.next { right:12px; }
-    @media (max-width:640px) { .carousel-btn { width:32px; height:32px; font-size:.9rem; } .carousel-btn.prev { left:6px; } .carousel-btn.next { right:6px; } }
+    .deal-card { background:rgba(20,20,20,0.90); backdrop-filter:blur(12px); border:2px solid rgba(239,68,68,0.25); border-radius:20px; padding:20px 18px; transition:all .3s ease; position:relative; overflow:hidden; display:flex; flex-direction:column; height:100%; min-height:200px; }
+    .deal-card:hover { border-color:#ef4444; box-shadow:0 0 40px rgba(239,68,68,0.12); transform:translateY(-4px); }
+    .deal-card .discount-badge { position:absolute; top:10px; right:10px; background:linear-gradient(135deg,#ef4444,#dc2626); color:#fff; font-weight:700; padding:3px 12px; border-radius:40px; font-size:.7rem; box-shadow:0 0 20px rgba(239,68,68,0.3); }
+    .deal-price-original { color:rgba(255,255,255,0.3); font-size:.95rem; text-decoration:line-through; }
+    .deal-price-discount { color:#34d399; font-size:1.8rem; font-weight:800; text-shadow:0 0 30px rgba(52,211,153,0.15); }
+    .deal-price-currency { font-size:1rem; font-weight:600; }
+    .deal-sub-badges { display:flex; flex-wrap:wrap; gap:4px; margin-top:6px; }
+    .deal-sub-badge { background:rgba(239,68,68,0.12); border:1px solid rgba(239,68,68,0.15); padding:2px 8px; border-radius:16px; font-size:.65rem; color:#fca5a5; display:inline-flex; align-items:center; gap:4px; }
+    /* Carousel styles - multi-item */
+    .carousel-container { position:relative; overflow:hidden; border-radius:20px; }
+    .carousel-track { display:flex; transition:transform 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94); will-change:transform; }
+    .carousel-slide { flex:0 0 33.333%; padding:0 10px; }
+    @media (max-width:1024px) { .carousel-slide { flex:0 0 50%; } }
+    @media (max-width:640px) { .carousel-slide { flex:0 0 100%; } }
+    .carousel-dots { display:flex; justify-content:center; gap:8px; margin-top:14px; }
+    .carousel-dot { width:8px; height:8px; border-radius:50%; background:rgba(255,255,255,0.12); border:none; cursor:pointer; transition:all .3s ease; }
+    .carousel-dot.active { background:#ef4444; box-shadow:0 0 16px rgba(239,68,68,0.4); width:24px; border-radius:20px; }
+    .carousel-dot:hover { background:rgba(239,68,68,0.5); }
     @media (max-width:640px) { .sub-icon { font-size:2.2rem; } .otp-input { width:44px; height:52px; font-size:1.3rem; } .toast-container { left:16px; right:16px; max-width:100%; bottom:16px; } .admin-table th,.admin-table td { padding:8px 10px; font-size:.75rem; } }
     .fade-up { opacity:0; transform:translateY(30px); transition:all .6s ease; }
     .fade-up.visible { opacity:1; transform:translateY(0); }
-    ::selection { background:rgba(124,58,237,0.30); color:#fff; }
-    .spinner { width:24px; height:24px; border:3px solid rgba(124,58,237,0.15); border-top-color:#7c3aed; border-radius:50%; animation:spin .8s linear infinite; display:inline-block; }
+    ::selection { background:rgba(239,68,68,0.30); color:#fff; }
+    .spinner { width:24px; height:24px; border:3px solid rgba(239,68,68,0.15); border-top-color:#ef4444; border-radius:50%; animation:spin .8s linear infinite; display:inline-block; }
     @keyframes spin { to { transform:rotate(360deg); } }
-    .glass-panel { background:rgba(18,18,45,0.70); backdrop-filter:blur(14px); border:1px solid rgba(124,58,237,0.10); border-radius:24px; padding:28px 30px; }
+    .glass-panel { background:rgba(20,20,20,0.85); backdrop-filter:blur(14px); border:1px solid rgba(239,68,68,0.10); border-radius:24px; padding:28px 30px; }
     .tab-btn { padding:8px 22px; border-radius:40px; font-weight:500; transition:all .3s ease; cursor:pointer; background:transparent; color:rgba(255,255,255,0.50); border:1px solid transparent; }
-    .tab-btn.active { background:rgba(124,58,237,0.12); color:#c4b5fd; border-color:rgba(124,58,237,0.20); }
-    .tab-btn:hover { color:#e0e0ff; background:rgba(124,58,237,0.06); }
+    .tab-btn.active { background:rgba(239,68,68,0.12); color:#fca5a5; border-color:rgba(239,68,68,0.20); }
+    .tab-btn:hover { color:#e0e0e0; background:rgba(239,68,68,0.06); }
     .modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.7); backdrop-filter:blur(8px); z-index:1000; display:flex; align-items:center; justify-content:center; padding:20px; }
     .modal-content { max-width:500px; width:100%; max-height:90vh; overflow-y:auto; }
-    .copy-btn { background:rgba(124,58,237,0.10); border:1px solid rgba(124,58,237,0.15); color:#a78bfa; padding:2px 10px; border-radius:12px; font-size:.7rem; cursor:pointer; transition:all .2s ease; margin-left:8px; }
-    .copy-btn:hover { background:rgba(124,58,237,0.20); border-color:#7c3aed; }
+    .copy-btn { background:rgba(239,68,68,0.10); border:1px solid rgba(239,68,68,0.15); color:#fca5a5; padding:2px 10px; border-radius:12px; font-size:.7rem; cursor:pointer; transition:all .2s ease; margin-left:8px; }
+    .copy-btn:hover { background:rgba(239,68,68,0.20); border-color:#ef4444; }
     .detail-row { display:flex; justify-content:space-between; align-items:center; padding:8px 0; border-bottom:1px solid rgba(255,255,255,0.04); }
     .detail-row .label { color:rgba(255,255,255,0.30); font-size:.8rem; }
-    .detail-row .value { color:#e0e0ff; font-weight:500; font-size:.9rem; display:flex; align-items:center; gap:6px; }
+    .detail-row .value { color:#e0e0e0; font-weight:500; font-size:.9rem; display:flex; align-items:center; gap:6px; }
+    /* Logo styles */
+    .logo-primary { font-size:1.6rem; font-weight:800; letter-spacing:-0.5px; background:linear-gradient(135deg,#ef4444,#dc2626); -webkit-background-clip:text; -webkit-text-fill-color:transparent; }
+    .logo-secondary { font-weight:700; color:#fca5a5; }
+    .logo-icon { color:#ef4444; }
   </style>
 </head>
 <body>
@@ -244,13 +245,6 @@
       return res.json();
     };
 
-    const fetchActiveDeals = async () => {
-      const res = await fetch(`${API_BASE}/api/deals/active?t=${Date.now()}`, {
-        headers: { 'Cache-Control': 'no-cache' }
-      });
-      return res.json();
-    };
-
     const createDeal = async (data) => {
       const res = await fetch(`${API_BASE}/api/deals`, {
         method: 'POST',
@@ -379,6 +373,7 @@
     function Navbar({ activeTab, setActiveTab, showSubscriptions, setShowSubscriptions, onCustomerPortal, onLogout }) {
       const [mobileOpen, setMobileOpen] = useState(false);
       const { user } = useContext(UserContext);
+
       const navItems = [
         { id: 'home', label: 'Home', icon: 'fa-home' },
         { id: 'subscriptions', label: 'Subscriptions', icon: 'fa-crown' },
@@ -402,8 +397,10 @@
           <nav className="navbar-glass fixed top-0 left-0 right-0 z-50 px-4 md:px-8 py-3">
             <div className="max-w-7xl mx-auto flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <i className="fas fa-bolt text-purple-400 text-2xl neon-text"></i>
-                <span className="text-xl font-bold tracking-tight text-white">Sub <span className="text-purple-400">Hub</span></span>
+                <i className="fas fa-bolt text-red-500 text-2xl neon-text"></i>
+                <span className="text-xl font-bold tracking-tight">
+                  <span className="logo-primary">Zetlify</span>
+                </span>
               </div>
               <div className="hidden md:flex items-center gap-1">
                 {navItems.map(item => (
@@ -413,6 +410,9 @@
                 ))}
                 {user ? (
                   <>
+                    <span className="text-red-400 text-sm font-medium mr-2 bg-red-500/10 px-3 py-1 rounded-full border border-red-500/20">
+                      <i className="fas fa-coins mr-1"></i> RS {user.credits || 0}
+                    </span>
                     <button onClick={onCustomerPortal} className="nav-link active">
                       <i className="fas fa-user-circle mr-2"></i> {user.username}
                     </button>
@@ -439,6 +439,9 @@
                 ))}
                 {user ? (
                   <>
+                    <div className="px-4 py-2 text-red-400 text-sm font-medium bg-red-500/10 rounded-xl border border-red-500/20 mb-1">
+                      <i className="fas fa-coins mr-2"></i> RS {user.credits || 0}
+                    </div>
                     <button onClick={onCustomerPortal} className="nav-link w-full text-left py-3 px-4 active">
                       <i className="fas fa-user-circle mr-3 w-5"></i> {user.username}
                     </button>
@@ -458,20 +461,22 @@
       );
     }
 
-    // ─── DEALS CAROUSEL ──────────────────────────────────────
+    // ─── DEALS CAROUSEL (Multi-item, swipe only) ──────────────
     function DealsCarousel({ deals, subscriptions, onPurchaseClick }) {
       const [currentIndex, setCurrentIndex] = useState(0);
       const [isPaused, setIsPaused] = useState(false);
       const [pauseTimer, setPauseTimer] = useState(null);
       const [touchStartX, setTouchStartX] = useState(0);
+      const [touchStartY, setTouchStartY] = useState(0);
+      const [isDragging, setIsDragging] = useState(false);
       const carouselRef = useRef(null);
       const slideInterval = 4000;
       const pauseDuration = 5000;
+      const itemsPerView = 3;
 
       const icons = { netflix: 'fa-netflix', amazon: 'fa-amazon', youtube: 'fa-youtube', spotify: 'fa-spotify', chatgpt: 'fa-robot', custom: 'fa-plus-circle' };
-      const colors = { netflix: '#e50914', amazon: '#ff9900', youtube: '#ff0000', spotify: '#1db954', chatgpt: '#10a37f', custom: '#7c3aed' };
+      const colors = { netflix: '#e50914', amazon: '#ff9900', youtube: '#ff0000', spotify: '#1db954', chatgpt: '#10a37f', custom: '#ef4444' };
 
-      // Filter active deals with valid subscriptions
       const activeDeals = useMemo(() => {
         return deals
           .map(deal => {
@@ -483,16 +488,18 @@
           .filter(d => d.subscriptions.length > 0);
       }, [deals, subscriptions]);
 
+      const totalSlides = activeDeals.length;
+      const totalItems = totalSlides;
+
       // Auto-slide effect
       useEffect(() => {
-        if (isPaused || activeDeals.length <= 1) return;
+        if (isPaused || totalItems <= itemsPerView) return;
         const interval = setInterval(() => {
-          setCurrentIndex(prev => (prev + 1) % activeDeals.length);
+          setCurrentIndex(prev => (prev + 1) % (totalItems - itemsPerView + 1));
         }, slideInterval);
         return () => clearInterval(interval);
-      }, [isPaused, activeDeals.length]);
+      }, [isPaused, totalItems, itemsPerView]);
 
-      // Clean up pause timer
       useEffect(() => {
         return () => {
           if (pauseTimer) clearTimeout(pauseTimer);
@@ -514,53 +521,85 @@
         setPauseTimer(timer);
       };
 
-      const handleMouseEnter = () => {
-        handlePause();
-      };
-
-      const handleMouseLeave = () => {
-        handleResume();
-      };
-
       const handleTouchStart = (e) => {
         handlePause();
         setTouchStartX(e.touches[0].clientX);
+        setTouchStartY(e.touches[0].clientY);
+        setIsDragging(true);
+      };
+
+      const handleTouchMove = (e) => {
+        if (!isDragging) return;
+        const currentX = e.touches[0].clientX;
+        const diff = touchStartX - currentX;
+        // Only prevent default if horizontal swipe
+        const currentY = e.touches[0].clientY;
+        const diffY = Math.abs(touchStartY - currentY);
+        if (Math.abs(diff) > diffY && Math.abs(diff) > 10) {
+          e.preventDefault();
+        }
       };
 
       const handleTouchEnd = (e) => {
+        setIsDragging(false);
         const touchEndX = e.changedTouches[0].clientX;
         const diff = touchStartX - touchEndX;
+        const maxIndex = Math.max(0, totalItems - itemsPerView);
         if (Math.abs(diff) > 50) {
           if (diff > 0) {
-            goToNext();
+            setCurrentIndex(prev => Math.min(prev + 1, maxIndex));
           } else {
-            goToPrev();
+            setCurrentIndex(prev => Math.max(prev - 1, 0));
           }
         }
         handleResume();
       };
 
-      const goToNext = () => {
-        setCurrentIndex(prev => (prev + 1) % activeDeals.length);
+      const handleMouseDown = (e) => {
+        handlePause();
+        setTouchStartX(e.clientX);
+        setTouchStartY(e.clientY);
+        setIsDragging(true);
       };
 
-      const goToPrev = () => {
-        setCurrentIndex(prev => (prev - 1 + activeDeals.length) % activeDeals.length);
+      const handleMouseMove = (e) => {
+        if (!isDragging) return;
+        const diff = touchStartX - e.clientX;
+        if (Math.abs(diff) > 10) {
+          e.preventDefault();
+        }
+      };
+
+      const handleMouseUp = (e) => {
+        if (!isDragging) return;
+        setIsDragging(false);
+        const diff = touchStartX - e.clientX;
+        const maxIndex = Math.max(0, totalItems - itemsPerView);
+        if (Math.abs(diff) > 50) {
+          if (diff > 0) {
+            setCurrentIndex(prev => Math.min(prev + 1, maxIndex));
+          } else {
+            setCurrentIndex(prev => Math.max(prev - 1, 0));
+          }
+        }
+        handleResume();
       };
 
       const goToSlide = (index) => {
         setCurrentIndex(index);
-        // Pause briefly on dot click
         handlePause();
         setTimeout(handleResume, 3000);
       };
 
       if (activeDeals.length === 0) return null;
 
+      const maxIndex = Math.max(0, totalItems - itemsPerView);
+      const currentSlide = Math.min(currentIndex, maxIndex);
+
       return (
         <div className="max-w-7xl mx-auto px-4 py-6">
           <div className="flex items-center gap-3 mb-5">
-            <i className="fas fa-bolt text-yellow-400 text-2xl"></i>
+            <i className="fas fa-bolt text-red-500 text-2xl"></i>
             <h2 className="text-2xl font-bold text-white">🔥 Hot Deals!</h2>
             <span className="text-white/30 text-sm ml-2">Limited time offers</span>
           </div>
@@ -568,55 +607,62 @@
           <div
             className="carousel-container relative"
             ref={carouselRef}
-            onMouseEnter={handleMouseEnter}
-            onMouseLeave={handleMouseLeave}
             onTouchStart={handleTouchStart}
+            onTouchMove={handleTouchMove}
             onTouchEnd={handleTouchEnd}
+            onMouseDown={handleMouseDown}
+            onMouseMove={handleMouseMove}
+            onMouseUp={handleMouseUp}
+            onMouseLeave={handleMouseUp}
+            style={{ touchAction: 'none' }}
           >
             <div
               className="carousel-track"
-              style={{ transform: `translateX(-${currentIndex * 100}%)` }}
+              style={{
+                transform: `translateX(-${currentSlide * (100 / itemsPerView)}%)`,
+                width: `${(totalItems / itemsPerView) * 100}%`
+              }}
             >
               {activeDeals.map((deal, idx) => {
                 const firstSub = deal.subscriptions[0];
                 const icon = icons[firstSub?.type] || 'fa-crown';
-                const color = colors[firstSub?.type] || '#7c3aed';
+                const color = colors[firstSub?.type] || '#ef4444';
                 const discount = Math.round((1 - deal.discountPrice / deal.actualPrice) * 100);
                 const isCombo = deal.subscriptions.length > 1;
 
                 return (
                   <div key={deal.id} className="carousel-slide">
-                    <div className="deal-card" style={{ minHeight: '240px' }}>
+                    <div className="deal-card">
                       <div className="discount-badge">-{discount}% OFF</div>
-                      <div>
-                        <div className="flex items-center gap-4 mb-2">
-                          <i className={`fab ${icon} text-3xl`} style={{ color }}></i>
+                      <div className="flex-1">
+                        <div className="flex items-center gap-3 mb-2">
+                          <i className={`fab ${icon} text-2xl`} style={{ color }}></i>
                           <div>
-                            <h3 className="text-xl font-bold text-white">{deal.title}</h3>
-                            <p className="text-white/40 text-sm">{deal.description || firstSub?.name || ''}</p>
+                            <h3 className="text-base font-bold text-white truncate">{deal.title}</h3>
+                            <p className="text-white/40 text-xs truncate">{deal.description || firstSub?.name || ''}</p>
                           </div>
                         </div>
                         {isCombo && (
                           <div className="deal-sub-badges">
                             {deal.subscriptions.map(sub => (
                               <span key={sub.id} className="deal-sub-badge">
-                                <i className={`fab ${icons[sub.type] || 'fa-crown'}`} style={{ color: colors[sub.type] || '#7c3aed' }}></i>
+                                <i className={`fab ${icons[sub.type] || 'fa-crown'}`} style={{ color: colors[sub.type] || '#ef4444' }}></i>
                                 {sub.name}
                               </span>
                             ))}
                           </div>
                         )}
                       </div>
-                      <div>
-                        <div className="flex items-end gap-3 mt-2">
-                          <span className="deal-price-original">${deal.actualPrice}</span>
-                          <span className="deal-price-discount">${deal.discountPrice}</span>
+                      <div className="mt-2">
+                        <div className="flex items-end gap-2">
+                          <span className="deal-price-original">RS {deal.actualPrice}</span>
+                          <span className="deal-price-discount">RS {deal.discountPrice}</span>
                         </div>
                         <button
-                          onClick={() => onPurchaseClick(deal)}
-                          className="btn-neon w-full mt-3 py-2.5 text-sm"
+                          onClick={(e) => { e.stopPropagation(); onPurchaseClick(deal); }}
+                          className="btn-neon w-full mt-2 py-2 text-sm"
                         >
-                          <i className="fas fa-shopping-cart mr-2"></i> Purchase Now
+                          <i className="fas fa-shopping-cart mr-2"></i> Purchase
                         </button>
                       </div>
                     </div>
@@ -625,24 +671,16 @@
               })}
             </div>
 
-            {activeDeals.length > 1 && (
-              <>
-                <button className="carousel-btn prev" onClick={goToPrev}>
-                  <i className="fas fa-chevron-left"></i>
-                </button>
-                <button className="carousel-btn next" onClick={goToNext}>
-                  <i className="fas fa-chevron-right"></i>
-                </button>
-                <div className="carousel-dots">
-                  {activeDeals.map((_, idx) => (
-                    <button
-                      key={idx}
-                      className={`carousel-dot ${idx === currentIndex ? 'active' : ''}`}
-                      onClick={() => goToSlide(idx)}
-                    />
-                  ))}
-                </div>
-              </>
+            {totalItems > itemsPerView && (
+              <div className="carousel-dots">
+                {Array.from({ length: Math.ceil(totalItems / itemsPerView) }).map((_, idx) => (
+                  <button
+                    key={idx}
+                    className={`carousel-dot ${idx === Math.floor(currentSlide / Math.ceil(totalItems / itemsPerView)) ? 'active' : ''}`}
+                    onClick={() => goToSlide(idx * Math.ceil(totalItems / itemsPerView))}
+                  />
+                ))}
+              </div>
             )}
           </div>
         </div>
@@ -654,12 +692,12 @@
       return (
         <section className="pt-12 pb-14 px-4 max-w-7xl mx-auto">
           <div className="text-center">
-            <div className="inline-block mb-4 px-5 py-2 rounded-full bg-purple-500/10 border border-purple-500/20 text-purple-300 text-sm font-medium">
-              <i className="fas fa-bolt mr-2"></i> Premium Subscriptions
+            <div className="inline-block mb-4 px-5 py-2 rounded-full bg-red-500/10 border border-red-500/20 text-red-300 text-sm font-medium">
+              <i className="fas fa-bolt mr-2"></i> Unlimited Subscriptions
             </div>
             <h1 className="text-4xl md:text-6xl lg:text-7xl font-bold leading-tight">
               Get Your Favorite <br className="sm:hidden" />
-              <span className="bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent neon-text">Subscriptions</span>
+              <span className="bg-gradient-to-r from-red-500 to-red-700 bg-clip-text text-transparent neon-text">Subscriptions</span>
             </h1>
             <p className="mt-5 text-lg md:text-xl text-white/50 max-w-2xl mx-auto">Netflix, Amazon Prime, YouTube Premium, Spotify, ChatGPT & more. One platform, all your entertainment.</p>
             <div className="mt-8 flex flex-wrap justify-center gap-4">
@@ -669,10 +707,10 @@
             </div>
           </div>
           <div className="mt-16 flex flex-wrap justify-center gap-8 text-white/30 text-sm">
-            <span><i className="fas fa-check-circle text-purple-400 mr-2"></i> 100% Secure</span>
-            <span><i className="fas fa-clock text-purple-400 mr-2"></i> Instant Delivery</span>
-            <span><i className="fas fa-headset text-purple-400 mr-2"></i> 24/7 Support</span>
-            <span><i className="fas fa-shield-alt text-purple-400 mr-2"></i> Trusted by 1000+</span>
+            <span><i className="fas fa-check-circle text-red-400 mr-2"></i> 100% Secure</span>
+            <span><i className="fas fa-clock text-red-400 mr-2"></i> Instant Delivery</span>
+            <span><i className="fas fa-headset text-red-400 mr-2"></i> 24/7 Support</span>
+            <span><i className="fas fa-shield-alt text-red-400 mr-2"></i> Trusted by 1000+</span>
           </div>
         </section>
       );
@@ -681,17 +719,17 @@
     // ─── SUBSCRIPTION SELECTION ──────────────────────────────
     function SubscriptionSelection({ onSelect, selected, subscriptions }) {
       const icons = { netflix: 'fa-netflix', amazon: 'fa-amazon', youtube: 'fa-youtube', spotify: 'fa-spotify', chatgpt: 'fa-robot', custom: 'fa-plus-circle' };
-      const colors = { netflix: '#e50914', amazon: '#ff9900', youtube: '#ff0000', spotify: '#1db954', chatgpt: '#10a37f', custom: '#7c3aed' };
+      const colors = { netflix: '#e50914', amazon: '#ff9900', youtube: '#ff0000', spotify: '#1db954', chatgpt: '#10a37f', custom: '#ef4444' };
       return (
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
           {subscriptions.map(s => {
             const isSelected = selected?.id === s.id;
             return (
               <div key={s.id} onClick={() => onSelect(s)} className={`sub-card ${isSelected ? 'selected' : ''}`}>
-                <i className={`fab ${icons[s.type] || 'fa-crown'} sub-icon`} style={{ color: colors[s.type] || '#7c3aed' }}></i>
+                <i className={`fab ${icons[s.type] || 'fa-crown'} sub-icon`} style={{ color: colors[s.type] || '#ef4444' }}></i>
                 <h3 className="text-white font-semibold text-base">{s.name}</h3>
                 <p className="text-white/30 text-xs mt-1">{s.accounts ? s.accounts.length : 0} accounts</p>
-                {isSelected && <div className="mt-3 text-purple-400 text-xs"><i className="fas fa-check-circle mr-1"></i> Selected</div>}
+                {isSelected && <div className="mt-3 text-red-400 text-xs"><i className="fas fa-check-circle mr-1"></i> Selected</div>}
               </div>
             );
           })}
@@ -796,7 +834,7 @@
       return allocated;
     };
 
-    // ─── AMAZON ALLOCATION (round‑robin based on purchaseCount) ──
+    // ─── AMAZON ALLOCATION ──────────────────────────────────
     const allocateAmazonScreen = (availableSlots, username, whatsapp, purchaseCount) => {
       const screenIndex = (purchaseCount % 6) + 1;
       const targetSlot = availableSlots.find(slot => {
@@ -1008,7 +1046,7 @@
       if (step === 'plan') {
         return (
           <div className="space-y-6">
-            <button onClick={onBack} className="text-purple-400 hover:text-purple-300 text-sm"><i className="fas fa-arrow-left mr-2"></i> Back</button>
+            <button onClick={onBack} className="text-red-400 hover:text-red-300 text-sm"><i className="fas fa-arrow-left mr-2"></i> Back</button>
             <h2 className="text-2xl font-bold text-white"><i className="fab fa-netflix text-red-500 mr-3"></i> Netflix</h2>
             <div className="grid sm:grid-cols-2 gap-6">
               <div>
@@ -1039,9 +1077,9 @@
               </div>
             )}
 
-            <div className="bg-purple-500/5 rounded-xl p-4 border border-purple-500/10">
+            <div className="bg-red-500/5 rounded-xl p-4 border border-red-500/10">
               <div className="flex items-center gap-3">
-                <input type="checkbox" checked={specificScreen} onChange={(e) => setSpecificScreen(e.target.checked)} className="w-4 h-4 accent-purple-400" />
+                <input type="checkbox" checked={specificScreen} onChange={(e) => setSpecificScreen(e.target.checked)} className="w-4 h-4 accent-red-500" />
                 <label className="text-white/70 text-sm">I want a specific screen</label>
               </div>
               {specificScreen && (
@@ -1105,7 +1143,7 @@
       if (step === 'otp') {
         return (
           <div className="space-y-6">
-            <button onClick={() => setStep('plan')} className="text-purple-400 hover:text-purple-300 text-sm"><i className="fas fa-arrow-left mr-2"></i> Back</button>
+            <button onClick={() => setStep('plan')} className="text-red-400 hover:text-red-300 text-sm"><i className="fas fa-arrow-left mr-2"></i> Back</button>
             <h2 className="text-2xl font-bold text-white">Enter OTP</h2>
             <p className="text-white/40 text-sm">Enter the 4-digit OTP. Expires in {otpTimer}s</p>
             <div className="flex gap-3 justify-center">
@@ -1122,8 +1160,8 @@
       if (step === 'details') {
         return (
           <div className="space-y-6">
-            <h2 className="text-2xl font-bold text-white"><i className="fas fa-user-check text-purple-400 mr-3"></i> Confirm Details</h2>
-            <div className="bg-purple-500/5 rounded-xl p-4 border border-purple-500/10 space-y-2">
+            <h2 className="text-2xl font-bold text-white"><i className="fas fa-user-check text-red-400 mr-3"></i> Confirm Details</h2>
+            <div className="bg-red-500/5 rounded-xl p-4 border border-red-500/10 space-y-2">
               <p><span className="text-white/50">Name:</span> <span className="text-white">{name}</span></p>
               <p><span className="text-white/50">Username:</span> <span className="text-white">{user.username}</span></p>
               <p><span className="text-white/50">WhatsApp:</span> <span className="text-white">{whatsapp}</span></p>
@@ -1303,7 +1341,7 @@
       if (step === 'plan') {
         return (
           <div className="space-y-6">
-            <button onClick={onBack} className="text-purple-400 hover:text-purple-300 text-sm"><i className="fas fa-arrow-left mr-2"></i> Back</button>
+            <button onClick={onBack} className="text-red-400 hover:text-red-300 text-sm"><i className="fas fa-arrow-left mr-2"></i> Back</button>
             <h2 className="text-2xl font-bold text-white"><i className="fab fa-amazon text-yellow-400 mr-3"></i> Amazon Prime</h2>
             <div>
               <label className="text-white/50 text-sm font-medium">Duration</label>
@@ -1372,7 +1410,7 @@
       if (step === 'otp') {
         return (
           <div className="space-y-6">
-            <button onClick={() => setStep('plan')} className="text-purple-400 hover:text-purple-300 text-sm"><i className="fas fa-arrow-left mr-2"></i> Back</button>
+            <button onClick={() => setStep('plan')} className="text-red-400 hover:text-red-300 text-sm"><i className="fas fa-arrow-left mr-2"></i> Back</button>
             <h2 className="text-2xl font-bold text-white">Enter OTP</h2>
             <p className="text-white/40 text-sm">Enter the 4-digit OTP. Expires in {otpTimer}s</p>
             <div className="flex gap-3 justify-center">
@@ -1388,8 +1426,8 @@
       if (step === 'details') {
         return (
           <div className="space-y-6">
-            <h2 className="text-2xl font-bold text-white"><i className="fas fa-user-check text-purple-400 mr-3"></i> Confirm Details</h2>
-            <div className="bg-purple-500/5 rounded-xl p-4 border border-purple-500/10 space-y-2">
+            <h2 className="text-2xl font-bold text-white"><i className="fas fa-user-check text-red-400 mr-3"></i> Confirm Details</h2>
+            <div className="bg-red-500/5 rounded-xl p-4 border border-red-500/10 space-y-2">
               <p><span className="text-white/50">Name:</span> <span className="text-white">{name}</span></p>
               <p><span className="text-white/50">Username:</span> <span className="text-white">{user.username}</span></p>
               <p><span className="text-white/50">WhatsApp:</span> <span className="text-white">{whatsapp}</span></p>
@@ -1404,7 +1442,7 @@
       return null;
     }
 
-    // ─── DEAL PURCHASE FLOW (supports multiple subscriptions) ──
+    // ─── DEAL PURCHASE FLOW ──────────────────────────────────
     function DealPurchaseFlow({ deal, subscriptions, onBack, onComplete, user }) {
       const [step, setStep] = useState('plan');
       const [name, setName] = useState('');
@@ -1418,7 +1456,6 @@
       const { user: currentUser, setUser } = useContext(UserContext);
       const otpRefs = useRef([]);
 
-      // Get all subscriptions for this deal
       const dealSubs = useMemo(() => {
         if (!deal.subscriptionIds) return [];
         return subscriptions.filter(s => deal.subscriptionIds.includes(s.id));
@@ -1495,7 +1532,6 @@
           }
         }
 
-        // For each subscription in the deal, allocate a screen
         let allAllocated = [];
         let allSubscriptions = [];
 
@@ -1504,7 +1540,6 @@
           let allocatedForSub = [];
 
           if (subType === 'netflix') {
-            // Allocate 1 Netflix screen
             const availableSlots = [];
             sub.accounts.forEach(acc => {
               if (acc.screens) {
@@ -1530,7 +1565,6 @@
               }));
             }
           } else if (subType === 'amazon') {
-            // Allocate 1 Amazon slot
             const availableSlots = [];
             sub.accounts.forEach(acc => {
               if (acc.screens) {
@@ -1554,7 +1588,6 @@
               }];
             }
           } else {
-            // For other types, try to allocate from first account/screen
             if (sub.accounts && sub.accounts.length > 0) {
               const firstAcc = sub.accounts[0];
               if (firstAcc.screens && firstAcc.screens.length > 0) {
@@ -1579,7 +1612,6 @@
           }
         }
 
-        // Increment purchase count
         try {
           await incrementPurchase(user.username);
         } catch (err) {
@@ -1623,23 +1655,23 @@
       if (step === 'plan') {
         return (
           <div className="space-y-6">
-            <button onClick={onBack} className="text-purple-400 hover:text-purple-300 text-sm"><i className="fas fa-arrow-left mr-2"></i> Back</button>
-            <div className="bg-purple-500/5 rounded-xl p-4 border border-purple-500/10">
+            <button onClick={onBack} className="text-red-400 hover:text-red-300 text-sm"><i className="fas fa-arrow-left mr-2"></i> Back</button>
+            <div className="bg-red-500/5 rounded-xl p-4 border border-red-500/10">
               <h3 className="text-xl font-bold text-white">{deal.title}</h3>
               <p className="text-white/40 text-sm">{deal.description || ''}</p>
               {dealSubs.length > 0 && (
                 <div className="flex flex-wrap gap-2 mt-2">
                   {dealSubs.map(sub => (
                     <span key={sub.id} className="deal-sub-badge">
-                      <i className={`fab ${sub.type === 'netflix' ? 'fa-netflix' : sub.type === 'amazon' ? 'fa-amazon' : sub.type === 'youtube' ? 'fa-youtube' : sub.type === 'spotify' ? 'fa-spotify' : sub.type === 'chatgpt' ? 'fa-robot' : 'fa-crown'}`} style={{ color: sub.type === 'netflix' ? '#e50914' : sub.type === 'amazon' ? '#ff9900' : sub.type === 'youtube' ? '#ff0000' : sub.type === 'spotify' ? '#1db954' : sub.type === 'chatgpt' ? '#10a37f' : '#7c3aed' }}></i>
+                      <i className={`fab ${sub.type === 'netflix' ? 'fa-netflix' : sub.type === 'amazon' ? 'fa-amazon' : sub.type === 'youtube' ? 'fa-youtube' : sub.type === 'spotify' ? 'fa-spotify' : sub.type === 'chatgpt' ? 'fa-robot' : 'fa-crown'}`} style={{ color: sub.type === 'netflix' ? '#e50914' : sub.type === 'amazon' ? '#ff9900' : sub.type === 'youtube' ? '#ff0000' : sub.type === 'spotify' ? '#1db954' : sub.type === 'chatgpt' ? '#10a37f' : '#ef4444' }}></i>
                       {sub.name}
                     </span>
                   ))}
                 </div>
               )}
               <div className="flex items-center gap-3 mt-2">
-                <span className="text-white/30 line-through">${deal.actualPrice}</span>
-                <span className="text-2xl font-bold text-green-400">${deal.discountPrice}</span>
+                <span className="text-white/30 line-through">RS {deal.actualPrice}</span>
+                <span className="text-2xl font-bold text-green-400">RS {deal.discountPrice}</span>
                 <span className="badge badge-yellow text-xs">🔥 Deal</span>
               </div>
             </div>
@@ -1692,7 +1724,7 @@
       if (step === 'otp') {
         return (
           <div className="space-y-6">
-            <button onClick={() => setStep('plan')} className="text-purple-400 hover:text-purple-300 text-sm"><i className="fas fa-arrow-left mr-2"></i> Back</button>
+            <button onClick={() => setStep('plan')} className="text-red-400 hover:text-red-300 text-sm"><i className="fas fa-arrow-left mr-2"></i> Back</button>
             <h2 className="text-2xl font-bold text-white">Enter OTP</h2>
             <p className="text-white/40 text-sm">Enter the 4-digit OTP. Expires in {otpTimer}s</p>
             <div className="flex gap-3 justify-center">
@@ -1715,8 +1747,8 @@
     function CustomFlow({ subscription, onBack, onComplete, user }) {
       return (
         <div className="space-y-6">
-          <button onClick={onBack} className="text-purple-400 hover:text-purple-300 text-sm"><i className="fas fa-arrow-left mr-2"></i> Back</button>
-          <h2 className="text-2xl font-bold text-white"><i className="fas fa-plus-circle text-purple-400 mr-3"></i> {subscription.name}</h2>
+          <button onClick={onBack} className="text-red-400 hover:text-red-300 text-sm"><i className="fas fa-arrow-left mr-2"></i> Back</button>
+          <h2 className="text-2xl font-bold text-white"><i className="fas fa-plus-circle text-red-400 mr-3"></i> {subscription.name}</h2>
           <p className="text-white/40">This subscription is not fully implemented yet.</p>
           <button onClick={() => onComplete({ subscriptionId: subscription.id, screens: 1, months: 1, days: 30, name: 'Test', username: user.username, password: user.password, whatsapp: user.whatsapp, allocated: [], expiryDate: new Date().toISOString().split('T')[0] })} className="btn-neon w-full">Complete</button>
         </div>
@@ -1766,7 +1798,7 @@
       return (
         <div className="glass-panel max-w-md mx-auto">
           <h2 className="text-2xl font-bold text-white mb-2">
-            {isSignUp ? <><i className="fas fa-user-plus text-purple-400 mr-3"></i> Sign Up</> : <><i className="fas fa-sign-in-alt text-purple-400 mr-3"></i> Sign In</>}
+            {isSignUp ? <><i className="fas fa-user-plus text-red-400 mr-3"></i> Sign Up</> : <><i className="fas fa-sign-in-alt text-red-400 mr-3"></i> Sign In</>}
           </h2>
           <p className="text-white/40 text-sm mb-6">
             {isSignUp ? 'Create your account to start subscribing.' : 'Login to your account.'}
@@ -1791,7 +1823,7 @@
             </button>
           </div>
           <div className="mt-4 text-center">
-            <button onClick={() => setIsSignUp(!isSignUp)} className="text-purple-400 hover:text-purple-300 text-sm underline">
+            <button onClick={() => setIsSignUp(!isSignUp)} className="text-red-400 hover:text-red-300 text-sm underline">
               {isSignUp ? 'Already have an account? Sign In' : 'Don\'t have an account? Sign Up'}
             </button>
           </div>
@@ -1847,7 +1879,6 @@
       const displayName = customerData && customerData.length > 0 ? customerData[0].name : user?.username || 'User';
       const displayWhatsapp = customerData && customerData.length > 0 ? customerData[0].whatsapp : user?.whatsapp || 'N/A';
 
-      // Filter active deals for portal
       const activeDeals = (deals || []).filter(d => d.active);
 
       const renderDealsSection = () => {
@@ -1857,7 +1888,7 @@
             <h3 className="text-xl font-bold text-white mb-4"><i className="fas fa-fire text-orange-400 mr-2"></i> Hot Deals</h3>
             <DealsCarousel
               deals={activeDeals}
-              subscriptions={[]} // We'll pass subscriptions from parent
+              subscriptions={[]}
               onPurchaseClick={onDealPurchase}
             />
           </div>
@@ -1871,7 +1902,7 @@
             <div className="glass-panel max-w-4xl mx-auto">
               <div className="flex justify-between items-start mb-6">
                 <div>
-                  <h2 className="text-2xl font-bold text-white"><i className="fas fa-user-circle text-purple-400 mr-3"></i> {displayName}</h2>
+                  <h2 className="text-2xl font-bold text-white"><i className="fas fa-user-circle text-red-400 mr-3"></i> {displayName}</h2>
                   <p className="text-white/30 text-sm"><i className="fab fa-whatsapp mr-1"></i> {displayWhatsapp}</p>
                   <p className="text-white/30 text-sm"><i className="fas fa-coins mr-1"></i> Credits: {userCredits}</p>
                 </div>
@@ -1894,7 +1925,7 @@
             <div className="glass-panel max-w-4xl mx-auto">
               <div className="flex justify-between items-start mb-6">
                 <div>
-                  <h2 className="text-2xl font-bold text-white"><i className="fas fa-user-circle text-purple-400 mr-3"></i> {displayName}</h2>
+                  <h2 className="text-2xl font-bold text-white"><i className="fas fa-user-circle text-red-400 mr-3"></i> {displayName}</h2>
                   <p className="text-white/30 text-sm"><i className="fab fa-whatsapp mr-1"></i> {displayWhatsapp}</p>
                   <p className="text-white/30 text-sm"><i className="fas fa-coins mr-1"></i> Credits: {userCredits}</p>
                 </div>
@@ -1916,7 +1947,7 @@
           <div className="glass-panel max-w-4xl mx-auto">
             <div className="flex justify-between items-start mb-6">
               <div>
-                <h2 className="text-2xl font-bold text-white"><i className="fas fa-user-circle text-purple-400 mr-3"></i> {displayName}</h2>
+                <h2 className="text-2xl font-bold text-white"><i className="fas fa-user-circle text-red-400 mr-3"></i> {displayName}</h2>
                 <p className="text-white/30 text-sm"><i className="fab fa-whatsapp mr-1"></i> {displayWhatsapp}</p>
                 <p className="text-white/30 text-sm"><i className="fas fa-coins mr-1"></i> Credits: {userCredits}</p>
               </div>
@@ -1934,7 +1965,7 @@
                 const status = getStatus(entry.expiryDate);
                 const isExpiring = status.label === 'Expires Today' || status.label === 'Expires Tomorrow';
                 return (
-                  <div key={idx} className="bg-purple-500/5 rounded-xl p-4 border border-purple-500/10">
+                  <div key={idx} className="bg-red-500/5 rounded-xl p-4 border border-red-500/10">
                     <div className="flex justify-between items-center mb-2">
                       <h3 className="text-lg font-semibold text-white">{entry.subscriptionName}</h3>
                       <span className={`badge ${status.color === 'badge-green' ? 'badge-green' : status.color === 'badge-yellow' ? 'badge-yellow' : status.color === 'badge-red' ? 'badge-red' : 'badge-gray'}`}>{status.label}</span>
@@ -2006,7 +2037,7 @@
       return (
         <div className="glass-panel max-w-sm mx-auto">
           <div className="text-center mb-6">
-            <i className="fas fa-user-shield text-5xl text-purple-400 neon-text"></i>
+            <i className="fas fa-user-shield text-5xl text-red-400 neon-text"></i>
             <h2 className="text-2xl font-bold text-white mt-3">Admin Access</h2>
             <p className="text-white/40 text-sm">Enter your password.</p>
           </div>
@@ -2064,7 +2095,6 @@
         subscriptionId: ''
       });
 
-      // ─── Load data ──────────────────────────────────────
       const loadOTPs = async () => {
         try {
           const data = await fetchOTPList();
@@ -2160,7 +2190,6 @@
         }
       };
 
-      // ─── Deal CRUD ──────────────────────────────────────
       const openDealModal = (deal = null) => {
         if (deal) {
           setEditingDeal(deal);
@@ -2271,7 +2300,6 @@
         setShowAdminSettings(false);
       };
 
-      // ─── Delete handlers ────────────────────────────────
       const deleteSubscription = async (subId) => {
         if (window.confirm('Delete this subscription and all its data?')) {
           await deleteSubscriptionAPI(subId);
@@ -2310,7 +2338,6 @@
         }
       };
 
-      // ─── Edit customer ──────────────────────────────────
       const openEditModal = (subId, accId, screenId, customerIdx, customer) => {
         setEditingCustomer({ subId, accId, screenId, customerIdx });
         setEditForm({
@@ -2359,7 +2386,6 @@
         }
       };
 
-      // ─── Add subscription ──────────────────────────────
       const handleAddSubscription = async () => {
         if (!newSubName.trim()) {
           addToast('Enter subscription name', 'error');
@@ -2380,7 +2406,6 @@
         addToast(`Added ${newSub.name}!`, 'success');
       };
 
-      // ─── Add account ────────────────────────────────────
       const handleAddAccount = async (subId) => {
         if (!newAccount.email.trim() || !newAccount.password.trim()) {
           addToast('Email and password required', 'error');
@@ -2409,7 +2434,6 @@
         addToast('Account added!', 'success');
       };
 
-      // ─── UI rendering ──────────────────────────────────────
       const getCustomerRecords = (sub) => {
         const records = [];
         sub.accounts.forEach(acc => {
@@ -2586,16 +2610,15 @@
       };
       const generatePin = () => String(Math.floor(1000 + Math.random() * 9000));
 
-      // ─── Render ──────────────────────────────────────────
       return (
         <div className="space-y-6">
           <div className="flex flex-wrap justify-between items-center gap-4">
             <div>
-              <h2 className="text-2xl font-bold text-white"><i className="fas fa-user-shield text-purple-400 mr-3"></i> Admin Dashboard</h2>
+              <h2 className="text-2xl font-bold text-white"><i className="fas fa-user-shield text-red-400 mr-3"></i> Admin Dashboard</h2>
               <p className="text-white/30 text-sm">Manage everything.</p>
             </div>
             <div className="flex flex-wrap gap-2">
-              <button onClick={refreshData} className="btn-purple text-sm">
+              <button onClick={refreshData} className="btn-red text-sm">
                 <i className="fas fa-sync mr-1"></i> Refresh
               </button>
               <button onClick={() => setShowAdminSettings(!showAdminSettings)} className="btn-warning text-sm">
@@ -2612,7 +2635,7 @@
 
           {showAdminSettings && (
             <div className="glass-panel">
-              <h3 className="text-lg font-semibold text-white mb-4"><i className="fas fa-lock text-purple-400 mr-2"></i> Change Admin Password</h3>
+              <h3 className="text-lg font-semibold text-white mb-4"><i className="fas fa-lock text-red-400 mr-2"></i> Change Admin Password</h3>
               <div className="space-y-3">
                 <div>
                   <label className="text-white/50 text-sm">New Password</label>
@@ -2632,7 +2655,7 @@
 
           {showAddSub && (
             <div className="glass-panel">
-              <h3 className="text-lg font-semibold text-white mb-4"><i className="fas fa-plus-circle text-purple-400 mr-2"></i> New Subscription</h3>
+              <h3 className="text-lg font-semibold text-white mb-4"><i className="fas fa-plus-circle text-red-400 mr-2"></i> New Subscription</h3>
               <div className="grid sm:grid-cols-2 gap-4">
                 <div>
                   <label className="text-white/50 text-sm">Name</label>
@@ -2735,7 +2758,7 @@
                     <div className="flex flex-wrap justify-between items-start gap-4">
                       <div>
                         <h3 className="text-lg font-semibold text-white">
-                          <i className={`fas fa-${sub.type === 'netflix' ? 'netflix' : sub.type === 'amazon' ? 'amazon' : sub.type === 'youtube' ? 'youtube' : sub.type === 'spotify' ? 'spotify' : sub.type === 'chatgpt' ? 'robot' : 'crown'} mr-2`} style={{ color: sub.type === 'netflix' ? '#e50914' : sub.type === 'amazon' ? '#ff9900' : sub.type === 'youtube' ? '#ff0000' : sub.type === 'spotify' ? '#1db954' : sub.type === 'chatgpt' ? '#10a37f' : '#7c3aed' }}></i>
+                          <i className={`fas fa-${sub.type === 'netflix' ? 'netflix' : sub.type === 'amazon' ? 'amazon' : sub.type === 'youtube' ? 'youtube' : sub.type === 'spotify' ? 'spotify' : sub.type === 'chatgpt' ? 'robot' : 'crown'} mr-2`} style={{ color: sub.type === 'netflix' ? '#e50914' : sub.type === 'amazon' ? '#ff9900' : sub.type === 'youtube' ? '#ff0000' : sub.type === 'spotify' ? '#1db954' : sub.type === 'chatgpt' ? '#10a37f' : '#ef4444' }}></i>
                           {sub.name}
                         </h3>
                         <p className="text-white/30 text-xs">{sub.accounts.length} accounts • {totalSlots} slots • {totalCust} customers</p>
@@ -2765,13 +2788,13 @@
                                     <td className="text-sm">{acc.email}</td>
                                     <td className="text-sm">{acc.screens.length}</td>
                                     <td className="text-sm"><span className={`badge ${custCount > 0 ? 'badge-green' : 'badge-yellow'}`}>{custCount} active</span></td>
-                                    <td className="text-sm"><span className="badge badge-purple"><i className="fas fa-circle text-[6px] mr-1 align-middle"></i> Active</span></td>
+                                    <td className="text-sm"><span className="badge badge-red-light"><i className="fas fa-circle text-[6px] mr-1 align-middle"></i> Active</span></td>
                                     <td>
                                       <div className="flex gap-1 flex-wrap">
                                         <button onClick={() => openEditAccount(sub.id, acc.id, acc.email, acc.password)} className="btn-warning text-xs">
                                           <i className="fas fa-edit"></i>
                                         </button>
-                                        <button onClick={() => handleGeneratePassword(sub.id, acc.id)} className="btn-purple text-xs">
+                                        <button onClick={() => handleGeneratePassword(sub.id, acc.id)} className="btn-red text-xs">
                                           <i className="fas fa-key"></i> Gen Pass
                                         </button>
                                         <button onClick={() => deleteAccount(sub.id, acc.id)} className="btn-danger text-xs">
@@ -2786,13 +2809,13 @@
                                         <p className="text-xs text-white/40 mb-1">Screens:</p>
                                         <div className="flex flex-wrap gap-2">
                                           {acc.screens.map(screen => (
-                                            <div key={screen.id} className="flex items-center gap-2 bg-purple-500/10 px-3 py-1 rounded-full text-xs">
+                                            <div key={screen.id} className="flex items-center gap-2 bg-red-500/10 px-3 py-1 rounded-full text-xs">
                                               <span className="text-white/70">{screen.name}</span>
                                               <span className="text-white/30">PIN: {screen.pin || 'N/A'}</span>
                                               <button onClick={() => openEditScreen(sub.id, acc.id, screen.id, screen.name, screen.pin)} className="btn-warning text-xs">
                                                 <i className="fas fa-edit"></i>
                                               </button>
-                                              <button onClick={() => handleGeneratePin(sub.id, acc.id, screen.id)} className="btn-purple text-xs">
+                                              <button onClick={() => handleGeneratePin(sub.id, acc.id, screen.id)} className="btn-red text-xs">
                                                 <i className="fas fa-shield-alt"></i> Gen PIN
                                               </button>
                                             </div>
@@ -2810,8 +2833,8 @@
                     )}
 
                     {showAddAccount === sub.id && (
-                      <div className="mt-4 p-4 bg-purple-500/5 rounded-xl border border-purple-500/10">
-                        <h4 className="text-white font-medium mb-3"><i className="fas fa-user-plus text-purple-400 mr-2"></i> Add Account to {sub.name}</h4>
+                      <div className="mt-4 p-4 bg-red-500/5 rounded-xl border border-red-500/10">
+                        <h4 className="text-white font-medium mb-3"><i className="fas fa-user-plus text-red-400 mr-2"></i> Add Account to {sub.name}</h4>
                         <div className="grid sm:grid-cols-2 gap-4">
                           <div>
                             <label className="text-white/40 text-xs">Email</label>
@@ -2831,7 +2854,7 @@
                                 <input type="text" value={s.pin} onChange={(e) => updateScreen(idx, 'pin', e.target.value)} className="input-neon w-24" placeholder="PIN" />
                               </div>
                             ))}
-                            <button onClick={addScreenToAccount} className="text-purple-400 hover:text-purple-300 text-sm"><i className="fas fa-plus mr-1"></i> Add Screen</button>
+                            <button onClick={addScreenToAccount} className="text-red-400 hover:text-red-300 text-sm"><i className="fas fa-plus mr-1"></i> Add Screen</button>
                           </div>
                         </div>
                         <div className="flex gap-3 mt-4">
@@ -2852,7 +2875,7 @@
                             <tbody>
                               {records.map((r, idx) => {
                                 const status = checkExpiry(r.expiry);
-                                const statusColors = { expired: 'badge-red', today: 'badge-yellow', tomorrow: 'badge-yellow', soon: 'badge-yellow', active: 'badge-green', unknown: 'badge-purple' };
+                                const statusColors = { expired: 'badge-red', today: 'badge-yellow', tomorrow: 'badge-yellow', soon: 'badge-yellow', active: 'badge-green', unknown: 'badge-red-light' };
                                 const statusLabels = { expired: 'Expired', today: 'Today', tomorrow: 'Tomorrow', soon: 'Soon', active: 'Active', unknown: 'N/A' };
                                 return (
                                   <tr key={idx}>
@@ -2862,7 +2885,7 @@
                                     <td>{r.screenName}</td>
                                     <td className="text-xs text-white/40">{r.accountEmail}</td>
                                     <td>{r.expiry}</td>
-                                    <td><span className={`badge ${statusColors[status] || 'badge-purple'}`}>{statusLabels[status] || 'N/A'}</span></td>
+                                    <td><span className={`badge ${statusColors[status] || 'badge-red-light'}`}>{statusLabels[status] || 'N/A'}</span></td>
                                     <td>
                                       <div className="flex gap-1">
                                         <button onClick={() => openEditModal(sub.id, r.accountId, r.screenId, r.customerIdx, r.customer)} className="btn-warning text-xs"><i className="fas fa-edit"></i></button>
@@ -2891,7 +2914,7 @@
                 return (
                   <div key={sub.id} className="glass-panel">
                     <h4 className="text-white font-semibold mb-3">
-                      <i className={`fas fa-${sub.type === 'netflix' ? 'netflix' : sub.type === 'amazon' ? 'amazon' : sub.type === 'youtube' ? 'youtube' : sub.type === 'spotify' ? 'spotify' : sub.type === 'chatgpt' ? 'robot' : 'crown'} mr-2`} style={{ color: sub.type === 'netflix' ? '#e50914' : sub.type === 'amazon' ? '#ff9900' : sub.type === 'youtube' ? '#ff0000' : sub.type === 'spotify' ? '#1db954' : sub.type === 'chatgpt' ? '#10a37f' : '#7c3aed' }}></i>
+                      <i className={`fas fa-${sub.type === 'netflix' ? 'netflix' : sub.type === 'amazon' ? 'amazon' : sub.type === 'youtube' ? 'youtube' : sub.type === 'spotify' ? 'spotify' : sub.type === 'chatgpt' ? 'robot' : 'crown'} mr-2`} style={{ color: sub.type === 'netflix' ? '#e50914' : sub.type === 'amazon' ? '#ff9900' : sub.type === 'youtube' ? '#ff0000' : sub.type === 'spotify' ? '#1db954' : sub.type === 'chatgpt' ? '#10a37f' : '#ef4444' }}></i>
                       {sub.name} ({records.length})
                     </h4>
                     <div className="overflow-x-auto">
@@ -2902,7 +2925,7 @@
                         <tbody>
                           {records.map((r, idx) => {
                             const status = checkExpiry(r.expiry);
-                            const statusColors = { expired: 'badge-red', today: 'badge-yellow', tomorrow: 'badge-yellow', soon: 'badge-yellow', active: 'badge-green', unknown: 'badge-purple' };
+                            const statusColors = { expired: 'badge-red', today: 'badge-yellow', tomorrow: 'badge-yellow', soon: 'badge-yellow', active: 'badge-green', unknown: 'badge-red-light' };
                             const statusLabels = { expired: 'Expired', today: 'Today', tomorrow: 'Tomorrow', soon: 'Soon', active: 'Active', unknown: 'N/A' };
                             return (
                               <tr key={idx}>
@@ -2912,7 +2935,7 @@
                                 <td>{r.screenName}</td>
                                 <td className="text-xs text-white/40">{r.accountEmail}</td>
                                 <td>{r.expiry}</td>
-                                <td><span className={`badge ${statusColors[status] || 'badge-purple'}`}>{statusLabels[status] || 'N/A'}</span></td>
+                                <td><span className={`badge ${statusColors[status] || 'badge-red-light'}`}>{statusLabels[status] || 'N/A'}</span></td>
                                 <td>
                                   <div className="flex gap-1">
                                     <button onClick={() => openEditModal(sub.id, r.accountId, r.screenId, r.customerIdx, r.customer)} className="btn-warning text-xs"><i className="fas fa-edit"></i></button>
@@ -2936,7 +2959,7 @@
 
           {activeTab === 'users' && (
             <div className="glass-panel">
-              <h3 className="text-lg font-semibold text-white mb-4"><i className="fas fa-user-friends mr-2 text-purple-400"></i> Registered Users</h3>
+              <h3 className="text-lg font-semibold text-white mb-4"><i className="fas fa-user-friends mr-2 text-red-400"></i> Registered Users</h3>
               {usersList.length === 0 ? (
                 <div className="text-center py-8 text-white/30"><i className="fas fa-user-slash text-3xl mb-3 block"></i> No users registered yet.</div>
               ) : (
@@ -3024,8 +3047,8 @@
                           <tr key={deal.id}>
                             <td className="font-semibold">{deal.title}</td>
                             <td className="text-xs text-white/40">{subNames || 'N/A'}</td>
-                            <td className="text-white/40">${deal.actualPrice}</td>
-                            <td className="text-green-400 font-bold">${deal.discountPrice}</td>
+                            <td className="text-white/40">RS {deal.actualPrice}</td>
+                            <td className="text-green-400 font-bold">RS {deal.discountPrice}</td>
                             <td>
                               <span className={`badge ${deal.active ? 'badge-green' : 'badge-gray'}`}>
                                 {deal.active ? 'Active' : 'Inactive'}
@@ -3034,7 +3057,7 @@
                             <td>
                               <div className="flex gap-1 flex-wrap">
                                 <button onClick={() => openDealModal(deal)} className="btn-warning text-xs"><i className="fas fa-edit"></i></button>
-                                <button onClick={() => toggleDealStatus(deal)} className="btn-purple text-xs">
+                                <button onClick={() => toggleDealStatus(deal)} className="btn-red text-xs">
                                   {deal.active ? <i className="fas fa-pause"></i> : <i className="fas fa-play"></i>}
                                 </button>
                                 <button onClick={() => deleteDealHandler(deal.id)} className="btn-danger text-xs"><i className="fas fa-trash"></i></button>
@@ -3052,7 +3075,7 @@
 
           {activeTab === 'otp' && (
             <div className="glass-panel">
-              <h3 className="text-lg font-semibold text-white mb-3"><i className="fas fa-key mr-2 text-purple-400"></i> OTP Logs</h3>
+              <h3 className="text-lg font-semibold text-white mb-3"><i className="fas fa-key mr-2 text-red-400"></i> OTP Logs</h3>
               <p className="text-white/30 text-xs mb-4">All OTPs generated (latest first). Expire after 5 minutes.</p>
               {otpList.length === 0 ? (
                 <div className="text-center py-8 text-white/30"><i className="fas fa-inbox text-3xl mb-3 block"></i> No OTPs generated yet.</div>
@@ -3068,7 +3091,7 @@
                         if (o.verified) { statusLabel = 'Verified'; statusColor = 'badge-green'; } else if (o.expired) { statusLabel = 'Expired'; statusColor = 'badge-red'; } else { statusLabel = 'Pending'; statusColor = 'badge-yellow'; }
                         return (
                           <tr key={o.id}>
-                            <td className="font-mono font-bold text-purple-400">
+                            <td className="font-mono font-bold text-red-400">
                               {o.otp}
                               <button className="copy-btn" onClick={() => { navigator?.clipboard?.writeText(o.otp); addToast('OTP copied!', 'success'); }}><i className="fas fa-copy"></i></button>
                             </td>
@@ -3086,7 +3109,6 @@
             </div>
           )}
 
-          {/* Deal Modal */}
           {showDealModal && (
             <div className="modal-overlay">
               <div className="modal-content glass-panel">
@@ -3116,16 +3138,16 @@
                   </div>
                   <div>
                     <label className="text-white/50 text-sm">Select Subscriptions</label>
-                    <div className="mt-2 space-y-2 max-h-40 overflow-y-auto bg-purple-500/5 rounded-xl p-3 border border-purple-500/10">
+                    <div className="mt-2 space-y-2 max-h-40 overflow-y-auto bg-red-500/5 rounded-xl p-3 border border-red-500/10">
                       {subscriptions.map(sub => (
                         <label key={sub.id} className="flex items-center gap-3 text-white/70 text-sm cursor-pointer hover:text-white">
                           <input
                             type="checkbox"
                             checked={(dealForm.subscriptionIds || []).includes(sub.id)}
                             onChange={() => toggleSubscriptionInDeal(sub.id)}
-                            className="w-4 h-4 accent-purple-400"
+                            className="w-4 h-4 accent-red-500"
                           />
-                          <i className={`fab ${sub.type === 'netflix' ? 'fa-netflix' : sub.type === 'amazon' ? 'fa-amazon' : sub.type === 'youtube' ? 'fa-youtube' : sub.type === 'spotify' ? 'fa-spotify' : sub.type === 'chatgpt' ? 'fa-robot' : 'fa-crown'}`} style={{ color: sub.type === 'netflix' ? '#e50914' : sub.type === 'amazon' ? '#ff9900' : sub.type === 'youtube' ? '#ff0000' : sub.type === 'spotify' ? '#1db954' : sub.type === 'chatgpt' ? '#10a37f' : '#7c3aed' }}></i>
+                          <i className={`fab ${sub.type === 'netflix' ? 'fa-netflix' : sub.type === 'amazon' ? 'fa-amazon' : sub.type === 'youtube' ? 'fa-youtube' : sub.type === 'spotify' ? 'fa-spotify' : sub.type === 'chatgpt' ? 'fa-robot' : 'fa-crown'}`} style={{ color: sub.type === 'netflix' ? '#e50914' : sub.type === 'amazon' ? '#ff9900' : sub.type === 'youtube' ? '#ff0000' : sub.type === 'spotify' ? '#1db954' : sub.type === 'chatgpt' ? '#10a37f' : '#ef4444' }}></i>
                           {sub.name}
                         </label>
                       ))}
@@ -3136,7 +3158,7 @@
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <label className="text-white/50 text-sm">Original Price ($)</label>
+                      <label className="text-white/50 text-sm">Original Price (RS)</label>
                       <input
                         type="number"
                         value={dealForm.actualPrice}
@@ -3146,7 +3168,7 @@
                       />
                     </div>
                     <div>
-                      <label className="text-white/50 text-sm">Discounted Price ($)</label>
+                      <label className="text-white/50 text-sm">Discounted Price (RS)</label>
                       <input
                         type="number"
                         value={dealForm.discountPrice}
@@ -3161,7 +3183,7 @@
                       type="checkbox"
                       checked={dealForm.active}
                       onChange={(e) => setDealForm({ ...dealForm, active: e.target.checked })}
-                      className="w-4 h-4 accent-purple-400"
+                      className="w-4 h-4 accent-red-500"
                     />
                     <label className="text-white/70 text-sm">Active</label>
                   </div>
@@ -3312,14 +3334,11 @@
         addToast('Subscription activated! 🎉', 'success');
         console.log('Subscription data:', data);
 
-        // Handle deal with multiple subscriptions
         let updatedSubs = subscriptions.map(sub => {
           if (data.isDeal) {
-            // For deals, we need to add the customer to each subscription in the deal
             const dealSubIds = data.dealSubscriptionIds || [];
             if (dealSubIds.includes(sub.id)) {
               const updated = { ...sub };
-              // Find the allocated data for this subscription
               const allocatedForSub = (data.allocated || []).filter(a => a.subscriptionId === sub.id);
               if (allocatedForSub.length > 0) {
                 allocatedForSub.forEach(allot => {
@@ -3346,7 +3365,6 @@
                   });
                 });
               } else {
-                // Fallback: add to first account/screen
                 if (updated.accounts.length > 0) {
                   const firstAcc = updated.accounts[0];
                   if (firstAcc.screens && firstAcc.screens.length > 0) {
@@ -3369,7 +3387,6 @@
             }
             return sub;
           } else {
-            // Regular subscription purchase
             if (sub.id === data.subscriptionId) {
               const updated = { ...sub };
               if (data.allocated && data.allocated.length > 0) {
@@ -3422,7 +3439,6 @@
         });
 
         setSubscriptions(updatedSubs);
-        // Update each subscription
         for (const sub of updatedSubs) {
           if (data.isDeal) {
             const dealSubIds = data.dealSubscriptionIds || [];
@@ -3443,7 +3459,6 @@
         setShowSubscriptions(false);
         addToast('🎉 Subscription confirmed! Check your details.', 'success');
 
-        // Redirect to customer portal
         if (user) {
           const found = findCustomers(user.username);
           setCustomerData(found);
@@ -3539,7 +3554,6 @@
         setShowSubscriptions(true);
       };
 
-      // Build deals with subscription data for carousel
       const dealsWithSub = deals
         .filter(d => d.active)
         .map(deal => {
@@ -3576,7 +3590,7 @@
               <div className="pt-6">
                 {flowStep === 'welcome' && (
                   <div className="text-center">
-                    <h2 className="text-3xl font-bold text-white mb-4"><i className="fas fa-gem text-purple-400 mr-3"></i> Get Subscription</h2>
+                    <h2 className="text-3xl font-bold text-white mb-4"><i className="fas fa-gem text-red-400 mr-3"></i> Get Subscription</h2>
                     <p className="text-white/40 mb-8">Choose an option to continue.</p>
                     <div className="flex flex-wrap justify-center gap-4">
                       <button onClick={handleGetStarted} className="btn-neon px-10 py-4 text-lg">
@@ -3599,10 +3613,10 @@
                 )}
                 {flowStep === 'select' && (
                   <div>
-                    <button onClick={() => { setFlowStep('welcome'); setFlowType(null); }} className="text-purple-400 hover:text-purple-300 text-sm mb-6 inline-flex items-center">
+                    <button onClick={() => { setFlowStep('welcome'); setFlowType(null); }} className="text-red-400 hover:text-red-300 text-sm mb-6 inline-flex items-center">
                       <i className="fas fa-arrow-left mr-2"></i> Back
                     </button>
-                    <h2 className="text-2xl font-bold text-white mb-6"><i className="fas fa-crown text-purple-400 mr-3"></i> Choose Subscription</h2>
+                    <h2 className="text-2xl font-bold text-white mb-6"><i className="fas fa-crown text-red-400 mr-3"></i> Choose Subscription</h2>
                     <SubscriptionSelection subscriptions={subscriptions} onSelect={handleSubSelect} selected={selectedSubscription} />
                     {dealsWithSub.length > 0 && (
                       <div className="mt-8">
@@ -3628,12 +3642,12 @@
           {activeTab === 'contact' && (
             <section id="contact-section" className="px-4 max-w-3xl mx-auto py-20">
               <div className="glass-panel">
-                <h2 className="text-3xl font-bold text-white mb-2"><i className="fas fa-envelope text-purple-400 mr-3"></i> Contact Us</h2>
+                <h2 className="text-3xl font-bold text-white mb-2"><i className="fas fa-envelope text-red-400 mr-3"></i> Contact Us</h2>
                 <p className="text-white/40 mb-6">Have questions? Reach out.</p>
                 <div className="space-y-4">
-                  <div className="flex items-center gap-4 p-3 rounded-xl bg-white/5"><i className="fas fa-envelope text-purple-400 w-6"></i> <span className="text-white/60">support@subscriptionhub.com</span></div>
+                  <div className="flex items-center gap-4 p-3 rounded-xl bg-white/5"><i className="fas fa-envelope text-red-400 w-6"></i> <span className="text-white/60">support@zetlify.com</span></div>
                   <div className="flex items-center gap-4 p-3 rounded-xl bg-white/5"><i className="fab fa-whatsapp text-green-400 w-6"></i> <span className="text-white/60">+92 300 1234567</span></div>
-                  <div className="flex items-center gap-4 p-3 rounded-xl bg-white/5"><i className="fas fa-phone text-purple-400 w-6"></i> <span className="text-white/60">+1 (555) 123-4567</span></div>
+                  <div className="flex items-center gap-4 p-3 rounded-xl bg-white/5"><i className="fas fa-phone text-red-400 w-6"></i> <span className="text-white/60">+1 (555) 123-4567</span></div>
                 </div>
               </div>
             </section>
@@ -3641,7 +3655,7 @@
           {activeTab === 'social' && (
             <section id="social-section" className="px-4 max-w-3xl mx-auto py-20">
               <div className="glass-panel">
-                <h2 className="text-3xl font-bold text-white mb-2"><i className="fas fa-share-alt text-purple-400 mr-3"></i> Social Media</h2>
+                <h2 className="text-3xl font-bold text-white mb-2"><i className="fas fa-share-alt text-red-400 mr-3"></i> Social Media</h2>
                 <p className="text-white/40 mb-6">Follow us.</p>
                 <div className="flex flex-wrap gap-4">
                   <a href="#" className="flex items-center gap-3 px-6 py-3 rounded-xl bg-white/5 hover:bg-white/10 transition border border-white/5"><i className="fab fa-facebook text-blue-400 text-xl"></i> <span className="text-white/60">Facebook</span></a>
@@ -3660,8 +3674,8 @@
           )}
           <footer className="border-t border-white/5 py-8 px-4 mt-8">
             <div className="max-w-7xl mx-auto text-center text-white/20 text-sm">
-              <p>© 2026 Subscription Hub. All rights reserved.</p>
-              <p className="mt-1">Built with <i className="fas fa-heart text-purple-400"></i> for premium entertainment.</p>
+              <p>© 2026 Zetlify. All rights reserved.</p>
+              <p className="mt-1">Built with <i className="fas fa-heart text-red-400"></i> for premium entertainment.</p>
             </div>
           </footer>
         </div>
