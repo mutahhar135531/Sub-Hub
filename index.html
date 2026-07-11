@@ -32,6 +32,8 @@
     .btn-warning:hover { background:rgba(251,191,36,0.25); border-color:#fbbf24; }
     .btn-purple { background:rgba(124,58,237,0.15); color:#a78bfa; border:1px solid rgba(124,58,237,0.25); padding:4px 12px; border-radius:20px; font-size:.75rem; transition:all .3s ease; cursor:pointer; }
     .btn-purple:hover { background:rgba(124,58,237,0.25); border-color:#7c3aed; }
+    .btn-success { background:rgba(52,211,153,0.15); color:#34d399; border:1px solid rgba(52,211,153,0.25); padding:6px 16px; border-radius:30px; font-size:.8rem; transition:all .3s ease; cursor:pointer; }
+    .btn-success:hover { background:rgba(52,211,153,0.25); border-color:#34d399; }
     .input-neon { background:rgba(255,255,255,0.04); border:1px solid rgba(124,58,237,0.25); border-radius:14px; padding:12px 18px; color:#e0e0ff; width:100%; transition:all .3s ease; outline:none; font-size:.95rem; }
     .input-neon:focus { border-color:#7c3aed; box-shadow:0 0 30px rgba(124,58,237,0.08),inset 0 0 30px rgba(124,58,237,0.03); background:rgba(255,255,255,0.06); }
     .input-neon::placeholder { color:rgba(255,255,255,0.25); }
@@ -64,6 +66,12 @@
     .badge-yellow { background:rgba(251,191,36,0.15); color:#fbbf24; }
     .badge-purple { background:rgba(124,58,237,0.15); color:#a78bfa; }
     .badge-gray { background:rgba(255,255,255,0.05); color:#9ca3af; }
+    .deal-card { background:rgba(18,18,45,0.80); backdrop-filter:blur(12px); border:2px solid rgba(124,58,237,0.30); border-radius:24px; padding:28px 24px; transition:all .3s ease; position:relative; overflow:hidden; }
+    .deal-card:hover { border-color:#7c3aed; box-shadow:0 0 60px rgba(124,58,237,0.15); transform:translateY(-4px); }
+    .deal-card .discount-badge { position:absolute; top:12px; right:12px; background:linear-gradient(135deg,#fbbf24,#f59e0b); color:#0b0b1a; font-weight:700; padding:4px 14px; border-radius:40px; font-size:.75rem; box-shadow:0 0 30px rgba(251,191,36,0.3); }
+    .deal-price-original { color:rgba(255,255,255,0.3); font-size:1.1rem; text-decoration:line-through; }
+    .deal-price-discount { color:#34d399; font-size:2.2rem; font-weight:800; text-shadow:0 0 30px rgba(52,211,153,0.2); }
+    .deal-price-currency { font-size:1.2rem; font-weight:600; }
     @media (max-width:640px) { .sub-icon { font-size:2.2rem; } .otp-input { width:44px; height:52px; font-size:1.3rem; } .toast-container { left:16px; right:16px; max-width:100%; bottom:16px; } .admin-table th,.admin-table td { padding:8px 10px; font-size:.75rem; } }
     .fade-up { opacity:0; transform:translateY(30px); transition:all .6s ease; }
     .fade-up.visible { opacity:1; transform:translateY(0); }
@@ -174,6 +182,13 @@
       return res.json();
     };
 
+    const fetchUser = async (username) => {
+      const res = await fetch(`${API_BASE}/api/users/${username}?t=${Date.now()}`, {
+        headers: { 'Cache-Control': 'no-cache' }
+      });
+      return res.json();
+    };
+
     const incrementPurchase = async (username) => {
       const res = await fetch(`${API_BASE}/api/users/${username}/incrementPurchase`, {
         method: 'PUT',
@@ -206,14 +221,52 @@
       return res.json();
     };
 
+    // ─── DEALS API ─────────────────────────────────────────────
+    const fetchDeals = async () => {
+      const res = await fetch(`${API_BASE}/api/deals?t=${Date.now()}`, {
+        headers: { 'Cache-Control': 'no-cache' }
+      });
+      return res.json();
+    };
+
+    const fetchActiveDeals = async () => {
+      const res = await fetch(`${API_BASE}/api/deals/active?t=${Date.now()}`, {
+        headers: { 'Cache-Control': 'no-cache' }
+      });
+      return res.json();
+    };
+
+    const createDeal = async (data) => {
+      const res = await fetch(`${API_BASE}/api/deals`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+      return res.json();
+    };
+
+    const updateDeal = async (dealId, data) => {
+      const res = await fetch(`${API_BASE}/api/deals/${dealId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+      return res.json();
+    };
+
+    const deleteDeal = async (dealId) => {
+      const res = await fetch(`${API_BASE}/api/deals/${dealId}`, {
+        method: 'DELETE',
+      });
+      return res.json();
+    };
+
     // ─── NETFLIX PRICING ───────────────────────────────────────
     const getNetflixCredits = (screens, months) => {
-      // 1 month, various screens
       if (months === 1) {
         const screenPrices = {1:350, 2:650, 3:850, 4:1000, 5:1100};
         return screenPrices[screens] || 350;
       }
-      // 1 screen, various months
       if (screens === 1) {
         const monthPrices = {
           1:350, 2:700, 3:850, 4:1000, 5:1250,
@@ -222,9 +275,19 @@
         };
         return monthPrices[months] || 350;
       }
-      // For other combinations: base price for 1 screen * number of screens
       const base = getNetflixCredits(1, months);
       return base * screens;
+    };
+
+    // ─── AMAZON PRICING ───────────────────────────────────────
+    const getAmazonCredits = (months) => {
+      const prices = {
+        1: 150,  // 30 days
+        3: 450,
+        6: 600,
+        12: 850
+      };
+      return prices[months] || 150;
     };
 
     // ─── CONTEXT ──────────────────────────────────────────────
@@ -251,12 +314,28 @@
       };
       const removeToast = (id) => setToasts(prev => prev.filter(t => t.id !== id));
 
+      // Refresh user data from server
+      const refreshUser = async () => {
+        if (!user?.username) return null;
+        try {
+          const fresh = await fetchUser(user.username);
+          if (fresh && fresh.username) {
+            setUser(fresh);
+            return fresh;
+          }
+          return user;
+        } catch (err) {
+          console.error('Failed to refresh user:', err);
+          return user;
+        }
+      };
+
       useEffect(() => { localStorage.setItem('adminPassword', adminPassword); }, [adminPassword]);
       useEffect(() => { localStorage.setItem('user', JSON.stringify(user)); }, [user]);
 
       return (
         <AppContext.Provider value={{ toasts, addToast, removeToast, loading, setLoading, isAdmin, setIsAdmin, adminPassword, setAdminPassword }}>
-          <UserContext.Provider value={{ user, setUser }}>
+          <UserContext.Provider value={{ user, setUser, refreshUser }}>
             {children}
           </UserContext.Provider>
         </AppContext.Provider>
@@ -365,10 +444,66 @@
       );
     }
 
+    // ─── DEALS SECTION ────────────────────────────────────────
+    function DealsSection({ deals, subscriptions, onPurchaseClick }) {
+      const icons = { netflix: 'fa-netflix', amazon: 'fa-amazon', youtube: 'fa-youtube', spotify: 'fa-spotify', chatgpt: 'fa-robot', custom: 'fa-plus-circle' };
+      const colors = { netflix: '#e50914', amazon: '#ff9900', youtube: '#ff0000', spotify: '#1db954', chatgpt: '#10a37f', custom: '#7c3aed' };
+
+      if (!deals || deals.length === 0) return null;
+
+      // Get subscription details for each deal
+      const dealsWithSub = deals.map(deal => {
+        const sub = subscriptions.find(s => s.id === deal.subscriptionId);
+        return { ...deal, subscription: sub };
+      }).filter(d => d.subscription);
+
+      if (dealsWithSub.length === 0) return null;
+
+      return (
+        <div className="max-w-7xl mx-auto px-4 py-6">
+          <div className="flex items-center gap-3 mb-5">
+            <i className="fas fa-bolt text-yellow-400 text-2xl"></i>
+            <h2 className="text-2xl font-bold text-white">🔥 Hot Deals!</h2>
+            <span className="text-white/30 text-sm ml-2">Limited time offers</span>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+            {dealsWithSub.map(deal => {
+              const sub = deal.subscription;
+              const icon = icons[sub?.type] || 'fa-crown';
+              const color = colors[sub?.type] || '#7c3aed';
+              const discount = Math.round((1 - deal.discountPrice / deal.actualPrice) * 100);
+              return (
+                <div key={deal.id} className="deal-card">
+                  <div className="discount-badge">-{discount}% OFF</div>
+                  <div className="flex items-center gap-4 mb-3">
+                    <i className={`fab ${icon} text-3xl`} style={{ color }}></i>
+                    <div>
+                      <h3 className="text-xl font-bold text-white">{deal.title}</h3>
+                      <p className="text-white/40 text-sm">{deal.description || sub?.name || ''}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-end gap-3 mt-2">
+                    <span className="deal-price-original">${deal.actualPrice}</span>
+                    <span className="deal-price-discount">${deal.discountPrice}</span>
+                  </div>
+                  <button
+                    onClick={() => onPurchaseClick(deal)}
+                    className="btn-neon w-full mt-4 py-2.5 text-sm"
+                  >
+                    <i className="fas fa-shopping-cart mr-2"></i> Purchase Now
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      );
+    }
+
     // ─── HERO ──────────────────────────────────────────────────
     function Hero({ setActiveTab, setShowSubscriptions, onGetStarted }) {
       return (
-        <section className="pt-28 pb-14 px-4 max-w-7xl mx-auto">
+        <section className="pt-12 pb-14 px-4 max-w-7xl mx-auto">
           <div className="text-center">
             <div className="inline-block mb-4 px-5 py-2 rounded-full bg-purple-500/10 border border-purple-500/20 text-purple-300 text-sm font-medium">
               <i className="fas fa-bolt mr-2"></i> Premium Subscriptions
@@ -573,7 +708,6 @@
         return totalFree >= screens;
       }, [allAvailableSlots, screens]);
 
-      // ─── Netflix credits using the pricing table ──────────
       const creditsNeeded = useMemo(() => {
         const totalMonths = durationType === 'months' ? months : Math.ceil(days / 30);
         return getNetflixCredits(screens, totalMonths);
@@ -786,7 +920,6 @@
               </div>
             </div>
 
-            {/* Credits option */}
             {currentUser && (
               <div className="bg-green-500/10 rounded-xl p-4 border border-green-500/20">
                 <div className="flex items-center gap-3">
@@ -888,10 +1021,8 @@
 
       const canAllocate = useMemo(() => availableSlots.length >= 1, [availableSlots]);
 
-      const creditsNeeded = useMemo(() => {
-        let totalDays = durationType === 'months' ? months * 30 : days;
-        return Math.ceil(totalDays / 30);
-      }, [durationType, months, days]);
+      const totalMonths = durationType === 'months' ? months : Math.ceil(days / 30);
+      const creditsNeeded = getAmazonCredits(totalMonths);
 
       const canUseCredits = useMemo(() => {
         return (currentUser?.credits || 0) >= creditsNeeded && creditsNeeded > 0;
@@ -1124,6 +1255,225 @@
       return null;
     }
 
+    // ─── DEAL PURCHASE FLOW ──────────────────────────────────
+    function DealPurchaseFlow({ deal, subscription, onBack, onComplete, user }) {
+      const [step, setStep] = useState('plan');
+      const [name, setName] = useState('');
+      const [whatsapp, setWhatsapp] = useState(user?.whatsapp || '');
+      const [otp, setOtp] = useState(['', '', '', '']);
+      const [otpError, setOtpError] = useState('');
+      const [otpTimer, setOtpTimer] = useState(0);
+      const [loading, setLoading] = useState(false);
+      const [useCredits, setUseCredits] = useState(false);
+      const { addToast } = useContext(AppContext);
+      const { user: currentUser, setUser } = useContext(UserContext);
+      const otpRefs = useRef([]);
+
+      const creditsNeeded = deal.discountPrice;
+      const canUseCredits = (currentUser?.credits || 0) >= creditsNeeded && creditsNeeded > 0;
+
+      const getDescription = () => {
+        return `Deal: ${deal.title} - ${deal.subscription?.name || ''}`;
+      };
+
+      const { generateOTPAPI, verifyOTPAPI } = useOTPFlow(setStep, setOtpTimer, addToast, user?.username || 'Deal User', getDescription());
+
+      const handleGenerateOTP = async () => {
+        if (!name.trim()) { addToast('Please enter your full name', 'error'); return; }
+        if (!whatsapp.trim()) { addToast('WhatsApp number is required', 'error'); return; }
+        if (user && whatsapp.trim() !== user?.whatsapp) {
+          addToast('WhatsApp number must match your sign-up number', 'error');
+          return;
+        }
+        await generateOTPAPI();
+      };
+
+      useEffect(() => {
+        if (otpTimer > 0) {
+          const timer = setTimeout(() => setOtpTimer(otpTimer - 1), 1000);
+          return () => clearTimeout(timer);
+        }
+      }, [otpTimer]);
+
+      const handleOtpChange = (idx, val) => {
+        if (!/^\d*$/.test(val)) return;
+        const newOtp = [...otp];
+        newOtp[idx] = val.slice(0, 1);
+        setOtp(newOtp);
+        if (val && idx < 3) otpRefs.current[idx + 1]?.focus();
+      };
+
+      const handleVerifyOtp = async () => {
+        const entered = otp.join('');
+        if (entered.length !== 4) { setOtpError('Enter all 4 digits'); return; }
+        const verified = await verifyOTPAPI(entered);
+        if (verified) {
+          setOtpError('');
+          completePurchase(false);
+        } else {
+          setOtpError('Invalid OTP');
+        }
+      };
+
+      const completePurchase = async (useCreditsFlag = false) => {
+        if (!name.trim() || !whatsapp.trim()) {
+          addToast('Please fill all details', 'error');
+          return;
+        }
+
+        setLoading(true);
+        const now = new Date();
+        const totalDays = 30; // Default 1 month for deals
+        const expiry = new Date(now);
+        expiry.setDate(expiry.getDate() + totalDays);
+
+        if (useCreditsFlag) {
+          try {
+            const updatedUser = await deductCredits(user.username, creditsNeeded);
+            setUser(updatedUser);
+            addToast(`✅ ${creditsNeeded} credits deducted.`, 'success');
+          } catch (err) {
+            addToast('Failed to deduct credits: ' + err.error, 'error');
+            setLoading(false);
+            return;
+          }
+        }
+
+        // Get the subscription details for allocation
+        const sub = subscription;
+        let allocated = [];
+        let screens = 1;
+        let months = 1;
+
+        // Simplified allocation for deals (single screen)
+        if (sub && sub.accounts && sub.accounts.length > 0) {
+          const firstAccount = sub.accounts[0];
+          if (firstAccount.screens && firstAccount.screens.length > 0) {
+            const screen = firstAccount.screens[0];
+            allocated = [{
+              accountId: firstAccount.id,
+              screenId: screen.id,
+              screenName: screen.name,
+              accountEmail: firstAccount.email,
+              accountPassword: firstAccount.password || '••••••••',
+              screenPin: screen.pin || 'N/A'
+            }];
+          }
+        }
+
+        setTimeout(() => {
+          onComplete({
+            subscriptionId: deal.subscriptionId,
+            screens: 1,
+            months: 1,
+            days: totalDays,
+            name: name.trim(),
+            username: user.username,
+            password: user.password,
+            whatsapp: whatsapp.trim(),
+            allocated: allocated,
+            expiryDate: expiry.toISOString().split('T')[0],
+            paidWithCredits: useCreditsFlag,
+            isDeal: true,
+            dealTitle: deal.title
+          });
+          setLoading(false);
+        }, 1200);
+      };
+
+      const handlePayWithCredits = async () => {
+        if (!canUseCredits) {
+          addToast('Insufficient credits', 'error');
+          return;
+        }
+        if (!name.trim() || !whatsapp.trim()) {
+          addToast('Please fill all details', 'error');
+          return;
+        }
+        await completePurchase(true);
+      };
+
+      if (step === 'plan') {
+        return (
+          <div className="space-y-6">
+            <button onClick={onBack} className="text-purple-400 hover:text-purple-300 text-sm"><i className="fas fa-arrow-left mr-2"></i> Back</button>
+            <div className="bg-purple-500/5 rounded-xl p-4 border border-purple-500/10">
+              <h3 className="text-xl font-bold text-white">{deal.title}</h3>
+              <p className="text-white/40 text-sm">{deal.description || ''}</p>
+              <div className="flex items-center gap-3 mt-2">
+                <span className="text-white/30 line-through">${deal.actualPrice}</span>
+                <span className="text-2xl font-bold text-green-400">${deal.discountPrice}</span>
+                <span className="badge badge-yellow text-xs">🔥 Deal</span>
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              <div>
+                <label className="text-white/50 text-sm font-medium">Full Name</label>
+                <input type="text" value={name} onChange={(e) => setName(e.target.value)} className="input-neon mt-1" placeholder="Your full name" />
+              </div>
+              <div>
+                <label className="text-white/50 text-sm font-medium">WhatsApp Number</label>
+                <input type="tel" value={whatsapp} onChange={(e) => setWhatsapp(e.target.value)} className="input-neon mt-1" placeholder="+92 300 1234567" readOnly={!!user?.whatsapp} />
+                {user?.whatsapp && <p className="text-xs text-white/30 mt-1">(locked to your sign‑up number)</p>}
+              </div>
+            </div>
+
+            {currentUser && (
+              <div className="bg-green-500/10 rounded-xl p-4 border border-green-500/20">
+                <div className="flex items-center gap-3">
+                  <input
+                    type="checkbox"
+                    checked={useCredits}
+                    onChange={(e) => setUseCredits(e.target.checked)}
+                    disabled={!canUseCredits}
+                    className="w-4 h-4 accent-green-400"
+                  />
+                  <label className="text-white/70 text-sm">
+                    Pay with Credits ({creditsNeeded} credits needed, you have {currentUser.credits || 0})
+                  </label>
+                </div>
+                {!canUseCredits && useCredits && (
+                  <p className="text-red-400 text-xs mt-1">Insufficient credits. Please use OTP or add credits.</p>
+                )}
+              </div>
+            )}
+
+            {useCredits && canUseCredits ? (
+              <button onClick={handlePayWithCredits} disabled={loading} className="btn-neon w-full py-3 bg-green-600 hover:bg-green-700">
+                {loading ? <span className="spinner"></span> : <><i className="fas fa-coins mr-2"></i> Pay with Credits</>}
+              </button>
+            ) : (
+              <button onClick={handleGenerateOTP} className="btn-neon w-full py-3">
+                <i className="fas fa-key mr-2"></i> Get OTP
+              </button>
+            )}
+          </div>
+        );
+      }
+
+      if (step === 'otp') {
+        return (
+          <div className="space-y-6">
+            <button onClick={() => setStep('plan')} className="text-purple-400 hover:text-purple-300 text-sm"><i className="fas fa-arrow-left mr-2"></i> Back</button>
+            <h2 className="text-2xl font-bold text-white">Enter OTP</h2>
+            <p className="text-white/40 text-sm">Enter the 4-digit OTP. Expires in {otpTimer}s</p>
+            <div className="flex gap-3 justify-center">
+              {[0, 1, 2, 3].map(idx => (
+                <input key={idx} ref={el => otpRefs.current[idx] = el} type="text" className="otp-input" maxLength="1" value={otp[idx]} onChange={(e) => handleOtpChange(idx, e.target.value)} onKeyDown={(e) => { if (e.key === 'Backspace' && !otp[idx] && idx > 0) otpRefs.current[idx - 1]?.focus(); }} autoFocus={idx === 0} />
+              ))}
+            </div>
+            {otpError && <p className="text-red-400 text-sm text-center">{otpError}</p>}
+            <button onClick={handleVerifyOtp} disabled={loading} className="btn-neon w-full py-3">
+              {loading ? <span className="spinner"></span> : <><i className="fas fa-check mr-2"></i> Verify & Complete</>}
+            </button>
+          </div>
+        );
+      }
+
+      return null;
+    }
+
     // ─── YOUTUBE, SPOTIFY, CHATGPT, CUSTOM flows omitted for brevity ───
     // (Same credit/OTP changes as Netflix/Amazon; implement similarly)
     // ─── Full code is provided in the final file ─────────────
@@ -1205,9 +1555,24 @@
     }
 
     // ─── CUSTOMER DASHBOARD ──────────────────────────────────
-    function CustomerDashboard({ customerData, onLogout }) {
+    function CustomerDashboard({ customerData, onLogout, deals, onDealPurchase }) {
       const { addToast } = useContext(AppContext);
-      const { user } = useContext(UserContext);
+      const { user, refreshUser } = useContext(UserContext);
+      const [userCredits, setUserCredits] = useState(user?.credits || 0);
+
+      // Refresh user data when component mounts
+      useEffect(() => {
+        if (user) {
+          refreshUser().then(updated => {
+            if (updated) setUserCredits(updated.credits || 0);
+          });
+        }
+      }, []);
+
+      // Update credits when user changes
+      useEffect(() => {
+        setUserCredits(user?.credits || 0);
+      }, [user]);
 
       const getStatus = (expiryDate) => {
         if (!expiryDate) return { label: 'N/A', color: 'badge-gray' };
@@ -1222,7 +1587,7 @@
 
       const today = new Date();
       today.setHours(0, 0, 0, 0);
-      const activeEntries = customerData.filter(entry => {
+      const activeEntries = (customerData || []).filter(entry => {
         if (!entry.expiryDate) return true;
         const exp = new Date(entry.expiryDate);
         exp.setHours(0, 0, 0, 0);
@@ -1236,20 +1601,57 @@
         return diff === 0 || diff === 1;
       });
 
+      const displayName = customerData && customerData.length > 0 ? customerData[0].name : user?.username || 'User';
+      const displayWhatsapp = customerData && customerData.length > 0 ? customerData[0].whatsapp : user?.whatsapp || 'N/A';
+
       if (!customerData || customerData.length === 0) {
         return (
-          <div className="glass-panel max-w-4xl mx-auto">
-            <div className="flex justify-between items-start mb-6">
+          <div className="space-y-6">
+            {/* Deals section */}
+            {deals && deals.length > 0 && (
               <div>
-                <h2 className="text-2xl font-bold text-white"><i className="fas fa-user-circle text-purple-400 mr-3"></i> {user?.username || 'User'}</h2>
-                <p className="text-white/30 text-sm"><i className="fab fa-whatsapp mr-1"></i> {user?.whatsapp || 'N/A'}</p>
-                <p className="text-white/30 text-sm"><i className="fas fa-coins mr-1"></i> Credits: {user?.credits || 0}</p>
+                <h3 className="text-xl font-bold text-white mb-4"><i className="fas fa-fire text-orange-400 mr-2"></i> Hot Deals</h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {deals.map(deal => {
+                    const sub = deal.subscription;
+                    const icon = sub?.type === 'netflix' ? 'fa-netflix' : sub?.type === 'amazon' ? 'fa-amazon' : sub?.type === 'youtube' ? 'fa-youtube' : sub?.type === 'spotify' ? 'fa-spotify' : sub?.type === 'chatgpt' ? 'fa-robot' : 'fa-crown';
+                    const color = sub?.type === 'netflix' ? '#e50914' : sub?.type === 'amazon' ? '#ff9900' : sub?.type === 'youtube' ? '#ff0000' : sub?.type === 'spotify' ? '#1db954' : sub?.type === 'chatgpt' ? '#10a37f' : '#7c3aed';
+                    const discount = Math.round((1 - deal.discountPrice / deal.actualPrice) * 100);
+                    return (
+                      <div key={deal.id} className="deal-card">
+                        <div className="discount-badge">-{discount}% OFF</div>
+                        <div className="flex items-center gap-3 mb-2">
+                          <i className={`fab ${icon} text-2xl`} style={{ color }}></i>
+                          <h4 className="text-white font-bold">{deal.title}</h4>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-white/30 text-sm line-through">${deal.actualPrice}</span>
+                          <span className="text-xl font-bold text-green-400">${deal.discountPrice}</span>
+                        </div>
+                        <button onClick={() => onDealPurchase(deal)} className="btn-neon w-full mt-3 py-2 text-sm">
+                          <i className="fas fa-shopping-cart mr-2"></i> Purchase
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
-              <button onClick={onLogout} className="text-white/30 hover:text-white/60 text-sm"><i className="fas fa-sign-out-alt mr-1"></i> Logout</button>
-            </div>
-            <div className="text-center py-8 text-white/40">
-              <i className="fas fa-inbox text-4xl mb-3 block"></i>
-              <p>You have no active subscriptions.</p>
+            )}
+
+            <div className="glass-panel max-w-4xl mx-auto">
+              <div className="flex justify-between items-start mb-6">
+                <div>
+                  <h2 className="text-2xl font-bold text-white"><i className="fas fa-user-circle text-purple-400 mr-3"></i> {displayName}</h2>
+                  <p className="text-white/30 text-sm"><i className="fab fa-whatsapp mr-1"></i> {displayWhatsapp}</p>
+                  <p className="text-white/30 text-sm"><i className="fas fa-coins mr-1"></i> Credits: {userCredits}</p>
+                </div>
+                <button onClick={onLogout} className="text-white/30 hover:text-white/60 text-sm"><i className="fas fa-sign-out-alt mr-1"></i> Logout</button>
+              </div>
+              <div className="text-center py-8 text-white/40">
+                <i className="fas fa-inbox text-4xl mb-3 block"></i>
+                <p>You have no active subscriptions.</p>
+                <p className="text-sm mt-2">Check out the deals above or browse subscriptions!</p>
+              </div>
             </div>
           </div>
         );
@@ -1257,88 +1659,153 @@
 
       if (activeEntries.length === 0) {
         return (
-          <div className="glass-panel max-w-4xl mx-auto">
-            <div className="flex justify-between items-start mb-6">
+          <div className="space-y-6">
+            {deals && deals.length > 0 && (
               <div>
-                <h2 className="text-2xl font-bold text-white"><i className="fas fa-user-circle text-purple-400 mr-3"></i> {customerData[0].name || customerData[0].username}</h2>
-                <p className="text-white/30 text-sm"><i className="fab fa-whatsapp mr-1"></i> {customerData[0].whatsapp || 'N/A'}</p>
-                <p className="text-white/30 text-sm"><i className="fas fa-coins mr-1"></i> Credits: {user?.credits || 0}</p>
+                <h3 className="text-xl font-bold text-white mb-4"><i className="fas fa-fire text-orange-400 mr-2"></i> Hot Deals</h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {deals.map(deal => {
+                    const sub = deal.subscription;
+                    const icon = sub?.type === 'netflix' ? 'fa-netflix' : sub?.type === 'amazon' ? 'fa-amazon' : sub?.type === 'youtube' ? 'fa-youtube' : sub?.type === 'spotify' ? 'fa-spotify' : sub?.type === 'chatgpt' ? 'fa-robot' : 'fa-crown';
+                    const color = sub?.type === 'netflix' ? '#e50914' : sub?.type === 'amazon' ? '#ff9900' : sub?.type === 'youtube' ? '#ff0000' : sub?.type === 'spotify' ? '#1db954' : sub?.type === 'chatgpt' ? '#10a37f' : '#7c3aed';
+                    const discount = Math.round((1 - deal.discountPrice / deal.actualPrice) * 100);
+                    return (
+                      <div key={deal.id} className="deal-card">
+                        <div className="discount-badge">-{discount}% OFF</div>
+                        <div className="flex items-center gap-3 mb-2">
+                          <i className={`fab ${icon} text-2xl`} style={{ color }}></i>
+                          <h4 className="text-white font-bold">{deal.title}</h4>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-white/30 text-sm line-through">${deal.actualPrice}</span>
+                          <span className="text-xl font-bold text-green-400">${deal.discountPrice}</span>
+                        </div>
+                        <button onClick={() => onDealPurchase(deal)} className="btn-neon w-full mt-3 py-2 text-sm">
+                          <i className="fas fa-shopping-cart mr-2"></i> Purchase
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
-              <button onClick={onLogout} className="text-white/30 hover:text-white/60 text-sm"><i className="fas fa-sign-out-alt mr-1"></i> Logout</button>
-            </div>
-            <div className="text-center py-8 text-white/40">
-              <i className="fas fa-exclamation-circle text-4xl text-yellow-400 mb-3 block"></i>
-              <p>Your subscriptions have expired. Please renew to regain access.</p>
+            )}
+
+            <div className="glass-panel max-w-4xl mx-auto">
+              <div className="flex justify-between items-start mb-6">
+                <div>
+                  <h2 className="text-2xl font-bold text-white"><i className="fas fa-user-circle text-purple-400 mr-3"></i> {displayName}</h2>
+                  <p className="text-white/30 text-sm"><i className="fab fa-whatsapp mr-1"></i> {displayWhatsapp}</p>
+                  <p className="text-white/30 text-sm"><i className="fas fa-coins mr-1"></i> Credits: {userCredits}</p>
+                </div>
+                <button onClick={onLogout} className="text-white/30 hover:text-white/60 text-sm"><i className="fas fa-sign-out-alt mr-1"></i> Logout</button>
+              </div>
+              <div className="text-center py-8 text-white/40">
+                <i className="fas fa-exclamation-circle text-4xl text-yellow-400 mb-3 block"></i>
+                <p>Your subscriptions have expired. Please renew to regain access.</p>
+                <p className="text-sm mt-2">Check out the deals above!</p>
+              </div>
             </div>
           </div>
         );
       }
 
       return (
-        <div className="glass-panel max-w-4xl mx-auto">
-          <div className="flex justify-between items-start mb-6">
+        <div className="space-y-6">
+          {deals && deals.length > 0 && (
             <div>
-              <h2 className="text-2xl font-bold text-white"><i className="fas fa-user-circle text-purple-400 mr-3"></i> {customerData[0].name || customerData[0].username}</h2>
-              <p className="text-white/30 text-sm"><i className="fab fa-whatsapp mr-1"></i> {customerData[0].whatsapp || 'N/A'}</p>
-              <p className="text-white/30 text-sm"><i className="fas fa-coins mr-1"></i> Credits: {user?.credits || 0}</p>
-            </div>
-            <button onClick={onLogout} className="text-white/30 hover:text-white/60 text-sm"><i className="fas fa-sign-out-alt mr-1"></i> Logout</button>
-          </div>
-
-          {expiringSoon && (
-            <div className="mb-4 p-3 rounded-xl bg-yellow-500/10 border border-yellow-500/20">
-              <p className="text-yellow-400 text-sm"><i className="fas fa-exclamation-triangle mr-2"></i> ⚠️ One or more of your subscriptions expire today or tomorrow! Please renew.</p>
+              <h3 className="text-xl font-bold text-white mb-4"><i className="fas fa-fire text-orange-400 mr-2"></i> Hot Deals</h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {deals.map(deal => {
+                  const sub = deal.subscription;
+                  const icon = sub?.type === 'netflix' ? 'fa-netflix' : sub?.type === 'amazon' ? 'fa-amazon' : sub?.type === 'youtube' ? 'fa-youtube' : sub?.type === 'spotify' ? 'fa-spotify' : sub?.type === 'chatgpt' ? 'fa-robot' : 'fa-crown';
+                  const color = sub?.type === 'netflix' ? '#e50914' : sub?.type === 'amazon' ? '#ff9900' : sub?.type === 'youtube' ? '#ff0000' : sub?.type === 'spotify' ? '#1db954' : sub?.type === 'chatgpt' ? '#10a37f' : '#7c3aed';
+                  const discount = Math.round((1 - deal.discountPrice / deal.actualPrice) * 100);
+                  return (
+                    <div key={deal.id} className="deal-card">
+                      <div className="discount-badge">-{discount}% OFF</div>
+                      <div className="flex items-center gap-3 mb-2">
+                        <i className={`fab ${icon} text-2xl`} style={{ color }}></i>
+                        <h4 className="text-white font-bold">{deal.title}</h4>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-white/30 text-sm line-through">${deal.actualPrice}</span>
+                        <span className="text-xl font-bold text-green-400">${deal.discountPrice}</span>
+                      </div>
+                      <button onClick={() => onDealPurchase(deal)} className="btn-neon w-full mt-3 py-2 text-sm">
+                        <i className="fas fa-shopping-cart mr-2"></i> Purchase
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           )}
 
-          <div className="space-y-4">
-            {activeEntries.map((entry, idx) => {
-              const status = getStatus(entry.expiryDate);
-              const isExpiring = status.label === 'Expires Today' || status.label === 'Expires Tomorrow';
-              return (
-                <div key={idx} className="bg-purple-500/5 rounded-xl p-4 border border-purple-500/10">
-                  <div className="flex justify-between items-center mb-2">
-                    <h3 className="text-lg font-semibold text-white">{entry.subscriptionName}</h3>
-                    <span className={`badge ${status.color === 'badge-green' ? 'badge-green' : status.color === 'badge-yellow' ? 'badge-yellow' : status.color === 'badge-red' ? 'badge-red' : 'badge-gray'}`}>{status.label}</span>
+          <div className="glass-panel max-w-4xl mx-auto">
+            <div className="flex justify-between items-start mb-6">
+              <div>
+                <h2 className="text-2xl font-bold text-white"><i className="fas fa-user-circle text-purple-400 mr-3"></i> {displayName}</h2>
+                <p className="text-white/30 text-sm"><i className="fab fa-whatsapp mr-1"></i> {displayWhatsapp}</p>
+                <p className="text-white/30 text-sm"><i className="fas fa-coins mr-1"></i> Credits: {userCredits}</p>
+              </div>
+              <button onClick={onLogout} className="text-white/30 hover:text-white/60 text-sm"><i className="fas fa-sign-out-alt mr-1"></i> Logout</button>
+            </div>
+
+            {expiringSoon && (
+              <div className="mb-4 p-3 rounded-xl bg-yellow-500/10 border border-yellow-500/20">
+                <p className="text-yellow-400 text-sm"><i className="fas fa-exclamation-triangle mr-2"></i> ⚠️ One or more of your subscriptions expire today or tomorrow! Please renew.</p>
+              </div>
+            )}
+
+            <div className="space-y-4">
+              {activeEntries.map((entry, idx) => {
+                const status = getStatus(entry.expiryDate);
+                const isExpiring = status.label === 'Expires Today' || status.label === 'Expires Tomorrow';
+                return (
+                  <div key={idx} className="bg-purple-500/5 rounded-xl p-4 border border-purple-500/10">
+                    <div className="flex justify-between items-center mb-2">
+                      <h3 className="text-lg font-semibold text-white">{entry.subscriptionName}</h3>
+                      <span className={`badge ${status.color === 'badge-green' ? 'badge-green' : status.color === 'badge-yellow' ? 'badge-yellow' : status.color === 'badge-red' ? 'badge-red' : 'badge-gray'}`}>{status.label}</span>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+                      <div className="detail-row">
+                        <span className="label">Screens</span>
+                        <span className="value">{entry.screens}</span>
+                      </div>
+                      <div className="detail-row">
+                        <span className="label">Duration</span>
+                        <span className="value">{entry.months ? entry.months + ' months' : entry.days + ' days'}</span>
+                      </div>
+                      <div className="detail-row">
+                        <span className="label">Expiry</span>
+                        <span className="value text-yellow-400">{entry.expiryDate}</span>
+                      </div>
+                      <div className="detail-row">
+                        <span className="label">Account Email</span>
+                        <span className="value">{entry.accountEmail} <button className="copy-btn" onClick={() => { navigator?.clipboard?.writeText(entry.accountEmail); addToast('Copied!', 'success'); }}><i className="fas fa-copy"></i></button></span>
+                      </div>
+                      <div className="detail-row">
+                        <span className="label">Account Password</span>
+                        <span className="value">{entry.accountPassword || '••••••••'} <button className="copy-btn" onClick={() => { navigator?.clipboard?.writeText(entry.accountPassword || ''); addToast('Copied!', 'success'); }}><i className="fas fa-copy"></i></button></span>
+                      </div>
+                      <div className="detail-row">
+                        <span className="label">Screen Name</span>
+                        <span className="value">{entry.screenName} <button className="copy-btn" onClick={() => { navigator?.clipboard?.writeText(entry.screenName); addToast('Copied!', 'success'); }}><i className="fas fa-copy"></i></button></span>
+                      </div>
+                      <div className="detail-row">
+                        <span className="label">Screen PIN</span>
+                        <span className="value">{entry.screenPin || 'N/A'} <button className="copy-btn" onClick={() => { navigator?.clipboard?.writeText(entry.screenPin || ''); addToast('Copied!', 'success'); }}><i className="fas fa-copy"></i></button></span>
+                      </div>
+                    </div>
+                    {isExpiring && (
+                      <div className="mt-2 text-xs text-yellow-400">
+                        <i className="fas fa-clock mr-1"></i> This subscription expires {status.label === 'Expires Today' ? 'today' : 'tomorrow'}!
+                      </div>
+                    )}
                   </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
-                    <div className="detail-row">
-                      <span className="label">Screens</span>
-                      <span className="value">{entry.screens}</span>
-                    </div>
-                    <div className="detail-row">
-                      <span className="label">Duration</span>
-                      <span className="value">{entry.months ? entry.months + ' months' : entry.days + ' days'}</span>
-                    </div>
-                    <div className="detail-row">
-                      <span className="label">Expiry</span>
-                      <span className="value text-yellow-400">{entry.expiryDate}</span>
-                    </div>
-                    <div className="detail-row">
-                      <span className="label">Account Email</span>
-                      <span className="value">{entry.accountEmail} <button className="copy-btn" onClick={() => { navigator?.clipboard?.writeText(entry.accountEmail); addToast('Copied!', 'success'); }}><i className="fas fa-copy"></i></button></span>
-                    </div>
-                    <div className="detail-row">
-                      <span className="label">Account Password</span>
-                      <span className="value">{entry.accountPassword || '••••••••'} <button className="copy-btn" onClick={() => { navigator?.clipboard?.writeText(entry.accountPassword || ''); addToast('Copied!', 'success'); }}><i className="fas fa-copy"></i></button></span>
-                    </div>
-                    <div className="detail-row">
-                      <span className="label">Screen Name</span>
-                      <span className="value">{entry.screenName} <button className="copy-btn" onClick={() => { navigator?.clipboard?.writeText(entry.screenName); addToast('Copied!', 'success'); }}><i className="fas fa-copy"></i></button></span>
-                    </div>
-                    <div className="detail-row">
-                      <span className="label">Screen PIN</span>
-                      <span className="value">{entry.screenPin || 'N/A'} <button className="copy-btn" onClick={() => { navigator?.clipboard?.writeText(entry.screenPin || ''); addToast('Copied!', 'success'); }}><i className="fas fa-copy"></i></button></span>
-                    </div>
-                  </div>
-                  {isExpiring && (
-                    <div className="mt-2 text-xs text-yellow-400">
-                      <i className="fas fa-clock mr-1"></i> This subscription expires {status.label === 'Expires Today' ? 'today' : 'tomorrow'}!
-                    </div>
-                  )}
-                </div>
-              );
-            })}
+                );
+              })}
+            </div>
           </div>
         </div>
       );
@@ -1382,8 +1849,8 @@
       );
     }
 
-    // ─── ADMIN DASHBOARD (with Users tab) ────────────────
-    function AdminDashboard({ subscriptions, setSubscriptions, onLogout }) {
+    // ─── ADMIN DASHBOARD (with Deals tab) ────────────────
+    function AdminDashboard({ subscriptions, setSubscriptions, onLogout, deals, setDeals }) {
       const [activeTab, setActiveTab] = useState('overview');
       const [showAddSub, setShowAddSub] = useState(false);
       const [showAddAccount, setShowAddAccount] = useState(null);
@@ -1397,8 +1864,21 @@
       const [otpList, setOtpList] = useState([]);
       const [usersList, setUsersList] = useState([]);
       const [addCreditsAmount, setAddCreditsAmount] = useState(0);
+      const [deductCreditsAmount, setDeductCreditsAmount] = useState(0);
       const [selectedUserForCredits, setSelectedUserForCredits] = useState(null);
+      const [showDealModal, setShowDealModal] = useState(false);
+      const [editingDeal, setEditingDeal] = useState(null);
+      const [dealForm, setDealForm] = useState({
+        id: '',
+        subscriptionId: '',
+        title: '',
+        description: '',
+        actualPrice: '',
+        discountPrice: '',
+        active: true
+      });
       const { addToast, adminPassword, setAdminPassword } = useContext(AppContext);
+      const { user, setUser, refreshUser } = useContext(UserContext);
 
       const [editingAccount, setEditingAccount] = useState(null);
       const [editingScreen, setEditingScreen] = useState(null);
@@ -1440,13 +1920,26 @@
         if (activeTab === 'users') {
           loadUsers();
         }
+        if (activeTab === 'deals') {
+          loadDeals();
+        }
       }, [activeTab]);
+
+      const loadDeals = async () => {
+        try {
+          const data = await fetchDeals();
+          setDeals(data);
+        } catch (err) {
+          console.error('Failed to fetch deals', err);
+        }
+      };
 
       const refreshData = async () => {
         try {
           const fresh = await fetchSubscriptions();
           setSubscriptions(fresh);
           await loadUsers();
+          await loadDeals();
           addToast('Data refreshed!', 'success');
         } catch (err) {
           addToast('Failed to refresh data', 'error');
@@ -1465,14 +1958,113 @@
             setAddCreditsAmount(0);
             setSelectedUserForCredits(null);
             await loadUsers();
-            // Also update current user if it's the same
-            const { user, setUser } = useContext(UserContext);
             if (user && user.username === username) {
-              setUser(updated);
+              await refreshUser();
             }
           }
         } catch (err) {
           addToast('Failed to add credits', 'error');
+        }
+      };
+
+      const handleDeductCredits = async (username) => {
+        if (!deductCreditsAmount || deductCreditsAmount <= 0) {
+          addToast('Enter a valid amount', 'error');
+          return;
+        }
+        try {
+          const updated = await deductCredits(username, deductCreditsAmount);
+          if (updated) {
+            addToast(`Deducted ${deductCreditsAmount} credits from ${username}`, 'success');
+            setDeductCreditsAmount(0);
+            setSelectedUserForCredits(null);
+            await loadUsers();
+            if (user && user.username === username) {
+              await refreshUser();
+            }
+          }
+        } catch (err) {
+          addToast('Failed to deduct credits: ' + err.error, 'error');
+        }
+      };
+
+      // ─── Deal CRUD ──────────────────────────────────────
+      const openDealModal = (deal = null) => {
+        if (deal) {
+          setEditingDeal(deal);
+          setDealForm({
+            id: deal.id,
+            subscriptionId: deal.subscriptionId,
+            title: deal.title,
+            description: deal.description || '',
+            actualPrice: deal.actualPrice,
+            discountPrice: deal.discountPrice,
+            active: deal.active
+          });
+        } else {
+          setEditingDeal(null);
+          setDealForm({
+            id: 'd' + Date.now().toString(),
+            subscriptionId: subscriptions[0]?.id || '',
+            title: '',
+            description: '',
+            actualPrice: '',
+            discountPrice: '',
+            active: true
+          });
+        }
+        setShowDealModal(true);
+      };
+
+      const saveDeal = async () => {
+        if (!dealForm.subscriptionId || !dealForm.title || !dealForm.actualPrice || !dealForm.discountPrice) {
+          addToast('Please fill all required fields', 'error');
+          return;
+        }
+        const data = {
+          id: dealForm.id,
+          subscriptionId: dealForm.subscriptionId,
+          title: dealForm.title,
+          description: dealForm.description,
+          actualPrice: parseFloat(dealForm.actualPrice),
+          discountPrice: parseFloat(dealForm.discountPrice),
+          active: dealForm.active !== undefined ? dealForm.active : true
+        };
+        try {
+          if (editingDeal) {
+            await updateDeal(dealForm.id, data);
+            addToast('Deal updated!', 'success');
+          } else {
+            await createDeal(data);
+            addToast('Deal created!', 'success');
+          }
+          setShowDealModal(false);
+          setEditingDeal(null);
+          await loadDeals();
+        } catch (err) {
+          addToast('Failed to save deal', 'error');
+        }
+      };
+
+      const deleteDealHandler = async (dealId) => {
+        if (window.confirm('Delete this deal?')) {
+          try {
+            await deleteDeal(dealId);
+            addToast('Deal deleted.', 'warning');
+            await loadDeals();
+          } catch (err) {
+            addToast('Failed to delete deal', 'error');
+          }
+        }
+      };
+
+      const toggleDealStatus = async (deal) => {
+        try {
+          await updateDeal(deal.id, { ...deal, active: !deal.active });
+          addToast(`Deal ${!deal.active ? 'activated' : 'deactivated'}`, 'success');
+          await loadDeals();
+        } catch (err) {
+          addToast('Failed to update deal', 'error');
         }
       };
 
@@ -1879,12 +2471,13 @@
           )}
 
           <div className="flex flex-wrap gap-2 border-b border-white/5 pb-3">
-            {['overview', 'subscriptions', 'customers', 'users', 'otp'].map(tab => (
+            {['overview', 'subscriptions', 'customers', 'users', 'deals', 'otp'].map(tab => (
               <button key={tab} onClick={() => setActiveTab(tab)} className={`tab-btn ${activeTab === tab ? 'active' : ''}`}>
                 {tab === 'overview' && <><i className="fas fa-chart-pie mr-2"></i> Overview</>}
                 {tab === 'subscriptions' && <><i className="fas fa-crown mr-2"></i> Subscriptions</>}
                 {tab === 'customers' && <><i className="fas fa-users mr-2"></i> Customers</>}
                 {tab === 'users' && <><i className="fas fa-user-friends mr-2"></i> Users</>}
+                {tab === 'deals' && <><i className="fas fa-fire mr-2"></i> Deals</>}
                 {tab === 'otp' && <><i className="fas fa-key mr-2"></i> OTP Logs</>}
               </button>
             ))}
@@ -2173,11 +2766,11 @@
                           <td><span className="badge badge-green">{u.credits || 0}</span></td>
                           <td>{u.purchaseCount || 0}</td>
                           <td>
-                            <div className="flex gap-2 items-center">
+                            <div className="flex flex-wrap gap-2 items-center">
                               <input
                                 type="number"
                                 className="input-neon w-20 py-1 px-2 text-sm"
-                                placeholder="Add"
+                                placeholder="+"
                                 value={selectedUserForCredits === u.username ? addCreditsAmount : ''}
                                 onChange={(e) => {
                                   setSelectedUserForCredits(u.username);
@@ -2186,14 +2779,79 @@
                               />
                               <button
                                 onClick={() => handleAddCredits(u.username)}
-                                className="btn-purple text-xs"
+                                className="btn-success text-xs"
                               >
-                                <i className="fas fa-plus mr-1"></i> Add Credits
+                                <i className="fas fa-plus mr-1"></i> Add
+                              </button>
+                              <input
+                                type="number"
+                                className="input-neon w-20 py-1 px-2 text-sm"
+                                placeholder="-"
+                                value={selectedUserForCredits === u.username ? deductCreditsAmount : ''}
+                                onChange={(e) => {
+                                  setSelectedUserForCredits(u.username);
+                                  setDeductCreditsAmount(Number(e.target.value));
+                                }}
+                              />
+                              <button
+                                onClick={() => handleDeductCredits(u.username)}
+                                className="btn-danger text-xs"
+                              >
+                                <i className="fas fa-minus mr-1"></i> Deduct
                               </button>
                             </div>
                           </td>
                         </tr>
                       ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          )}
+
+          {activeTab === 'deals' && (
+            <div className="glass-panel">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-lg font-semibold text-white"><i className="fas fa-fire mr-2 text-orange-400"></i> Promotional Deals</h3>
+                <button onClick={() => openDealModal()} className="btn-neon text-sm">
+                  <i className="fas fa-plus mr-2"></i> New Deal
+                </button>
+              </div>
+              {deals.length === 0 ? (
+                <div className="text-center py-8 text-white/30"><i className="fas fa-tags text-3xl mb-3 block"></i> No deals created yet.</div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="admin-table text-sm">
+                    <thead>
+                      <tr><th>Title</th><th>Subscription</th><th>Original</th><th>Discount</th><th>Status</th><th>Actions</th></tr>
+                    </thead>
+                    <tbody>
+                      {deals.map(deal => {
+                        const sub = subscriptions.find(s => s.id === deal.subscriptionId);
+                        return (
+                          <tr key={deal.id}>
+                            <td className="font-semibold">{deal.title}</td>
+                            <td>{sub?.name || 'N/A'}</td>
+                            <td className="text-white/40">${deal.actualPrice}</td>
+                            <td className="text-green-400 font-bold">${deal.discountPrice}</td>
+                            <td>
+                              <span className={`badge ${deal.active ? 'badge-green' : 'badge-gray'}`}>
+                                {deal.active ? 'Active' : 'Inactive'}
+                              </span>
+                            </td>
+                            <td>
+                              <div className="flex gap-1 flex-wrap">
+                                <button onClick={() => openDealModal(deal)} className="btn-warning text-xs"><i className="fas fa-edit"></i></button>
+                                <button onClick={() => toggleDealStatus(deal)} className="btn-purple text-xs">
+                                  {deal.active ? <i className="fas fa-pause"></i> : <i className="fas fa-play"></i>}
+                                </button>
+                                <button onClick={() => deleteDealHandler(deal.id)} className="btn-danger text-xs"><i className="fas fa-trash"></i></button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>
@@ -2234,6 +2892,87 @@
                   </table>
                 </div>
               )}
+            </div>
+          )}
+
+          {/* Deal Modal */}
+          {showDealModal && (
+            <div className="modal-overlay">
+              <div className="modal-content glass-panel">
+                <h3 className="text-xl font-bold text-white mb-4">
+                  {editingDeal ? 'Edit Deal' : 'Create New Deal'}
+                </h3>
+                <div className="space-y-4">
+                  <div>
+                    <label className="text-white/50 text-sm">Subscription</label>
+                    <select
+                      value={dealForm.subscriptionId}
+                      onChange={(e) => setDealForm({ ...dealForm, subscriptionId: e.target.value })}
+                      className="input-neon mt-1"
+                    >
+                      <option value="">Select a subscription</option>
+                      {subscriptions.map(sub => (
+                        <option key={sub.id} value={sub.id}>{sub.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-white/50 text-sm">Title</label>
+                    <input
+                      type="text"
+                      value={dealForm.title}
+                      onChange={(e) => setDealForm({ ...dealForm, title: e.target.value })}
+                      className="input-neon mt-1"
+                      placeholder="e.g. Netflix Premium Deal"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-white/50 text-sm">Description</label>
+                    <input
+                      type="text"
+                      value={dealForm.description}
+                      onChange={(e) => setDealForm({ ...dealForm, description: e.target.value })}
+                      className="input-neon mt-1"
+                      placeholder="e.g. Watch unlimited movies & TV shows"
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="text-white/50 text-sm">Original Price ($)</label>
+                      <input
+                        type="number"
+                        value={dealForm.actualPrice}
+                        onChange={(e) => setDealForm({ ...dealForm, actualPrice: e.target.value })}
+                        className="input-neon mt-1"
+                        placeholder="500"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-white/50 text-sm">Discounted Price ($)</label>
+                      <input
+                        type="number"
+                        value={dealForm.discountPrice}
+                        onChange={(e) => setDealForm({ ...dealForm, discountPrice: e.target.value })}
+                        className="input-neon mt-1"
+                        placeholder="350"
+                      />
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="checkbox"
+                      checked={dealForm.active}
+                      onChange={(e) => setDealForm({ ...dealForm, active: e.target.checked })}
+                      className="w-4 h-4 accent-purple-400"
+                    />
+                    <label className="text-white/70 text-sm">Active</label>
+                  </div>
+                </div>
+                <div className="flex gap-3 mt-6">
+                  <button onClick={saveDeal} className="btn-neon">Save</button>
+                  <button onClick={() => { setShowDealModal(false); setEditingDeal(null); }} className="btn-neon-outline">Cancel</button>
+                </div>
+              </div>
             </div>
           )}
 
@@ -2297,22 +3036,26 @@
       const [showSubscriptions, setShowSubscriptions] = useState(false);
       const [selectedSubscription, setSelectedSubscription] = useState(null);
       const [subscriptions, setSubscriptions] = useState([]);
+      const [deals, setDeals] = useState([]);
       const [isAdmin, setIsAdmin] = useState(false);
       const [customerData, setCustomerData] = useState(null);
       const [flowStep, setFlowStep] = useState('welcome');
       const [flowType, setFlowType] = useState(null);
       const [showAuth, setShowAuth] = useState(false);
+      const [selectedDeal, setSelectedDeal] = useState(null);
       const { addToast } = useContext(AppContext);
-      const { user, setUser } = useContext(UserContext);
+      const { user, setUser, refreshUser } = useContext(UserContext);
 
       useEffect(() => {
         const loadData = async () => {
           try {
             const subs = await fetchSubscriptions();
             setSubscriptions(subs);
+            const dealsData = await fetchDeals();
+            setDeals(dealsData);
           } catch (err) {
-            console.error('Failed to load subscriptions', err);
-            addToast('Could not load subscriptions. Is the backend running?', 'error');
+            console.error('Failed to load data', err);
+            addToast('Could not load data. Is the backend running?', 'error');
           }
         };
         loadData();
@@ -2324,6 +3067,7 @@
         setSelectedSubscription(null);
         setCustomerData(null);
         setShowAuth(false);
+        setSelectedDeal(null);
       };
 
       const handleSubSelect = (sub) => {
@@ -2463,15 +3207,27 @@
         }
         const fresh = await fetchSubscriptions();
         setSubscriptions(fresh);
+        const dealsData = await fetchDeals();
+        setDeals(dealsData);
         resetFlow();
         setActiveTab('home');
         setShowSubscriptions(false);
         addToast('🎉 Subscription confirmed! Check your details.', 'success');
+        // Redirect to customer portal
+        if (user) {
+          const found = findCustomers(user.username);
+          setCustomerData(found);
+          setFlowStep('customer-dash');
+          setActiveTab('subscriptions');
+          setShowSubscriptions(true);
+        }
       };
 
-      const handleLogin = (userData) => {
+      const handleLogin = async (userData) => {
         setUser(userData);
         setShowAuth(false);
+        // Refresh user to get latest credits
+        await refreshUser();
         setFlowStep('select');
         setActiveTab('subscriptions');
         setShowSubscriptions(true);
@@ -2487,6 +3243,18 @@
       };
 
       const renderFlow = () => {
+        if (selectedDeal && flowStep === 'deal-purchase') {
+          const dealSub = subscriptions.find(s => s.id === selectedDeal.subscriptionId);
+          return (
+            <DealPurchaseFlow
+              deal={selectedDeal}
+              subscription={dealSub}
+              onBack={() => { setFlowStep('select'); setSelectedDeal(null); }}
+              onComplete={handleSubComplete}
+              user={user}
+            />
+          );
+        }
         if (!selectedSubscription) return null;
         const type = selectedSubscription.type;
         const commonProps = {
@@ -2498,47 +3266,12 @@
         switch (type) {
           case 'netflix': return <NetflixFlow {...commonProps} />;
           case 'amazon': return <AmazonFlow {...commonProps} />;
-          // YouTube, Spotify, ChatGPT, Custom would be added similarly
           default: return <CustomFlow {...commonProps} />;
-        }
-      };
-
-      const handleGetStarted = () => {
-        if (user) {
-          setFlowStep('select');
-          setActiveTab('subscriptions');
-          setShowSubscriptions(true);
-        } else {
-          // 🔥 FIX: switch to subscriptions tab and show auth
-          setActiveTab('subscriptions');
-          setShowSubscriptions(true);
-          setFlowStep('auth');
-        }
-      };
-
-      const handleCustomerPortal = () => {
-        if (user) {
-          const found = findCustomers(user.username);
-          if (found.length > 0) {
-            setCustomerData(found);
-            setFlowStep('customer-dash');
-          } else {
-            addToast('No active subscriptions found.', 'info');
-            setFlowStep('select');
-          }
-          setActiveTab('subscriptions');
-          setShowSubscriptions(true);
-        } else {
-          // 🔥 FIX: switch to subscriptions tab and show auth
-          setActiveTab('subscriptions');
-          setShowSubscriptions(true);
-          setFlowStep('auth');
         }
       };
 
       // Placeholder custom flow
       function CustomFlow({ subscription, onBack, onComplete, user }) {
-        // Simplified version – implement similar logic
         return (
           <div className="space-y-6">
             <button onClick={onBack} className="text-purple-400 hover:text-purple-300 text-sm"><i className="fas fa-arrow-left mr-2"></i> Back</button>
@@ -2548,6 +3281,54 @@
           </div>
         );
       }
+
+      const handleGetStarted = () => {
+        if (user) {
+          setFlowStep('select');
+          setActiveTab('subscriptions');
+          setShowSubscriptions(true);
+        } else {
+          setActiveTab('subscriptions');
+          setShowSubscriptions(true);
+          setFlowStep('auth');
+        }
+      };
+
+      const handleCustomerPortal = async () => {
+        if (user) {
+          // Refresh user data first
+          await refreshUser();
+          const found = findCustomers(user.username);
+          setCustomerData(found);
+          setFlowStep('customer-dash');
+          setActiveTab('subscriptions');
+          setShowSubscriptions(true);
+        } else {
+          setActiveTab('subscriptions');
+          setShowSubscriptions(true);
+          setFlowStep('auth');
+        }
+      };
+
+      const handleDealPurchase = (deal) => {
+        if (!user) {
+          setActiveTab('subscriptions');
+          setShowSubscriptions(true);
+          setFlowStep('auth');
+          addToast('Please login first to purchase this deal.', 'info');
+          return;
+        }
+        setSelectedDeal(deal);
+        setFlowStep('deal-purchase');
+        setActiveTab('subscriptions');
+        setShowSubscriptions(true);
+      };
+
+      // Build deals with subscription data
+      const dealsWithSub = deals.map(deal => {
+        const sub = subscriptions.find(s => s.id === deal.subscriptionId);
+        return { ...deal, subscription: sub };
+      }).filter(d => d.subscription && d.active);
 
       return (
         <div className="min-h-screen pt-16">
@@ -2560,7 +3341,17 @@
             onLogout={handleLogout}
           />
           <ToastContainer />
-          {activeTab === 'home' && !showSubscriptions && <Hero setActiveTab={setActiveTab} setShowSubscriptions={setShowSubscriptions} onGetStarted={handleGetStarted} />}
+          {activeTab === 'home' && !showSubscriptions && (
+            <>
+              {/* Deals section on home page */}
+              {dealsWithSub.length > 0 && (
+                <div className="pt-6">
+                  <DealsSection deals={dealsWithSub} subscriptions={subscriptions} onPurchaseClick={handleDealPurchase} />
+                </div>
+              )}
+              <Hero setActiveTab={setActiveTab} setShowSubscriptions={setShowSubscriptions} onGetStarted={handleGetStarted} />
+            </>
+          )}
           {(activeTab === 'subscriptions' || showSubscriptions) && (
             <section id="subscription-section" className="px-4 max-w-7xl mx-auto pb-20">
               <div className="pt-6">
@@ -2577,7 +3368,7 @@
                           <i className="fas fa-user-circle mr-3"></i> My Dashboard
                         </button>
                       ) : (
-                        <button onClick={handleCustomerPortal} className="btn-neon-outline px-10 py-4 text-lg">
+                        <button onClick={() => { setShowAuth(true); setFlowStep('auth'); }} className="btn-neon-outline px-10 py-4 text-lg">
                           <i className="fas fa-sign-in-alt mr-3"></i> Customer Portal
                         </button>
                       )}
@@ -2594,11 +3385,45 @@
                     </button>
                     <h2 className="text-2xl font-bold text-white mb-6"><i className="fas fa-crown text-purple-400 mr-3"></i> Choose Subscription</h2>
                     <SubscriptionSelection subscriptions={subscriptions} onSelect={handleSubSelect} selected={selectedSubscription} />
+                    {dealsWithSub.length > 0 && (
+                      <div className="mt-8">
+                        <h3 className="text-xl font-bold text-white mb-4"><i className="fas fa-fire text-orange-400 mr-2"></i> 🔥 Hot Deals</h3>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                          {dealsWithSub.map(deal => {
+                            const icon = deal.subscription?.type === 'netflix' ? 'fa-netflix' : deal.subscription?.type === 'amazon' ? 'fa-amazon' : deal.subscription?.type === 'youtube' ? 'fa-youtube' : deal.subscription?.type === 'spotify' ? 'fa-spotify' : deal.subscription?.type === 'chatgpt' ? 'fa-robot' : 'fa-crown';
+                            const color = deal.subscription?.type === 'netflix' ? '#e50914' : deal.subscription?.type === 'amazon' ? '#ff9900' : deal.subscription?.type === 'youtube' ? '#ff0000' : deal.subscription?.type === 'spotify' ? '#1db954' : deal.subscription?.type === 'chatgpt' ? '#10a37f' : '#7c3aed';
+                            const discount = Math.round((1 - deal.discountPrice / deal.actualPrice) * 100);
+                            return (
+                              <div key={deal.id} className="deal-card">
+                                <div className="discount-badge">-{discount}% OFF</div>
+                                <div className="flex items-center gap-3 mb-2">
+                                  <i className={`fab ${icon} text-2xl`} style={{ color }}></i>
+                                  <h4 className="text-white font-bold">{deal.title}</h4>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <span className="text-white/30 text-sm line-through">${deal.actualPrice}</span>
+                                  <span className="text-xl font-bold text-green-400">${deal.discountPrice}</span>
+                                </div>
+                                <button onClick={() => handleDealPurchase(deal)} className="btn-neon w-full mt-3 py-2 text-sm">
+                                  <i className="fas fa-shopping-cart mr-2"></i> Purchase
+                                </button>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
                 {flowStep === 'flow' && <div className="max-w-lg mx-auto">{renderFlow()}</div>}
-                {flowStep === 'customer-dash' && customerData && (
-                  <CustomerDashboard customerData={customerData} onLogout={() => { resetFlow(); setActiveTab('home'); setShowSubscriptions(false); }} />
+                {flowStep === 'deal-purchase' && <div className="max-w-lg mx-auto">{renderFlow()}</div>}
+                {flowStep === 'customer-dash' && customerData !== null && (
+                  <CustomerDashboard 
+                    customerData={customerData} 
+                    onLogout={() => { resetFlow(); setActiveTab('home'); setShowSubscriptions(false); }}
+                    deals={dealsWithSub}
+                    onDealPurchase={handleDealPurchase}
+                  />
                 )}
               </div>
             </section>
@@ -2633,7 +3458,7 @@
           )}
           {activeTab === 'admin' && (
             <section id="admin-section" className="px-4 max-w-7xl mx-auto py-12">
-              {!isAdmin ? <AdminLogin onLogin={() => setIsAdmin(true)} /> : <AdminDashboard subscriptions={subscriptions} setSubscriptions={setSubscriptions} onLogout={() => setIsAdmin(false)} />}
+              {!isAdmin ? <AdminLogin onLogin={() => setIsAdmin(true)} /> : <AdminDashboard subscriptions={subscriptions} setSubscriptions={setSubscriptions} onLogout={() => setIsAdmin(false)} deals={deals} setDeals={setDeals} />}
             </section>
           )}
           <footer className="border-t border-white/5 py-8 px-4 mt-8">
