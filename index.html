@@ -11,7 +11,6 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
   <style>
-    /* ===== RED/BLACK NEON THEME ===== */
     * {
       margin: 0;
       padding: 0;
@@ -425,7 +424,6 @@
       transform: scale(1.02);
       box-shadow: 0 0 20px rgba(239, 68, 68, 0.3);
     }
-    /* ===== BRAND "Z" LOGO ===== */
     .brand-z {
       display: inline-flex;
       align-items: center;
@@ -455,7 +453,6 @@
       font-size: 3rem;
       margin-right: 8px;
     }
-    /* ===== NETFLIX LOGO ===== */
     .netflix-logo {
       display: inline-block;
       font-family: 'Arial', sans-serif;
@@ -473,7 +470,6 @@
       margin-right: 4px;
       filter: drop-shadow(0 0 6px rgba(229, 9, 20, 0.5));
     }
-    /* ===== CAROUSEL ===== */
     .carousel-container {
       position: relative;
       overflow: hidden;
@@ -559,7 +555,6 @@
       animation-play-state: paused;
     }
 
-    /* ===== WHATSAPP FLOATING BUTTON ===== */
     .whatsapp-float {
       position: fixed;
       bottom: 24px;
@@ -584,18 +579,11 @@
       box-shadow: 0 6px 30px rgba(37, 211, 102, 0.6);
     }
     @keyframes pulse {
-      0% {
-        box-shadow: 0 0 0 0 rgba(37, 211, 102, 0.5);
-      }
-      70% {
-        box-shadow: 0 0 0 15px rgba(37, 211, 102, 0);
-      }
-      100% {
-        box-shadow: 0 0 0 0 rgba(37, 211, 102, 0);
-      }
+      0% { box-shadow: 0 0 0 0 rgba(37, 211, 102, 0.5); }
+      70% { box-shadow: 0 0 0 15px rgba(37, 211, 102, 0); }
+      100% { box-shadow: 0 0 0 0 rgba(37, 211, 102, 0); }
     }
 
-    /* ===== HERO BACKGROUND ===== */
     .hero-bg {
       position: relative;
       background: linear-gradient(135deg, #0a0a0a 0%, #1a0a0a 40%, #0d0d0d 100%);
@@ -604,6 +592,8 @@
       align-items: center;
       justify-content: center;
       overflow: hidden;
+      background-attachment: fixed;
+      background-size: cover;
     }
     .hero-bg::before {
       content: '';
@@ -635,8 +625,12 @@
       left: -50px;
       background: rgba(239, 68, 68, 0.07);
     }
+    @media (max-width: 768px) {
+      .hero-bg {
+        background-attachment: scroll;
+      }
+    }
 
-    /* ===== TRENDING SECTION ===== */
     .trending-section {
       position: relative;
       background: #0a0a0a;
@@ -674,7 +668,6 @@
       user-select: none;
     }
 
-    /* ===== SUBSCRIPTION TRENDING CARDS ===== */
     .sub-trend-card {
       background: rgba(20, 20, 20, 0.85);
       backdrop-filter: blur(12px);
@@ -783,7 +776,6 @@
       z-index: 1;
     }
 
-    /* ===== CONTACT PAGE ===== */
     .contact-icon-box {
       background: rgba(20, 20, 20, 0.85);
       backdrop-filter: blur(12px);
@@ -824,7 +816,6 @@
       color: #fff;
     }
 
-    /* ===== SOCIAL PAGE ===== */
     .social-link-card {
       background: rgba(20, 20, 20, 0.85);
       backdrop-filter: blur(12px);
@@ -867,7 +858,6 @@
       transform: translateX(4px);
     }
 
-    /* ===== FOOTER ===== */
     .footer {
       background: rgba(10, 10, 10, 0.98);
       border-top: 1px solid rgba(239, 68, 68, 0.06);
@@ -937,62 +927,22 @@
       text-align: center;
     }
 
-    /* ===== RESPONSIVE ===== */
     @media (max-width:640px) {
-      .sub-icon {
-        font-size: 2.2rem;
-      }
-      .otp-input {
-        width: 44px;
-        height: 52px;
-        font-size: 1.3rem;
-      }
-      .toast-container {
-        left: 16px;
-        right: 16px;
-        max-width: 100%;
-        bottom: 16px;
-      }
-      .admin-table th,
-      .admin-table td {
-        padding: 8px 10px;
-        font-size: .75rem;
-      }
-      .whatsapp-float {
-        width: 50px;
-        height: 50px;
-        font-size: 2rem;
-        bottom: 16px;
-        right: 16px;
-      }
-      .sub-trend-card .card-icon {
-        font-size: 2rem;
-      }
-      .sub-trend-card .card-icon svg {
-        width: 2rem;
-        height: 2rem;
-      }
-      .footer .footer-desc {
-        max-width: 100%;
-      }
-      .contact-icon-box {
-        padding: 20px 16px;
-      }
-      .social-link-card {
-        padding: 18px 16px;
-      }
-      .trending-section {
-        padding: 40px 0;
-      }
-      .sub-trend-card {
-        padding: 16px 12px;
-        min-height: 150px;
-      }
+      .sub-icon { font-size: 2.2rem; }
+      .otp-input { width: 44px; height: 52px; font-size: 1.3rem; }
+      .toast-container { left: 16px; right: 16px; max-width: 100%; bottom: 16px; }
+      .admin-table th, .admin-table td { padding: 8px 10px; font-size: .75rem; }
+      .whatsapp-float { width: 50px; height: 50px; font-size: 2rem; bottom: 16px; right: 16px; }
+      .sub-trend-card .card-icon { font-size: 2rem; }
+      .sub-trend-card .card-icon svg { width: 2rem; height: 2rem; }
+      .footer .footer-desc { max-width: 100%; }
+      .contact-icon-box { padding: 20px 16px; }
+      .social-link-card { padding: 18px 16px; }
+      .trending-section { padding: 40px 0; }
+      .sub-trend-card { padding: 16px 12px; min-height: 150px; }
     }
     @media (max-width:768px) {
-      .hero-bg {
-        min-height: 80vh;
-      }
+      .hero-bg { min-height: 80vh; }
     }
 
     .fade-up {
@@ -1018,9 +968,7 @@
       display: inline-block;
     }
     @keyframes spin {
-      to {
-        transform: rotate(360deg);
-      }
+      to { transform: rotate(360deg); }
     }
     .glass-panel {
       background: rgba(20, 20, 20, 0.85);
@@ -1121,7 +1069,6 @@
       min-height: 200px;
     }
 
-    /* ---- Trending section background fixed effect ---- */
     .trending-wrapper {
       position: relative;
       overflow: hidden;
@@ -1141,13 +1088,12 @@
       z-index: 1;
     }
 
-    /* ---- Subscription Carousel Card ---- */
     .sub-carousel-card {
       background: rgba(20, 20, 20, 0.90);
       backdrop-filter: blur(12px);
       border: 2px solid rgba(239, 68, 68, 0.20);
       border-radius: 16px;
-      padding: 16px 14px;
+      padding: 18px 14px;
       transition: all .3s ease;
       position: relative;
       overflow: hidden;
@@ -1156,7 +1102,7 @@
       align-items: center;
       justify-content: center;
       height: 100%;
-      min-height: 170px;
+      min-height: 190px;
       text-align: center;
     }
     .sub-carousel-card:hover {
@@ -1176,13 +1122,13 @@
       z-index: 1;
     }
     .sub-carousel-card .card-icon {
-      font-size: 2.2rem;
-      margin-bottom: 4px;
+      font-size: 2.4rem;
+      margin-bottom: 6px;
       position: relative;
       z-index: 1;
     }
     .sub-carousel-card .card-name {
-      font-size: .9rem;
+      font-size: .95rem;
       font-weight: 700;
       color: #fff;
       margin-bottom: 2px;
@@ -1193,36 +1139,21 @@
       line-height: 1.3;
     }
     .sub-carousel-card .card-price {
-      font-size: .75rem;
+      font-size: .8rem;
       font-weight: 600;
       color: #34d399;
-      margin-top: 2px;
+      margin-top: 3px;
     }
     .sub-carousel-card .card-detail {
-      font-size: .5rem;
+      font-size: .55rem;
       color: rgba(255, 255, 255, 0.25);
       margin-top: 2px;
-    }
-
-    /* ---- Hero fixed background ---- */
-    .hero-fixed-bg {
-      position: relative;
-      background-attachment: fixed;
-      background-position: center;
-      background-repeat: no-repeat;
-      background-size: cover;
-    }
-    @media (max-width: 768px) {
-      .hero-fixed-bg {
-        background-attachment: scroll;
-      }
     }
   </style>
 </head>
 <body>
   <div id="root"></div>
 
-  <!-- React & ReactDOM CDN -->
   <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
   <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
@@ -1230,7 +1161,6 @@
   <script type="text/babel">
     const { useState, useEffect, useRef, useCallback, useMemo, createContext, useContext } = React;
 
-    // ─── API BASE ─────────────────────────────────────────────
     const API_BASE = 'https://sub-hub-he32.onrender.com';
 
     // ─── API HELPERS ──────────────────────────────────────────
@@ -1291,7 +1221,6 @@
       return res.json();
     };
 
-    // ─── USER API ─────────────────────────────────────────────
     const signUpUser = async (username, password, whatsapp) => {
       const res = await fetch(`${API_BASE}/api/users/signup`, {
         method: 'POST',
@@ -1349,7 +1278,6 @@
       return res.json();
     };
 
-    // ─── DEALS API ─────────────────────────────────────────────
     const fetchDeals = async () => {
       const res = await fetch(`${API_BASE}/api/deals?t=${Date.now()}`, {
         headers: { 'Cache-Control': 'no-cache' }
@@ -1382,7 +1310,6 @@
       return res.json();
     };
 
-    // ─── INCOME API ────────────────────────────────────────────
     const fetchIncome = async (period = 'all') => {
       const res = await fetch(`${API_BASE}/api/income?period=${period}&t=${Date.now()}`, {
         headers: { 'Cache-Control': 'no-cache' }
@@ -1390,7 +1317,7 @@
       return res.json();
     };
 
-    // ─── NETFLIX PRICING ───────────────────────────────────────
+    // ─── PRICING ──────────────────────────────────────────────
     const getNetflixCredits = (screens, months) => {
       if (months === 1) {
         const screenPrices = { 1: 350, 2: 650, 3: 850, 4: 1000, 5: 1100 };
@@ -1408,18 +1335,11 @@
       return base * screens;
     };
 
-    // ─── AMAZON PRICING ───────────────────────────────────────
     const getAmazonCredits = (months) => {
-      const prices = {
-        1: 150,
-        3: 450,
-        6: 600,
-        12: 850
-      };
+      const prices = { 1: 150, 3: 450, 6: 600, 12: 850 };
       return prices[months] || 150;
     };
 
-    // ─── SIMPLE SUBSCRIPTION PRICING ──────────────────────────
     const getSimpleCredits = (type, months) => {
       const prices = {
         capcut: { 1: 200, 3: 550, 6: 1000, 12: 1800 },
@@ -1619,8 +1539,8 @@
       const lastMoveX = useRef(0);
       const momentumId = useRef(null);
 
-      const icons = { netflix: 'fa-netflix', amazon: 'fa-amazon', youtube: 'fa-youtube', spotify: 'fa-spotify', chatgpt: 'fa-robot', custom: 'fa-plus-circle' };
-      const colors = { netflix: '#e50914', amazon: '#ff9900', youtube: '#ff0000', spotify: '#1db954', chatgpt: '#10a37f', custom: '#ef4444' };
+      const icons = { netflix: 'fa-netflix', amazon: 'fa-amazon', youtube: 'fa-youtube', spotify: 'fa-spotify', chatgpt: 'fa-robot', canva: 'fa-paint-brush', capcut: 'fa-video', hbomax: 'fa-tv', crunchyroll: 'fa-play', chaupal: 'fa-film', custom: 'fa-plus-circle' };
+      const colors = { netflix: '#e50914', amazon: '#ff9900', youtube: '#ff0000', spotify: '#1db954', chatgpt: '#10a37f', canva: '#00c4cc', capcut: '#00d4ff', hbomax: '#5822b4', crunchyroll: '#f47521', chaupal: '#e74c3c', custom: '#ef4444' };
 
       const activeDeals = useMemo(() => {
         return deals
@@ -1650,9 +1570,7 @@
       };
 
       useEffect(() => {
-        const handleResize = () => {
-          setItemsPerView(getItemsPerView());
-        };
+        const handleResize = () => { setItemsPerView(getItemsPerView()); };
         window.addEventListener('resize', handleResize);
         handleResize();
         return () => window.removeEventListener('resize', handleResize);
@@ -1682,9 +1600,7 @@
           }
           return;
         }
-
         let lastTimestamp = performance.now();
-
         const animate = (timestamp) => {
           const delta = (timestamp - lastTimestamp) / 1000;
           lastTimestamp = timestamp;
@@ -1697,7 +1613,6 @@
           });
           animationRef.current = requestAnimationFrame(animate);
         };
-
         animationRef.current = requestAnimationFrame(animate);
         return () => {
           if (animationRef.current) {
@@ -1732,7 +1647,6 @@
         if (newOffset < 0) newOffset = 0;
         if (newOffset > oneSetWidth) newOffset = oneSetWidth;
         setOffset(newOffset);
-
         const now = Date.now();
         const dt = now - lastMoveTime.current;
         if (dt > 0) {
@@ -1766,16 +1680,12 @@
             if (Math.abs(velDecay) > 0.1 && momentumOffset > 0 && momentumOffset < oneSetWidth) {
               momentumId.current = requestAnimationFrame(momentumStep);
             } else {
-              setTimeout(() => {
-                setIsPaused(false);
-              }, 2000);
+              setTimeout(() => { setIsPaused(false); }, 2000);
             }
           };
           momentumId.current = requestAnimationFrame(momentumStep);
         } else {
-          setTimeout(() => {
-            setIsPaused(false);
-          }, 2000);
+          setTimeout(() => { setIsPaused(false); }, 2000);
         }
         setDragVelocity(0);
       };
@@ -1789,9 +1699,7 @@
         const touch = e.touches[0];
         handleDragMove(touch.clientX);
       };
-      const onTouchEnd = (e) => {
-        handleDragEnd();
-      };
+      const onTouchEnd = () => { handleDragEnd(); };
 
       const onMouseDown = (e) => {
         if (e.button !== 0) return;
@@ -1806,9 +1714,7 @@
         document.addEventListener('mouseup', onMouseUp);
       };
 
-      const handlePause = () => {
-        setIsPaused(true);
-      };
+      const handlePause = () => { setIsPaused(true); };
       const handleResume = () => {
         if (!isDragging) {
           setTimeout(() => setIsPaused(false), 3000);
@@ -1841,7 +1747,6 @@
             <h2 className="text-xl font-bold text-white">🔥 Hot Deals!</h2>
             <span className="text-white/30 text-xs ml-2">Limited time offers</span>
           </div>
-
           <div className={`carousel-container ${isPaused ? 'paused' : ''}`} ref={containerRef} onMouseEnter={handlePause} onMouseLeave={handleResume} onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd} onMouseDown={onMouseDown} style={{ touchAction: 'none' }}>
             <div className="carousel-track" ref={trackRef} style={{ transform: `translateX(-${offset}px)`, transition: isDragging ? 'none' : 'none', gap: `${gap}px` }}>
               {repeatedDeals.map((deal, idx) => {
@@ -1905,12 +1810,8 @@
             </div>
             {totalItems > itemsPerView && (
               <>
-                <button className="carousel-btn prev" onClick={goToPrev}>
-                  <i className="fas fa-chevron-left"></i>
-                </button>
-                <button className="carousel-btn next" onClick={goToNext}>
-                  <i className="fas fa-chevron-right"></i>
-                </button>
+                <button className="carousel-btn prev" onClick={goToPrev}><i className="fas fa-chevron-left"></i></button>
+                <button className="carousel-btn next" onClick={goToNext}><i className="fas fa-chevron-right"></i></button>
                 <div className="carousel-dots">
                   {Array.from({ length: Math.ceil(totalItems / itemsPerView) }).map((_, idx) => (
                     <button key={idx} className={`carousel-dot ${idx === Math.floor(offset / slideWidth) ? 'active' : ''}`} onClick={() => {
@@ -1978,9 +1879,7 @@
       };
 
       useEffect(() => {
-        const handleResize = () => {
-          setItemsPerView(getItemsPerView());
-        };
+        const handleResize = () => { setItemsPerView(getItemsPerView()); };
         window.addEventListener('resize', handleResize);
         handleResize();
         return () => window.removeEventListener('resize', handleResize);
@@ -2010,9 +1909,7 @@
           }
           return;
         }
-
         let lastTimestamp = performance.now();
-
         const animate = (timestamp) => {
           const delta = (timestamp - lastTimestamp) / 1000;
           lastTimestamp = timestamp;
@@ -2025,7 +1922,6 @@
           });
           animationRef.current = requestAnimationFrame(animate);
         };
-
         animationRef.current = requestAnimationFrame(animate);
         return () => {
           if (animationRef.current) {
@@ -2060,7 +1956,6 @@
         if (newOffset < 0) newOffset = 0;
         if (newOffset > oneSetWidth) newOffset = oneSetWidth;
         setOffset(newOffset);
-
         const now = Date.now();
         const dt = now - lastMoveTime.current;
         if (dt > 0) {
@@ -2094,16 +1989,12 @@
             if (Math.abs(velDecay) > 0.1 && momentumOffset > 0 && momentumOffset < oneSetWidth) {
               momentumId.current = requestAnimationFrame(momentumStep);
             } else {
-              setTimeout(() => {
-                setIsPaused(false);
-              }, 2000);
+              setTimeout(() => { setIsPaused(false); }, 2000);
             }
           };
           momentumId.current = requestAnimationFrame(momentumStep);
         } else {
-          setTimeout(() => {
-            setIsPaused(false);
-          }, 2000);
+          setTimeout(() => { setIsPaused(false); }, 2000);
         }
         setDragVelocity(0);
       };
@@ -2117,9 +2008,7 @@
         const touch = e.touches[0];
         handleDragMove(touch.clientX);
       };
-      const onTouchEnd = (e) => {
-        handleDragEnd();
-      };
+      const onTouchEnd = () => { handleDragEnd(); };
 
       const onMouseDown = (e) => {
         if (e.button !== 0) return;
@@ -2134,9 +2023,7 @@
         document.addEventListener('mouseup', onMouseUp);
       };
 
-      const handlePause = () => {
-        setIsPaused(true);
-      };
+      const handlePause = () => { setIsPaused(true); };
       const handleResume = () => {
         if (!isDragging) {
           setTimeout(() => setIsPaused(false), 3000);
@@ -2167,7 +2054,6 @@
             <h2 className="text-xl font-bold text-white">What We Provide</h2>
             <span className="text-white/30 text-xs ml-2">Premium services</span>
           </div>
-
           <div className={`carousel-container ${isPaused ? 'paused' : ''}`} ref={containerRef} onMouseEnter={handlePause} onMouseLeave={handleResume} onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd} onMouseDown={onMouseDown} style={{ touchAction: 'none' }}>
             <div className="carousel-track" ref={trackRef} style={{ transform: `translateX(-${offset}px)`, transition: isDragging ? 'none' : 'none', gap: `${gap}px` }}>
               {repeatedItems.map((sub, idx) => (
@@ -2187,12 +2073,8 @@
             </div>
             {totalItems > itemsPerView && (
               <>
-                <button className="carousel-btn prev" onClick={goToPrev}>
-                  <i className="fas fa-chevron-left"></i>
-                </button>
-                <button className="carousel-btn next" onClick={goToNext}>
-                  <i className="fas fa-chevron-right"></i>
-                </button>
+                <button className="carousel-btn prev" onClick={goToPrev}><i className="fas fa-chevron-left"></i></button>
+                <button className="carousel-btn next" onClick={goToNext}><i className="fas fa-chevron-right"></i></button>
                 <div className="carousel-dots">
                   {Array.from({ length: Math.ceil(totalItems / itemsPerView) }).map((_, idx) => (
                     <button key={idx} className={`carousel-dot ${idx === Math.floor(offset / slideWidth) ? 'active' : ''}`} onClick={() => {
@@ -2222,7 +2104,7 @@
     // ─── HERO ──────────────────────────────────────────────────
     function Hero({ setActiveTab, setShowSubscriptions, onGetStarted }) {
       return (
-        <div className="hero-bg hero-fixed-bg">
+        <div className="hero-bg">
           <div className="glow-orb orb1"></div>
           <div className="glow-orb orb2"></div>
           <div className="relative z-10 w-full max-w-7xl mx-auto px-4 py-16 md:py-24 text-center">
@@ -2244,7 +2126,6 @@
                 <i className="fas fa-rocket mr-2"></i> Get Started
               </button>
             </div>
-
             <div className="mt-12 flex flex-wrap justify-center gap-4 text-white/20 text-xs">
               <span><i className="fas fa-check-circle text-red-400 mr-1"></i> 100% Secure</span>
               <span><i className="fas fa-clock text-red-400 mr-1"></i> Instant Delivery</span>
@@ -2263,9 +2144,7 @@
           <div className="bg-fixed"></div>
           <div className="content">
             <div className="trending-section">
-              <div className="trending-bg-text">
-                <h2>What We Provide</h2>
-              </div>
+              <div className="trending-bg-text"><h2>What We Provide</h2></div>
               <div className="relative z-10 max-w-7xl mx-auto px-4">
                 <SubscriptionCarousel />
               </div>
@@ -2280,7 +2159,7 @@
       const icons = { netflix: 'fa-netflix', amazon: 'fa-amazon', youtube: 'fa-youtube', spotify: 'fa-spotify', chatgpt: 'fa-robot', canva: 'fa-paint-brush', capcut: 'fa-video', hbomax: 'fa-tv', crunchyroll: 'fa-play', chaupal: 'fa-film', custom: 'fa-plus-circle' };
       const colors = { netflix: '#e50914', amazon: '#ff9900', youtube: '#ff0000', spotify: '#1db954', chatgpt: '#10a37f', canva: '#00c4cc', capcut: '#00d4ff', hbomax: '#5822b4', crunchyroll: '#f47521', chaupal: '#e74c3c', custom: '#ef4444' };
       const displayNames = { netflix: 'Netflix', amazon: 'Amazon Prime', youtube: 'YouTube Premium', spotify: 'Spotify Premium', chatgpt: 'ChatGPT Plus', canva: 'Canva Pro', capcut: 'Capcut Pro', hbomax: 'HBO Max', crunchyroll: 'Crunchyroll', chaupal: 'Chaupal', custom: 'Custom' };
-      
+
       return (
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
           {subscriptions.map(s => {
@@ -2408,7 +2287,6 @@
       return allocated;
     };
 
-    // ─── AMAZON ALLOCATION ──────────────────────────────────
     const allocateAmazonScreen = (availableSlots, username, whatsapp, purchaseCount) => {
       const screenIndex = (purchaseCount % 6) + 1;
       const targetSlot = availableSlots.find(slot => {
@@ -2421,23 +2299,19 @@
       return targetSlot;
     };
 
-    // ─── ALLOCATE SIMPLE SUBSCRIPTION ──────────────────────
     const allocateSimpleScreen = (subscription, username, whatsapp) => {
       if (!subscription?.accounts || subscription.accounts.length === 0) return null;
       const firstAcc = subscription.accounts[0];
       if (!firstAcc.screens || firstAcc.screens.length === 0) return null;
-      // Find an empty screen or use the first one
       for (const screen of firstAcc.screens) {
         const customers = screen.customers || [];
         if (customers.length === 0) {
           return { account: firstAcc, screen };
         }
-        // Check if user already has this
         if (customers.some(c => c.username === username || c.whatsapp === whatsapp)) {
           return { account: firstAcc, screen, existing: true };
         }
       }
-      // If all screens are full, use the first one
       return { account: firstAcc, screen: firstAcc.screens[0] };
     };
 
@@ -2641,9 +2515,7 @@
       if (step === 'plan') {
         return (
           <div className="space-y-6">
-            <button onClick={onBack} className="text-red-400 hover:text-red-300 text-sm">
-              <i className="fas fa-arrow-left mr-2"></i> Back
-            </button>
+            <button onClick={onBack} className="text-red-400 hover:text-red-300 text-sm"><i className="fas fa-arrow-left mr-2"></i> Back</button>
             <h2 className="text-2xl font-bold text-white">
               <span className="netflix-logo" style={{ fontSize: '2rem' }}>
                 <svg viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg" style={{ width: '2rem', height: '2rem', marginRight: '8px' }}>
@@ -2653,34 +2525,28 @@
               </span>
             </h2>
             <div className="grid sm:grid-cols-2 gap-6">
-              <div>
-                <label className="text-white/50 text-sm font-medium">Screens</label>
+              <div><label className="text-white/50 text-sm font-medium">Screens</label>
                 <select value={screens} onChange={(e) => setScreens(Number(e.target.value))} className="input-neon mt-1">
-                  {[1, 2, 3, 4, 5].map(n => <option key={n} value={n}>{n} {n === 1 ? 'screen' : 'screens'}</option>)}
+                  {[1,2,3,4,5].map(n => <option key={n} value={n}>{n} {n === 1 ? 'screen' : 'screens'}</option>)}
                 </select>
               </div>
-              <div>
-                <label className="text-white/50 text-sm font-medium">Duration</label>
+              <div><label className="text-white/50 text-sm font-medium">Duration</label>
                 <select value={durationType} onChange={(e) => setDurationType(e.target.value)} className="input-neon mt-1">
-                  <option value="months">Months</option>
-                  <option value="days">Custom Days</option>
+                  <option value="months">Months</option><option value="days">Custom Days</option>
                 </select>
               </div>
             </div>
             {durationType === 'months' ? (
-              <div>
-                <label className="text-white/50 text-sm font-medium">Months</label>
+              <div><label className="text-white/50 text-sm font-medium">Months</label>
                 <select value={months} onChange={(e) => setMonths(Number(e.target.value))} className="input-neon mt-1">
-                  {[1, 2, 3, 6, 12].map(n => <option key={n} value={n}>{n} {n === 1 ? 'month' : 'months'}</option>)}
+                  {[1,2,3,6,12].map(n => <option key={n} value={n}>{n} {n === 1 ? 'month' : 'months'}</option>)}
                 </select>
               </div>
             ) : (
-              <div>
-                <label className="text-white/50 text-sm font-medium">Days</label>
+              <div><label className="text-white/50 text-sm font-medium">Days</label>
                 <input type="number" value={days} onChange={(e) => setDays(Math.max(1, Number(e.target.value)))} className="input-neon mt-1" min="1" />
               </div>
             )}
-
             <div className="bg-red-500/5 rounded-xl p-4 border border-red-500/10">
               <div className="flex items-center gap-3">
                 <input type="checkbox" checked={specificScreen} onChange={(e) => setSpecificScreen(e.target.checked)} className="w-4 h-4 accent-red-500" />
@@ -2691,40 +2557,29 @@
                   <label className="text-white/50 text-sm font-medium">Choose Screen</label>
                   <select value={selectedScreenId} onChange={(e) => setSelectedScreenId(e.target.value)} className="input-neon mt-1">
                     <option value="">--Select--</option>
-                    {availableForDisplay.map(opt => (
-                      <option key={opt.id} value={opt.id}>{opt.label}</option>
-                    ))}
+                    {availableForDisplay.map(opt => <option key={opt.id} value={opt.id}>{opt.label}</option>)}
                   </select>
                 </div>
               )}
             </div>
-
             <div className="space-y-3">
-              <div>
-                <label className="text-white/50 text-sm font-medium">Full Name</label>
+              <div><label className="text-white/50 text-sm font-medium">Full Name</label>
                 <input type="text" value={name} onChange={(e) => setName(e.target.value)} className="input-neon mt-1" placeholder="Your full name" />
               </div>
-              <div>
-                <label className="text-white/50 text-sm font-medium">WhatsApp Number</label>
+              <div><label className="text-white/50 text-sm font-medium">WhatsApp Number</label>
                 <input type="tel" value={whatsapp} onChange={(e) => setWhatsapp(e.target.value)} className="input-neon mt-1" placeholder="+92 300 1234567" readOnly={!!user?.whatsapp} />
                 {user?.whatsapp && <p className="text-xs text-white/30 mt-1">(locked to your sign‑up number)</p>}
               </div>
             </div>
-
             {currentUser && (
               <div className="bg-green-500/10 rounded-xl p-4 border border-green-500/20">
                 <div className="flex items-center gap-3">
                   <input type="checkbox" checked={useCredits} onChange={(e) => setUseCredits(e.target.checked)} disabled={!canUseCredits} className="w-4 h-4 accent-green-400" />
-                  <label className="text-white/70 text-sm">
-                    Pay with Credits ({creditsNeeded} credits needed, you have {currentUser.credits || 0})
-                  </label>
+                  <label className="text-white/70 text-sm">Pay with Credits ({creditsNeeded} credits needed, you have {currentUser.credits || 0})</label>
                 </div>
-                {!canUseCredits && useCredits && (
-                  <p className="text-red-400 text-xs mt-1">Insufficient credits. Please use OTP or add credits.</p>
-                )}
+                {!canUseCredits && useCredits && <p className="text-red-400 text-xs mt-1">Insufficient credits. Please use OTP or add credits.</p>}
               </div>
             )}
-
             {useCredits && canUseCredits ? (
               <button onClick={handlePayWithCredits} disabled={loading} className="btn-neon w-full py-3 bg-green-600 hover:bg-green-700">
                 {loading ? <span className="spinner"></span> : <><i className="fas fa-coins mr-2"></i> Pay with Credits</>}
@@ -2741,20 +2596,16 @@
       if (step === 'otp') {
         return (
           <div className="space-y-6">
-            <button onClick={() => setStep('plan')} className="text-red-400 hover:text-red-300 text-sm">
-              <i className="fas fa-arrow-left mr-2"></i> Back
-            </button>
+            <button onClick={() => setStep('plan')} className="text-red-400 hover:text-red-300 text-sm"><i className="fas fa-arrow-left mr-2"></i> Back</button>
             <h2 className="text-2xl font-bold text-white">Enter OTP</h2>
             <p className="text-white/40 text-sm">Enter the 4-digit OTP. Expires in {otpTimer}s</p>
             <div className="flex gap-3 justify-center">
-              {[0, 1, 2, 3].map(idx => (
+              {[0,1,2,3].map(idx => (
                 <input key={idx} ref={el => otpRefs.current[idx] = el} type="text" className="otp-input" maxLength="1" value={otp[idx]} onChange={(e) => handleOtpChange(idx, e.target.value)} onKeyDown={(e) => { if (e.key === 'Backspace' && !otp[idx] && idx > 0) otpRefs.current[idx - 1]?.focus(); }} autoFocus={idx === 0} />
               ))}
             </div>
             {otpError && <p className="text-red-400 text-sm text-center">{otpError}</p>}
-            <button onClick={handleVerifyOtp} className="btn-neon w-full py-3">
-              <i className="fas fa-check mr-2"></i> Verify OTP
-            </button>
+            <button onClick={handleVerifyOtp} className="btn-neon w-full py-3"><i className="fas fa-check mr-2"></i> Verify OTP</button>
           </div>
         );
       }
@@ -2762,9 +2613,7 @@
       if (step === 'details') {
         return (
           <div className="space-y-6">
-            <h2 className="text-2xl font-bold text-white">
-              <i className="fas fa-user-check text-red-400 mr-3"></i> Confirm Details
-            </h2>
+            <h2 className="text-2xl font-bold text-white"><i className="fas fa-user-check text-red-400 mr-3"></i> Confirm Details</h2>
             <div className="bg-red-500/5 rounded-xl p-4 border border-red-500/10 space-y-2">
               <p><span className="text-white/50">Name:</span> <span className="text-white">{name}</span></p>
               <p><span className="text-white/50">Username:</span> <span className="text-white">{user.username}</span></p>
@@ -2811,10 +2660,8 @@
       }, [subscription]);
 
       const canAllocate = useMemo(() => availableSlots.length >= 1, [availableSlots]);
-
       const totalMonths = durationType === 'months' ? months : Math.ceil(days / 30);
       const creditsNeeded = getAmazonCredits(totalMonths);
-
       const canUseCredits = useMemo(() => {
         return (currentUser?.credits || 0) >= creditsNeeded && creditsNeeded > 0;
       }, [currentUser, creditsNeeded]);
@@ -2946,58 +2793,42 @@
       if (step === 'plan') {
         return (
           <div className="space-y-6">
-            <button onClick={onBack} className="text-red-400 hover:text-red-300 text-sm">
-              <i className="fas fa-arrow-left mr-2"></i> Back
-            </button>
-            <h2 className="text-2xl font-bold text-white">
-              <i className="fab fa-amazon text-yellow-400 mr-3"></i> Amazon Prime
-            </h2>
-            <div>
-              <label className="text-white/50 text-sm font-medium">Duration</label>
+            <button onClick={onBack} className="text-red-400 hover:text-red-300 text-sm"><i className="fas fa-arrow-left mr-2"></i> Back</button>
+            <h2 className="text-2xl font-bold text-white"><i className="fab fa-amazon text-yellow-400 mr-3"></i> Amazon Prime</h2>
+            <div><label className="text-white/50 text-sm font-medium">Duration</label>
               <select value={durationType} onChange={(e) => setDurationType(e.target.value)} className="input-neon mt-1">
-                <option value="months">Months</option>
-                <option value="days">Custom Days</option>
+                <option value="months">Months</option><option value="days">Custom Days</option>
               </select>
             </div>
             {durationType === 'months' ? (
-              <div>
-                <label className="text-white/50 text-sm font-medium">Months</label>
+              <div><label className="text-white/50 text-sm font-medium">Months</label>
                 <select value={months} onChange={(e) => setMonths(Number(e.target.value))} className="input-neon mt-1">
-                  {[1, 2, 3, 6, 12].map(n => <option key={n} value={n}>{n} {n === 1 ? 'month' : 'months'}</option>)}
+                  {[1,2,3,6,12].map(n => <option key={n} value={n}>{n} {n === 1 ? 'month' : 'months'}</option>)}
                 </select>
               </div>
             ) : (
-              <div>
-                <label className="text-white/50 text-sm font-medium">Days</label>
+              <div><label className="text-white/50 text-sm font-medium">Days</label>
                 <input type="number" value={days} onChange={(e) => setDays(Math.max(1, Number(e.target.value)))} className="input-neon mt-1" min="1" />
               </div>
             )}
             <div className="space-y-3">
-              <div>
-                <label className="text-white/50 text-sm font-medium">Full Name</label>
+              <div><label className="text-white/50 text-sm font-medium">Full Name</label>
                 <input type="text" value={name} onChange={(e) => setName(e.target.value)} className="input-neon mt-1" placeholder="Your full name" />
               </div>
-              <div>
-                <label className="text-white/50 text-sm font-medium">WhatsApp Number</label>
+              <div><label className="text-white/50 text-sm font-medium">WhatsApp Number</label>
                 <input type="tel" value={whatsapp} onChange={(e) => setWhatsapp(e.target.value)} className="input-neon mt-1" placeholder="+92 300 1234567" readOnly={!!user?.whatsapp} />
                 {user?.whatsapp && <p className="text-xs text-white/30 mt-1">(locked to your sign‑up number)</p>}
               </div>
             </div>
-
             {currentUser && (
               <div className="bg-green-500/10 rounded-xl p-4 border border-green-500/20">
                 <div className="flex items-center gap-3">
                   <input type="checkbox" checked={useCredits} onChange={(e) => setUseCredits(e.target.checked)} disabled={!canUseCredits} className="w-4 h-4 accent-green-400" />
-                  <label className="text-white/70 text-sm">
-                    Pay with Credits ({creditsNeeded} credits needed, you have {currentUser.credits || 0})
-                  </label>
+                  <label className="text-white/70 text-sm">Pay with Credits ({creditsNeeded} credits needed, you have {currentUser.credits || 0})</label>
                 </div>
-                {!canUseCredits && useCredits && (
-                  <p className="text-red-400 text-xs mt-1">Insufficient credits. Please use OTP or add credits.</p>
-                )}
+                {!canUseCredits && useCredits && <p className="text-red-400 text-xs mt-1">Insufficient credits. Please use OTP or add credits.</p>}
               </div>
             )}
-
             {useCredits && canUseCredits ? (
               <button onClick={handlePayWithCredits} disabled={loading} className="btn-neon w-full py-3 bg-green-600 hover:bg-green-700">
                 {loading ? <span className="spinner"></span> : <><i className="fas fa-coins mr-2"></i> Pay with Credits</>}
@@ -3014,20 +2845,16 @@
       if (step === 'otp') {
         return (
           <div className="space-y-6">
-            <button onClick={() => setStep('plan')} className="text-red-400 hover:text-red-300 text-sm">
-              <i className="fas fa-arrow-left mr-2"></i> Back
-            </button>
+            <button onClick={() => setStep('plan')} className="text-red-400 hover:text-red-300 text-sm"><i className="fas fa-arrow-left mr-2"></i> Back</button>
             <h2 className="text-2xl font-bold text-white">Enter OTP</h2>
             <p className="text-white/40 text-sm">Enter the 4-digit OTP. Expires in {otpTimer}s</p>
             <div className="flex gap-3 justify-center">
-              {[0, 1, 2, 3].map(idx => (
+              {[0,1,2,3].map(idx => (
                 <input key={idx} ref={el => otpRefs.current[idx] = el} type="text" className="otp-input" maxLength="1" value={otp[idx]} onChange={(e) => handleOtpChange(idx, e.target.value)} onKeyDown={(e) => { if (e.key === 'Backspace' && !otp[idx] && idx > 0) otpRefs.current[idx - 1]?.focus(); }} autoFocus={idx === 0} />
               ))}
             </div>
             {otpError && <p className="text-red-400 text-sm text-center">{otpError}</p>}
-            <button onClick={handleVerifyOtp} className="btn-neon w-full py-3">
-              <i className="fas fa-check mr-2"></i> Verify OTP
-            </button>
+            <button onClick={handleVerifyOtp} className="btn-neon w-full py-3"><i className="fas fa-check mr-2"></i> Verify OTP</button>
           </div>
         );
       }
@@ -3035,9 +2862,7 @@
       if (step === 'details') {
         return (
           <div className="space-y-6">
-            <h2 className="text-2xl font-bold text-white">
-              <i className="fas fa-user-check text-red-400 mr-3"></i> Confirm Details
-            </h2>
+            <h2 className="text-2xl font-bold text-white"><i className="fas fa-user-check text-red-400 mr-3"></i> Confirm Details</h2>
             <div className="bg-red-500/5 rounded-xl p-4 border border-red-500/10 space-y-2">
               <p><span className="text-white/50">Name:</span> <span className="text-white">{name}</span></p>
               <p><span className="text-white/50">Username:</span> <span className="text-white">{user.username}</span></p>
@@ -3073,11 +2898,10 @@
       const isCanva = subscription.type === 'canva';
       const isCustom = subscription.type === 'custom';
       const isChatGPT = subscription.type === 'chatgpt';
-      
-      // For Canva, only 12 months
+
       const availableMonths = isCanva ? [12] : [1, 3, 6, 12];
       const creditsNeeded = isCanva ? 250 : (getSimpleCredits(subscription.type, months) || 0);
-      
+
       const canUseCredits = useMemo(() => {
         return (currentUser?.credits || 0) >= creditsNeeded && creditsNeeded > 0;
       }, [currentUser, creditsNeeded]);
@@ -3158,7 +2982,6 @@
         const expiry = new Date(now);
         expiry.setDate(expiry.getDate() + totalDays);
 
-        // Allocate a screen
         const allocation = allocateSimpleScreen(subscription, user.username, whatsapp.trim());
         let allocatedData = [];
         if (allocation) {
@@ -3227,46 +3050,32 @@
         const subDisplayName = isCustom ? 'Custom Subscription' : subscription.name;
         return (
           <div className="space-y-6">
-            <button onClick={onBack} className="text-red-400 hover:text-red-300 text-sm">
-              <i className="fas fa-arrow-left mr-2"></i> Back
-            </button>
-            <h2 className="text-2xl font-bold text-white">
-              <i className="fas fa-plus-circle text-red-400 mr-3"></i> {subDisplayName}
-            </h2>
-            
+            <button onClick={onBack} className="text-red-400 hover:text-red-300 text-sm"><i className="fas fa-arrow-left mr-2"></i> Back</button>
+            <h2 className="text-2xl font-bold text-white"><i className="fas fa-plus-circle text-red-400 mr-3"></i> {subDisplayName}</h2>
             {isCustom && (
-              <div>
-                <label className="text-white/50 text-sm font-medium">Subscription Name</label>
+              <div><label className="text-white/50 text-sm font-medium">Subscription Name</label>
                 <input type="text" value={customSubName} onChange={(e) => setCustomSubName(e.target.value)} className="input-neon mt-1" placeholder="Enter subscription name" />
               </div>
             )}
-
-            <div>
-              <label className="text-white/50 text-sm font-medium">Months</label>
+            <div><label className="text-white/50 text-sm font-medium">Months</label>
               <select value={months} onChange={(e) => setMonths(Number(e.target.value))} className="input-neon mt-1">
                 {availableMonths.map(n => <option key={n} value={n}>{n} {n === 1 ? 'month' : 'months'}</option>)}
               </select>
             </div>
-
             {(isChatGPT || isCanva) && (
-              <div>
-                <label className="text-white/50 text-sm font-medium">Email</label>
+              <div><label className="text-white/50 text-sm font-medium">Email</label>
                 <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className="input-neon mt-1" placeholder="Enter email address" />
               </div>
             )}
-
             <div className="space-y-3">
-              <div>
-                <label className="text-white/50 text-sm font-medium">Full Name</label>
+              <div><label className="text-white/50 text-sm font-medium">Full Name</label>
                 <input type="text" value={name} onChange={(e) => setName(e.target.value)} className="input-neon mt-1" placeholder="Your full name" />
               </div>
-              <div>
-                <label className="text-white/50 text-sm font-medium">WhatsApp Number</label>
+              <div><label className="text-white/50 text-sm font-medium">WhatsApp Number</label>
                 <input type="tel" value={whatsapp} onChange={(e) => setWhatsapp(e.target.value)} className="input-neon mt-1" placeholder="+92 300 1234567" readOnly={!!user?.whatsapp} />
                 {user?.whatsapp && <p className="text-xs text-white/30 mt-1">(locked to your sign‑up number)</p>}
               </div>
             </div>
-
             {!isCanva && !isCustom && creditsNeeded > 0 && (
               <div className="bg-yellow-500/10 rounded-xl p-3 border border-yellow-500/20">
                 <p className="text-yellow-400 text-sm"><i className="fas fa-info-circle mr-2"></i> Price: {creditsNeeded} credits for {months} month{months > 1 ? 's' : ''}</p>
@@ -3277,29 +3086,21 @@
                 <p className="text-yellow-400 text-sm"><i className="fas fa-info-circle mr-2"></i> Canva Pro: 250 credits for 1 year</p>
               </div>
             )}
-
             {currentUser && creditsNeeded > 0 && (
               <div className="bg-green-500/10 rounded-xl p-4 border border-green-500/20">
                 <div className="flex items-center gap-3">
                   <input type="checkbox" checked={useCredits} onChange={(e) => setUseCredits(e.target.checked)} disabled={!canUseCredits} className="w-4 h-4 accent-green-400" />
-                  <label className="text-white/70 text-sm">
-                    Pay with Credits ({creditsNeeded} credits needed, you have {currentUser.credits || 0})
-                  </label>
+                  <label className="text-white/70 text-sm">Pay with Credits ({creditsNeeded} credits needed, you have {currentUser.credits || 0})</label>
                 </div>
-                {!canUseCredits && useCredits && (
-                  <p className="text-red-400 text-xs mt-1">Insufficient credits. Please use OTP or add credits.</p>
-                )}
+                {!canUseCredits && useCredits && <p className="text-red-400 text-xs mt-1">Insufficient credits. Please use OTP or add credits.</p>}
               </div>
             )}
-
             {useCredits && canUseCredits ? (
               <button onClick={handlePayWithCredits} disabled={loading} className="btn-neon w-full py-3 bg-green-600 hover:bg-green-700">
                 {loading ? <span className="spinner"></span> : <><i className="fas fa-coins mr-2"></i> Pay with Credits</>}
               </button>
             ) : (
-              <button onClick={handleGenerateOTP} className="btn-neon w-full py-3">
-                <i className="fas fa-key mr-2"></i> Get OTP
-              </button>
+              <button onClick={handleGenerateOTP} className="btn-neon w-full py-3"><i className="fas fa-key mr-2"></i> Get OTP</button>
             )}
           </div>
         );
@@ -3308,13 +3109,11 @@
       if (step === 'otp') {
         return (
           <div className="space-y-6">
-            <button onClick={() => setStep('plan')} className="text-red-400 hover:text-red-300 text-sm">
-              <i className="fas fa-arrow-left mr-2"></i> Back
-            </button>
+            <button onClick={() => setStep('plan')} className="text-red-400 hover:text-red-300 text-sm"><i className="fas fa-arrow-left mr-2"></i> Back</button>
             <h2 className="text-2xl font-bold text-white">Enter OTP</h2>
             <p className="text-white/40 text-sm">Enter the 4-digit OTP. Expires in {otpTimer}s</p>
             <div className="flex gap-3 justify-center">
-              {[0, 1, 2, 3].map(idx => (
+              {[0,1,2,3].map(idx => (
                 <input key={idx} ref={el => otpRefs.current[idx] = el} type="text" className="otp-input" maxLength="1" value={otp[idx]} onChange={(e) => handleOtpChange(idx, e.target.value)} onKeyDown={(e) => { if (e.key === 'Backspace' && !otp[idx] && idx > 0) otpRefs.current[idx - 1]?.focus(); }} autoFocus={idx === 0} />
               ))}
             </div>
@@ -3325,7 +3124,6 @@
           </div>
         );
       }
-
       return null;
     }
 
@@ -3540,9 +3338,7 @@
       if (step === 'plan') {
         return (
           <div className="space-y-6">
-            <button onClick={onBack} className="text-red-400 hover:text-red-300 text-sm">
-              <i className="fas fa-arrow-left mr-2"></i> Back
-            </button>
+            <button onClick={onBack} className="text-red-400 hover:text-red-300 text-sm"><i className="fas fa-arrow-left mr-2"></i> Back</button>
             <div className="bg-red-500/5 rounded-xl p-4 border border-red-500/10">
               <h3 className="text-xl font-bold text-white">{deal.title}</h3>
               <p className="text-white/40 text-sm">{deal.description || ''}</p>
@@ -3566,41 +3362,30 @@
                 <span className="badge badge-yellow text-xs">🔥 Deal</span>
               </div>
             </div>
-
             <div className="space-y-3">
-              <div>
-                <label className="text-white/50 text-sm font-medium">Full Name</label>
+              <div><label className="text-white/50 text-sm font-medium">Full Name</label>
                 <input type="text" value={name} onChange={(e) => setName(e.target.value)} className="input-neon mt-1" placeholder="Your full name" />
               </div>
-              <div>
-                <label className="text-white/50 text-sm font-medium">WhatsApp Number</label>
+              <div><label className="text-white/50 text-sm font-medium">WhatsApp Number</label>
                 <input type="tel" value={whatsapp} onChange={(e) => setWhatsapp(e.target.value)} className="input-neon mt-1" placeholder="+92 300 1234567" readOnly={!!user?.whatsapp} />
                 {user?.whatsapp && <p className="text-xs text-white/30 mt-1">(locked to your sign‑up number)</p>}
               </div>
             </div>
-
             {currentUser && (
               <div className="bg-green-500/10 rounded-xl p-4 border border-green-500/20">
                 <div className="flex items-center gap-3">
                   <input type="checkbox" checked={useCredits} onChange={(e) => setUseCredits(e.target.checked)} disabled={!canUseCredits} className="w-4 h-4 accent-green-400" />
-                  <label className="text-white/70 text-sm">
-                    Pay with Credits ({creditsNeeded} credits needed, you have {currentUser.credits || 0})
-                  </label>
+                  <label className="text-white/70 text-sm">Pay with Credits ({creditsNeeded} credits needed, you have {currentUser.credits || 0})</label>
                 </div>
-                {!canUseCredits && useCredits && (
-                  <p className="text-red-400 text-xs mt-1">Insufficient credits. Please use OTP or add credits.</p>
-                )}
+                {!canUseCredits && useCredits && <p className="text-red-400 text-xs mt-1">Insufficient credits. Please use OTP or add credits.</p>}
               </div>
             )}
-
             {useCredits && canUseCredits ? (
               <button onClick={handlePayWithCredits} disabled={loading} className="btn-neon w-full py-3 bg-green-600 hover:bg-green-700">
                 {loading ? <span className="spinner"></span> : <><i className="fas fa-coins mr-2"></i> Pay with Credits</>}
               </button>
             ) : (
-              <button onClick={handleGenerateOTP} className="btn-neon w-full py-3">
-                <i className="fas fa-key mr-2"></i> Get OTP
-              </button>
+              <button onClick={handleGenerateOTP} className="btn-neon w-full py-3"><i className="fas fa-key mr-2"></i> Get OTP</button>
             )}
           </div>
         );
@@ -3609,13 +3394,11 @@
       if (step === 'otp') {
         return (
           <div className="space-y-6">
-            <button onClick={() => setStep('plan')} className="text-red-400 hover:text-red-300 text-sm">
-              <i className="fas fa-arrow-left mr-2"></i> Back
-            </button>
+            <button onClick={() => setStep('plan')} className="text-red-400 hover:text-red-300 text-sm"><i className="fas fa-arrow-left mr-2"></i> Back</button>
             <h2 className="text-2xl font-bold text-white">Enter OTP</h2>
             <p className="text-white/40 text-sm">Enter the 4-digit OTP. Expires in {otpTimer}s</p>
             <div className="flex gap-3 justify-center">
-              {[0, 1, 2, 3].map(idx => (
+              {[0,1,2,3].map(idx => (
                 <input key={idx} ref={el => otpRefs.current[idx] = el} type="text" className="otp-input" maxLength="1" value={otp[idx]} onChange={(e) => handleOtpChange(idx, e.target.value)} onKeyDown={(e) => { if (e.key === 'Backspace' && !otp[idx] && idx > 0) otpRefs.current[idx - 1]?.focus(); }} autoFocus={idx === 0} />
               ))}
             </div>
@@ -3626,7 +3409,6 @@
           </div>
         );
       }
-
       return null;
     }
 
@@ -3680,21 +3462,16 @@
           <h2 className="text-2xl font-bold text-white mb-2">
             {isSignUp ? <><i className="fas fa-user-plus text-red-400 mr-3"></i> Sign Up</> : <><i className="fas fa-sign-in-alt text-red-400 mr-3"></i> Sign In</>}
           </h2>
-          <p className="text-white/40 text-sm mb-6">
-            {isSignUp ? 'Create your account to start subscribing.' : 'Login to your account.'}
-          </p>
+          <p className="text-white/40 text-sm mb-6">{isSignUp ? 'Create your account to start subscribing.' : 'Login to your account.'}</p>
           <div className="space-y-4">
-            <div>
-              <label className="text-white/50 text-sm font-medium">Username</label>
+            <div><label className="text-white/50 text-sm font-medium">Username</label>
               <input type="text" value={username} onChange={(e) => setUsername(e.target.value)} className="input-neon mt-1" placeholder="Choose a username" />
             </div>
-            <div>
-              <label className="text-white/50 text-sm font-medium">Password</label>
+            <div><label className="text-white/50 text-sm font-medium">Password</label>
               <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} className="input-neon mt-1" placeholder="••••••••" />
             </div>
             {isSignUp && (
-              <div>
-                <label className="text-white/50 text-sm font-medium">WhatsApp Number</label>
+              <div><label className="text-white/50 text-sm font-medium">WhatsApp Number</label>
                 <input type="tel" value={whatsapp} onChange={(e) => setWhatsapp(e.target.value)} className="input-neon mt-1" placeholder="+92 300 1234567" />
               </div>
             )}
@@ -3765,9 +3542,7 @@
         if (activeDeals.length === 0) return null;
         return (
           <div>
-            <h3 className="text-xl font-bold text-white mb-4">
-              <span className="brand-z brand-z-sm">Z</span> Hot Deals
-            </h3>
+            <h3 className="text-xl font-bold text-white mb-4"><span className="brand-z brand-z-sm">Z</span> Hot Deals</h3>
             <DealsCarousel deals={activeDeals} subscriptions={subscriptions || []} onPurchaseClick={onDealPurchase} />
           </div>
         );
@@ -3780,15 +3555,11 @@
             <div className="glass-panel max-w-4xl mx-auto">
               <div className="flex justify-between items-start mb-6">
                 <div>
-                  <h2 className="text-2xl font-bold text-white">
-                    <span className="brand-z brand-z-sm">Z</span> {displayName}
-                  </h2>
+                  <h2 className="text-2xl font-bold text-white"><span className="brand-z brand-z-sm">Z</span> {displayName}</h2>
                   <p className="text-white/30 text-sm"><i className="fab fa-whatsapp mr-1"></i> {displayWhatsapp}</p>
                   <p className="text-white/30 text-sm"><i className="fas fa-coins mr-1"></i> Credits: {userCredits}</p>
                 </div>
-                <button onClick={onLogout} className="text-white/30 hover:text-white/60 text-sm">
-                  <i className="fas fa-sign-out-alt mr-1"></i> Logout
-                </button>
+                <button onClick={onLogout} className="text-white/30 hover:text-white/60 text-sm"><i className="fas fa-sign-out-alt mr-1"></i> Logout</button>
               </div>
               <div className="text-center py-8 text-white/40">
                 <i className="fas fa-inbox text-4xl mb-3 block"></i>
@@ -3807,15 +3578,11 @@
             <div className="glass-panel max-w-4xl mx-auto">
               <div className="flex justify-between items-start mb-6">
                 <div>
-                  <h2 className="text-2xl font-bold text-white">
-                    <span className="brand-z brand-z-sm">Z</span> {displayName}
-                  </h2>
+                  <h2 className="text-2xl font-bold text-white"><span className="brand-z brand-z-sm">Z</span> {displayName}</h2>
                   <p className="text-white/30 text-sm"><i className="fab fa-whatsapp mr-1"></i> {displayWhatsapp}</p>
                   <p className="text-white/30 text-sm"><i className="fas fa-coins mr-1"></i> Credits: {userCredits}</p>
                 </div>
-                <button onClick={onLogout} className="text-white/30 hover:text-white/60 text-sm">
-                  <i className="fas fa-sign-out-alt mr-1"></i> Logout
-                </button>
+                <button onClick={onLogout} className="text-white/30 hover:text-white/60 text-sm"><i className="fas fa-sign-out-alt mr-1"></i> Logout</button>
               </div>
               <div className="text-center py-8 text-white/40">
                 <i className="fas fa-exclamation-circle text-4xl text-yellow-400 mb-3 block"></i>
@@ -3833,25 +3600,17 @@
           <div className="glass-panel max-w-4xl mx-auto">
             <div className="flex justify-between items-start mb-6">
               <div>
-                <h2 className="text-2xl font-bold text-white">
-                  <span className="brand-z brand-z-sm">Z</span> {displayName}
-                </h2>
+                <h2 className="text-2xl font-bold text-white"><span className="brand-z brand-z-sm">Z</span> {displayName}</h2>
                 <p className="text-white/30 text-sm"><i className="fab fa-whatsapp mr-1"></i> {displayWhatsapp}</p>
                 <p className="text-white/30 text-sm"><i className="fas fa-coins mr-1"></i> Credits: {userCredits}</p>
               </div>
-              <button onClick={onLogout} className="text-white/30 hover:text-white/60 text-sm">
-                <i className="fas fa-sign-out-alt mr-1"></i> Logout
-              </button>
+              <button onClick={onLogout} className="text-white/30 hover:text-white/60 text-sm"><i className="fas fa-sign-out-alt mr-1"></i> Logout</button>
             </div>
-
             {expiringSoon && (
               <div className="mb-4 p-3 rounded-xl bg-yellow-500/10 border border-yellow-500/20">
-                <p className="text-yellow-400 text-sm">
-                  <i className="fas fa-exclamation-triangle mr-2"></i> ⚠️ One or more of your subscriptions expire today or tomorrow! Please renew.
-                </p>
+                <p className="text-yellow-400 text-sm"><i className="fas fa-exclamation-triangle mr-2"></i> ⚠️ One or more of your subscriptions expire today or tomorrow! Please renew.</p>
               </div>
             )}
-
             <div className="space-y-4">
               {activeEntries.map((entry, idx) => {
                 const status = getStatus(entry.expiryDate);
@@ -3860,64 +3619,34 @@
                   <div key={idx} className="bg-red-500/5 rounded-xl p-4 border border-red-500/10">
                     <div className="flex justify-between items-center mb-2">
                       <h3 className="text-lg font-semibold text-white">{entry.subscriptionName}</h3>
-                      <span className={`badge ${status.color === 'badge-green' ? 'badge-green' : status.color === 'badge-yellow' ? 'badge-yellow' : status.color === 'badge-red' ? 'badge-red' : 'badge-gray'}`}>
-                        {status.label}
-                      </span>
+                      <span className={`badge ${status.color === 'badge-green' ? 'badge-green' : status.color === 'badge-yellow' ? 'badge-yellow' : status.color === 'badge-red' ? 'badge-red' : 'badge-gray'}`}>{status.label}</span>
                     </div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
-                      <div className="detail-row">
-                        <span className="label">Screens</span>
-                        <span className="value">{entry.screens}</span>
-                      </div>
-                      <div className="detail-row">
-                        <span className="label">Duration</span>
-                        <span className="value">{entry.months ? entry.months + ' months' : entry.days + ' days'}</span>
-                      </div>
-                      <div className="detail-row">
-                        <span className="label">Expiry</span>
-                        <span className="value text-yellow-400">{entry.expiryDate}</span>
-                      </div>
-                      <div className="detail-row">
-                        <span className="label">Account Email</span>
-                        <span className="value">
-                          {entry.accountEmail}
-                          <button className="copy-btn" onClick={() => { navigator?.clipboard?.writeText(entry.accountEmail); addToast('Copied!', 'success'); }}>
-                            <i className="fas fa-copy"></i>
-                          </button>
+                      <div className="detail-row"><span className="label">Screens</span><span className="value">{entry.screens}</span></div>
+                      <div className="detail-row"><span className="label">Duration</span><span className="value">{entry.months ? entry.months + ' months' : entry.days + ' days'}</span></div>
+                      <div className="detail-row"><span className="label">Expiry</span><span className="value text-yellow-400">{entry.expiryDate}</span></div>
+                      <div className="detail-row"><span className="label">Account Email</span>
+                        <span className="value">{entry.accountEmail}
+                          <button className="copy-btn" onClick={() => { navigator?.clipboard?.writeText(entry.accountEmail); addToast('Copied!', 'success'); }}><i className="fas fa-copy"></i></button>
                         </span>
                       </div>
-                      <div className="detail-row">
-                        <span className="label">Account Password</span>
-                        <span className="value">
-                          {entry.accountPassword || '••••••••'}
-                          <button className="copy-btn" onClick={() => { navigator?.clipboard?.writeText(entry.accountPassword || ''); addToast('Copied!', 'success'); }}>
-                            <i className="fas fa-copy"></i>
-                          </button>
+                      <div className="detail-row"><span className="label">Account Password</span>
+                        <span className="value">{entry.accountPassword || '••••••••'}
+                          <button className="copy-btn" onClick={() => { navigator?.clipboard?.writeText(entry.accountPassword || ''); addToast('Copied!', 'success'); }}><i className="fas fa-copy"></i></button>
                         </span>
                       </div>
-                      <div className="detail-row">
-                        <span className="label">Screen Name</span>
-                        <span className="value">
-                          {entry.screenName}
-                          <button className="copy-btn" onClick={() => { navigator?.clipboard?.writeText(entry.screenName); addToast('Copied!', 'success'); }}>
-                            <i className="fas fa-copy"></i>
-                          </button>
+                      <div className="detail-row"><span className="label">Screen Name</span>
+                        <span className="value">{entry.screenName}
+                          <button className="copy-btn" onClick={() => { navigator?.clipboard?.writeText(entry.screenName); addToast('Copied!', 'success'); }}><i className="fas fa-copy"></i></button>
                         </span>
                       </div>
-                      <div className="detail-row">
-                        <span className="label">Screen PIN</span>
-                        <span className="value">
-                          {entry.screenPin || 'N/A'}
-                          <button className="copy-btn" onClick={() => { navigator?.clipboard?.writeText(entry.screenPin || ''); addToast('Copied!', 'success'); }}>
-                            <i className="fas fa-copy"></i>
-                          </button>
+                      <div className="detail-row"><span className="label">Screen PIN</span>
+                        <span className="value">{entry.screenPin || 'N/A'}
+                          <button className="copy-btn" onClick={() => { navigator?.clipboard?.writeText(entry.screenPin || ''); addToast('Copied!', 'success'); }}><i className="fas fa-copy"></i></button>
                         </span>
                       </div>
                       {entry.email && (
-                        <div className="detail-row">
-                          <span className="label">Email</span>
-                          <span className="value">{entry.email}</span>
-                        </div>
+                        <div className="detail-row"><span className="label">Email</span><span className="value">{entry.email}</span></div>
                       )}
                     </div>
                     {isExpiring && (
@@ -4003,7 +3732,6 @@
       const [editingScreen, setEditingScreen] = useState(null);
       const [editAccountForm, setEditAccountForm] = useState({ email: '', password: '' });
       const [editScreenForm, setEditScreenForm] = useState({ name: '', pin: '' });
-
       const [newAccount, setNewAccount] = useState({ email: '', password: '', screens: [{ name: 'Screen 1', pin: '' }], subscriptionId: '' });
 
       const loadOTPs = async () => {
@@ -4382,6 +4110,7 @@
         });
         return records;
       };
+
       const getTotalCustomers = (sub) => {
         let count = 0;
         sub.accounts.forEach(acc => {
@@ -4391,6 +4120,7 @@
         });
         return count;
       };
+
       const getTotalSlots = (sub) => {
         let count = 0;
         sub.accounts.forEach(acc => {
@@ -4398,6 +4128,7 @@
         });
         return count;
       };
+
       const checkExpiry = (dateStr) => {
         if (!dateStr) return 'unknown';
         const now = new Date();
@@ -4409,6 +4140,7 @@
         if (diff <= 3) return 'soon';
         return 'active';
       };
+
       const getExpiringSoon = () => {
         const today = new Date();
         today.setHours(0, 0, 0, 0);
@@ -4535,6 +4267,7 @@
         }
         return pass;
       };
+
       const generatePin = () => String(Math.floor(1000 + Math.random() * 9000));
 
       // ─── RENDER ADMIN DASHBOARD ──────────────────────────
@@ -4542,48 +4275,30 @@
         <div className="space-y-6">
           <div className="flex flex-wrap justify-between items-center gap-4">
             <div>
-              <h2 className="text-2xl font-bold text-white">
-                <span className="brand-z brand-z-sm">Z</span> Admin Dashboard
-              </h2>
+              <h2 className="text-2xl font-bold text-white"><span className="brand-z brand-z-sm">Z</span> Admin Dashboard</h2>
               <p className="text-white/30 text-sm">Manage everything.</p>
             </div>
             <div className="flex flex-wrap gap-2">
-              <button onClick={refreshData} className="btn-red text-sm">
-                <i className="fas fa-sync mr-1"></i> Refresh
-              </button>
-              <button onClick={() => setShowAdminSettings(!showAdminSettings)} className="btn-warning text-sm">
-                <i className="fas fa-cog mr-1"></i> Settings
-              </button>
-              <button onClick={() => setShowAddSub(!showAddSub)} className="btn-neon text-sm">
-                <i className="fas fa-plus mr-2"></i> Add Subscription
-              </button>
-              <button onClick={onLogout} className="btn-neon-outline text-sm">
-                <i className="fas fa-sign-out-alt mr-2"></i> Logout
-              </button>
+              <button onClick={refreshData} className="btn-red text-sm"><i className="fas fa-sync mr-1"></i> Refresh</button>
+              <button onClick={() => setShowAdminSettings(!showAdminSettings)} className="btn-warning text-sm"><i className="fas fa-cog mr-1"></i> Settings</button>
+              <button onClick={() => setShowAddSub(!showAddSub)} className="btn-neon text-sm"><i className="fas fa-plus mr-2"></i> Add Subscription</button>
+              <button onClick={onLogout} className="btn-neon-outline text-sm"><i className="fas fa-sign-out-alt mr-2"></i> Logout</button>
             </div>
           </div>
 
           {showAdminSettings && (
             <div className="glass-panel">
-              <h3 className="text-lg font-semibold text-white mb-4">
-                <i className="fas fa-lock text-red-400 mr-2"></i> Change Admin Password
-              </h3>
+              <h3 className="text-lg font-semibold text-white mb-4"><i className="fas fa-lock text-red-400 mr-2"></i> Change Admin Password</h3>
               <div className="space-y-3">
-                <div>
-                  <label className="text-white/50 text-sm">New Password</label>
+                <div><label className="text-white/50 text-sm">New Password</label>
                   <input type="password" value={newAdminPassword} onChange={(e) => setNewAdminPassword(e.target.value)} className="input-neon mt-1" placeholder="Enter new password" />
                 </div>
-                <div>
-                  <label className="text-white/50 text-sm">Confirm Password</label>
+                <div><label className="text-white/50 text-sm">Confirm Password</label>
                   <input type="password" value={confirmAdminPassword} onChange={(e) => setConfirmAdminPassword(e.target.value)} className="input-neon mt-1" placeholder="Confirm new password" />
                 </div>
                 <div className="flex gap-3 mt-2">
-                  <button onClick={handleChangeAdminPassword} className="btn-neon">
-                    <i className="fas fa-save mr-2"></i> Update Password
-                  </button>
-                  <button onClick={() => { setShowAdminSettings(false); setNewAdminPassword(''); setConfirmAdminPassword(''); }} className="btn-neon-outline">
-                    Cancel
-                  </button>
+                  <button onClick={handleChangeAdminPassword} className="btn-neon"><i className="fas fa-save mr-2"></i> Update Password</button>
+                  <button onClick={() => { setShowAdminSettings(false); setNewAdminPassword(''); setConfirmAdminPassword(''); }} className="btn-neon-outline">Cancel</button>
                 </div>
               </div>
             </div>
@@ -4591,16 +4306,12 @@
 
           {showAddSub && (
             <div className="glass-panel">
-              <h3 className="text-lg font-semibold text-white mb-4">
-                <i className="fas fa-plus-circle text-red-400 mr-2"></i> New Subscription
-              </h3>
+              <h3 className="text-lg font-semibold text-white mb-4"><i className="fas fa-plus-circle text-red-400 mr-2"></i> New Subscription</h3>
               <div className="grid sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="text-white/50 text-sm">Name</label>
+                <div><label className="text-white/50 text-sm">Name</label>
                   <input type="text" value={newSubName} onChange={(e) => setNewSubName(e.target.value)} className="input-neon mt-1" placeholder="e.g. Disney+" />
                 </div>
-                <div>
-                  <label className="text-white/50 text-sm">Type</label>
+                <div><label className="text-white/50 text-sm">Type</label>
                   <select value={newSubType} onChange={(e) => setNewSubType(e.target.value)} className="input-neon mt-1">
                     <option value="netflix">Netflix</option>
                     <option value="amazon">Amazon Prime</option>
@@ -4616,22 +4327,16 @@
                   </select>
                 </div>
               </div>
-              <div>
-                <label className="text-white/50 text-sm">Cost Per Month (RS)</label>
+              <div><label className="text-white/50 text-sm">Cost Per Month (RS)</label>
                 <input type="number" value={newSubCost} onChange={(e) => setNewSubCost(Number(e.target.value))} className="input-neon mt-1" placeholder="0" />
               </div>
               <div className="flex gap-3 mt-4">
-                <button onClick={handleAddSubscription} className="btn-neon">
-                  <i className="fas fa-check mr-2"></i> Create
-                </button>
-                <button onClick={() => setShowAddSub(false)} className="btn-neon-outline">
-                  Cancel
-                </button>
+                <button onClick={handleAddSubscription} className="btn-neon"><i className="fas fa-check mr-2"></i> Create</button>
+                <button onClick={() => setShowAddSub(false)} className="btn-neon-outline">Cancel</button>
               </div>
             </div>
           )}
 
-          {/* Tabs */}
           <div className="flex flex-wrap gap-2 border-b border-white/5 pb-3">
             {['overview', 'subscriptions', 'customers', 'income', 'users', 'deals', 'otp'].map(tab => (
               <button key={tab} onClick={() => setActiveTab(tab)} className={`tab-btn ${activeTab === tab ? 'active' : ''}`}>
@@ -4646,88 +4351,38 @@
             ))}
           </div>
 
-          {/* Overview tab */}
           {activeTab === 'overview' && (
             <div className="space-y-4">
               <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                <div className="glass-panel text-center">
-                  <p className="text-white/30 text-xs">Total Subscriptions</p>
-                  <p className="text-3xl font-bold text-white">{subscriptions.length}</p>
-                </div>
-                <div className="glass-panel text-center">
-                  <p className="text-white/30 text-xs">Total Accounts</p>
-                  <p className="text-3xl font-bold text-white">{subscriptions.reduce((acc, s) => acc + s.accounts.length, 0)}</p>
-                </div>
-                <div className="glass-panel text-center">
-                  <p className="text-white/30 text-xs">Total Customers</p>
-                  <p className="text-3xl font-bold text-white">{subscriptions.reduce((acc, s) => acc + getTotalCustomers(s), 0)}</p>
-                </div>
-                <div className="glass-panel text-center">
-                  <p className="text-white/30 text-xs">Total Slots</p>
-                  <p className="text-3xl font-bold text-white">{subscriptions.reduce((acc, s) => acc + getTotalSlots(s), 0)}</p>
-                </div>
+                <div className="glass-panel text-center"><p className="text-white/30 text-xs">Total Subscriptions</p><p className="text-3xl font-bold text-white">{subscriptions.length}</p></div>
+                <div className="glass-panel text-center"><p className="text-white/30 text-xs">Total Accounts</p><p className="text-3xl font-bold text-white">{subscriptions.reduce((acc, s) => acc + s.accounts.length, 0)}</p></div>
+                <div className="glass-panel text-center"><p className="text-white/30 text-xs">Total Customers</p><p className="text-3xl font-bold text-white">{subscriptions.reduce((acc, s) => acc + getTotalCustomers(s), 0)}</p></div>
+                <div className="glass-panel text-center"><p className="text-white/30 text-xs">Total Slots</p><p className="text-3xl font-bold text-white">{subscriptions.reduce((acc, s) => acc + getTotalSlots(s), 0)}</p></div>
               </div>
-
-              {/* Income Summary */}
               {incomeData && (
                 <div className="glass-panel border-green-500/20">
-                  <h3 className="text-lg font-semibold text-green-400 mb-3">
-                    <i className="fas fa-coins mr-2"></i> Income Overview
-                  </h3>
+                  <h3 className="text-lg font-semibold text-green-400 mb-3"><i className="fas fa-coins mr-2"></i> Income Overview</h3>
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                    <div className="text-center p-2 bg-white/5 rounded-lg">
-                      <p className="text-white/30 text-xs">All Time</p>
-                      <p className="text-xl font-bold text-green-400">RS {incomeData.totalIncome?.toFixed(2) || 0}</p>
-                    </div>
-                    <div className="text-center p-2 bg-white/5 rounded-lg">
-                      <p className="text-white/30 text-xs">Last 30 Days</p>
-                      <p className="text-xl font-bold text-yellow-400">RS {incomeData.last30Days || 0}</p>
-                    </div>
-                    <div className="text-center p-2 bg-white/5 rounded-lg">
-                      <p className="text-white/30 text-xs">Last 60 Days</p>
-                      <p className="text-xl font-bold text-blue-400">RS {incomeData.last60Days || 0}</p>
-                    </div>
-                    <div className="text-center p-2 bg-white/5 rounded-lg">
-                      <p className="text-white/30 text-xs">Last 90 Days</p>
-                      <p className="text-xl font-bold text-purple-400">RS {incomeData.last90Days || 0}</p>
-                    </div>
+                    <div className="text-center p-2 bg-white/5 rounded-lg"><p className="text-white/30 text-xs">All Time</p><p className="text-xl font-bold text-green-400">RS {incomeData.totalIncome?.toFixed(2) || 0}</p></div>
+                    <div className="text-center p-2 bg-white/5 rounded-lg"><p className="text-white/30 text-xs">Last 30 Days</p><p className="text-xl font-bold text-yellow-400">RS {incomeData.last30Days || 0}</p></div>
+                    <div className="text-center p-2 bg-white/5 rounded-lg"><p className="text-white/30 text-xs">Last 60 Days</p><p className="text-xl font-bold text-blue-400">RS {incomeData.last60Days || 0}</p></div>
+                    <div className="text-center p-2 bg-white/5 rounded-lg"><p className="text-white/30 text-xs">Last 90 Days</p><p className="text-xl font-bold text-purple-400">RS {incomeData.last90Days || 0}</p></div>
                   </div>
-                  <button onClick={() => setActiveTab('income')} className="mt-3 text-red-400 text-sm hover:text-red-300">
-                    View Details <i className="fas fa-arrow-right ml-1"></i>
-                  </button>
+                  <button onClick={() => setActiveTab('income')} className="mt-3 text-red-400 text-sm hover:text-red-300">View Details <i className="fas fa-arrow-right ml-1"></i></button>
                 </div>
               )}
-
               {(() => {
                 const expiring = getExpiringSoon();
                 if (expiring.length > 0) {
                   return (
                     <div className="glass-panel border-yellow-500/30">
-                      <h3 className="text-lg font-semibold text-yellow-400 mb-3">
-                        <i className="fas fa-clock mr-2"></i> Expiring Soon (Next 24h)
-                      </h3>
+                      <h3 className="text-lg font-semibold text-yellow-400 mb-3"><i className="fas fa-clock mr-2"></i> Expiring Soon (Next 24h)</h3>
                       <div className="overflow-x-auto">
                         <table className="admin-table text-sm">
-                          <thead>
-                            <tr>
-                              <th>Customer</th>
-                              <th>WhatsApp</th>
-                              <th>Subscription</th>
-                              <th>Screen</th>
-                              <th>Expiry</th>
-                              <th>Status</th>
-                            </tr>
-                          </thead>
+                          <thead><tr><th>Customer</th><th>WhatsApp</th><th>Subscription</th><th>Screen</th><th>Expiry</th><th>Status</th></tr></thead>
                           <tbody>
                             {expiring.map((item, idx) => (
-                              <tr key={idx}>
-                                <td>{item.name}</td>
-                                <td>{item.whatsapp}</td>
-                                <td>{item.subscriptionName}</td>
-                                <td>{item.screenName}</td>
-                                <td>{item.expiryDate}</td>
-                                <td><span className="badge badge-yellow">{item.diff === 0 ? 'Today' : 'Tomorrow'}</span></td>
-                              </tr>
+                              <tr key={idx}><td>{item.name}</td><td>{item.whatsapp}</td><td>{item.subscriptionName}</td><td>{item.screenName}</td><td>{item.expiryDate}</td><td><span className="badge badge-yellow">{item.diff === 0 ? 'Today' : 'Tomorrow'}</span></td></tr>
                             ))}
                           </tbody>
                         </table>
@@ -4740,7 +4395,6 @@
             </div>
           )}
 
-          {/* Subscriptions tab */}
           {activeTab === 'subscriptions' && (
             <div className="space-y-6">
               {subscriptions.map(sub => {
@@ -4769,27 +4423,14 @@
                         <p className="text-white/30 text-xs">{sub.accounts.length} accounts • {totalSlots} slots • {totalCust} customers</p>
                       </div>
                       <div className="flex gap-2">
-                        <button onClick={() => { setNewAccount({ ...newAccount, subscriptionId: sub.id }); setShowAddAccount(sub.id); }} className="btn-neon text-sm">
-                          <i className="fas fa-plus mr-2"></i> Add Account
-                        </button>
-                        <button onClick={() => deleteSubscription(sub.id)} className="btn-danger text-sm">
-                          <i className="fas fa-trash mr-1"></i> Delete
-                        </button>
+                        <button onClick={() => { setNewAccount({ ...newAccount, subscriptionId: sub.id }); setShowAddAccount(sub.id); }} className="btn-neon text-sm"><i className="fas fa-plus mr-2"></i> Add Account</button>
+                        <button onClick={() => deleteSubscription(sub.id)} className="btn-danger text-sm"><i className="fas fa-trash mr-1"></i> Delete</button>
                       </div>
                     </div>
-
                     {sub.accounts.length > 0 && (
                       <div className="mt-4 overflow-x-auto">
                         <table className="admin-table">
-                          <thead>
-                            <tr>
-                              <th>Email</th>
-                              <th>Screens</th>
-                              <th>Customers</th>
-                              <th>Status</th>
-                              <th>Actions</th>
-                            </tr>
-                          </thead>
+                          <thead><tr><th>Email</th><th>Screens</th><th>Customers</th><th>Status</th><th>Actions</th></tr></thead>
                           <tbody>
                             {sub.accounts.map(acc => {
                               const custCount = acc.screens.reduce((a, s) => a + (s.customers?.length || 0), 0);
@@ -4798,47 +4439,31 @@
                                   <tr>
                                     <td className="text-sm">{acc.email}</td>
                                     <td className="text-sm">{acc.screens.length}</td>
-                                    <td className="text-sm">
-                                      <span className={`badge ${custCount > 0 ? 'badge-green' : 'badge-yellow'}`}>{custCount} active</span>
-                                    </td>
-                                    <td className="text-sm">
-                                      <span className="badge badge-red-light"><i className="fas fa-circle text-[6px] mr-1 align-middle"></i> Active</span>
-                                    </td>
+                                    <td className="text-sm"><span className={`badge ${custCount > 0 ? 'badge-green' : 'badge-yellow'}`}>{custCount} active</span></td>
+                                    <td className="text-sm"><span className="badge badge-red-light"><i className="fas fa-circle text-[6px] mr-1 align-middle"></i> Active</span></td>
                                     <td>
                                       <div className="flex gap-1 flex-wrap">
-                                        <button onClick={() => openEditAccount(sub.id, acc.id, acc.email, acc.password)} className="btn-warning text-xs">
-                                          <i className="fas fa-edit"></i>
-                                        </button>
-                                        <button onClick={() => handleGeneratePassword(sub.id, acc.id)} className="btn-red text-xs">
-                                          <i className="fas fa-key"></i> Gen Pass
-                                        </button>
-                                        <button onClick={() => deleteAccount(sub.id, acc.id)} className="btn-danger text-xs">
-                                          <i className="fas fa-trash"></i>
-                                        </button>
+                                        <button onClick={() => openEditAccount(sub.id, acc.id, acc.email, acc.password)} className="btn-warning text-xs"><i className="fas fa-edit"></i></button>
+                                        <button onClick={() => handleGeneratePassword(sub.id, acc.id)} className="btn-red text-xs"><i className="fas fa-key"></i> Gen Pass</button>
+                                        <button onClick={() => deleteAccount(sub.id, acc.id)} className="btn-danger text-xs"><i className="fas fa-trash"></i></button>
                                       </div>
                                     </td>
                                   </tr>
-                                  <tr>
-                                    <td colSpan="5">
-                                      <div className="p-2 bg-white/5 rounded-lg mt-1">
-                                        <p className="text-xs text-white/40 mb-1">Screens:</p>
-                                        <div className="flex flex-wrap gap-2">
-                                          {acc.screens.map(screen => (
-                                            <div key={screen.id} className="flex items-center gap-2 bg-red-500/10 px-3 py-1 rounded-full text-xs">
-                                              <span className="text-white/70">{screen.name}</span>
-                                              <span className="text-white/30">PIN: {screen.pin || 'N/A'}</span>
-                                              <button onClick={() => openEditScreen(sub.id, acc.id, screen.id, screen.name, screen.pin)} className="btn-warning text-xs">
-                                                <i className="fas fa-edit"></i>
-                                              </button>
-                                              <button onClick={() => handleGeneratePin(sub.id, acc.id, screen.id)} className="btn-red text-xs">
-                                                <i className="fas fa-shield-alt"></i> Gen PIN
-                                              </button>
-                                            </div>
-                                          ))}
-                                        </div>
+                                  <tr><td colSpan="5">
+                                    <div className="p-2 bg-white/5 rounded-lg mt-1">
+                                      <p className="text-xs text-white/40 mb-1">Screens:</p>
+                                      <div className="flex flex-wrap gap-2">
+                                        {acc.screens.map(screen => (
+                                          <div key={screen.id} className="flex items-center gap-2 bg-red-500/10 px-3 py-1 rounded-full text-xs">
+                                            <span className="text-white/70">{screen.name}</span>
+                                            <span className="text-white/30">PIN: {screen.pin || 'N/A'}</span>
+                                            <button onClick={() => openEditScreen(sub.id, acc.id, screen.id, screen.name, screen.pin)} className="btn-warning text-xs"><i className="fas fa-edit"></i></button>
+                                            <button onClick={() => handleGeneratePin(sub.id, acc.id, screen.id)} className="btn-red text-xs"><i className="fas fa-shield-alt"></i> Gen PIN</button>
+                                          </div>
+                                        ))}
                                       </div>
-                                    </td>
-                                  </tr>
+                                    </div>
+                                  </td></tr>
                                 </React.Fragment>
                               );
                             })}
@@ -4846,21 +4471,12 @@
                         </table>
                       </div>
                     )}
-
                     {showAddAccount === sub.id && (
                       <div className="mt-4 p-4 bg-red-500/5 rounded-xl border border-red-500/10">
-                        <h4 className="text-white font-medium mb-3">
-                          <i className="fas fa-user-plus text-red-400 mr-2"></i> Add Account to {sub.name}
-                        </h4>
+                        <h4 className="text-white font-medium mb-3"><i className="fas fa-user-plus text-red-400 mr-2"></i> Add Account to {sub.name}</h4>
                         <div className="grid sm:grid-cols-2 gap-4">
-                          <div>
-                            <label className="text-white/40 text-xs">Email</label>
-                            <input type="email" value={newAccount.email} onChange={(e) => setNewAccount({ ...newAccount, email: e.target.value })} className="input-neon mt-1" placeholder="account@email.com" />
-                          </div>
-                          <div>
-                            <label className="text-white/40 text-xs">Password</label>
-                            <input type="text" value={newAccount.password} onChange={(e) => setNewAccount({ ...newAccount, password: e.target.value })} className="input-neon mt-1" placeholder="••••••••" />
-                          </div>
+                          <div><label className="text-white/40 text-xs">Email</label><input type="email" value={newAccount.email} onChange={(e) => setNewAccount({ ...newAccount, email: e.target.value })} className="input-neon mt-1" placeholder="account@email.com" /></div>
+                          <div><label className="text-white/40 text-xs">Password</label><input type="text" value={newAccount.password} onChange={(e) => setNewAccount({ ...newAccount, password: e.target.value })} className="input-neon mt-1" placeholder="••••••••" /></div>
                         </div>
                         <div className="mt-3">
                           <p className="text-white/40 text-xs mb-2">Screens (Slots)</p>
@@ -4871,39 +4487,21 @@
                                 <input type="text" value={s.pin} onChange={(e) => updateScreen(idx, 'pin', e.target.value)} className="input-neon w-24" placeholder="PIN" />
                               </div>
                             ))}
-                            <button onClick={addScreenToAccount} className="text-red-400 hover:text-red-300 text-sm">
-                              <i className="fas fa-plus mr-1"></i> Add Screen
-                            </button>
+                            <button onClick={addScreenToAccount} className="text-red-400 hover:text-red-300 text-sm"><i className="fas fa-plus mr-1"></i> Add Screen</button>
                           </div>
                         </div>
                         <div className="flex gap-3 mt-4">
-                          <button onClick={() => handleAddAccount(sub.id)} className="btn-neon text-sm">
-                            <i className="fas fa-check mr-2"></i> Save
-                          </button>
-                          <button onClick={() => { setShowAddAccount(null); setNewAccount({ email: '', password: '', screens: [{ name: 'Screen 1', pin: '' }], subscriptionId: '' }); }} className="btn-neon-outline text-sm">
-                            Cancel
-                          </button>
+                          <button onClick={() => handleAddAccount(sub.id)} className="btn-neon text-sm"><i className="fas fa-check mr-2"></i> Save</button>
+                          <button onClick={() => { setShowAddAccount(null); setNewAccount({ email: '', password: '', screens: [{ name: 'Screen 1', pin: '' }], subscriptionId: '' }); }} className="btn-neon-outline text-sm">Cancel</button>
                         </div>
                       </div>
                     )}
-
                     {records.length > 0 && (
                       <div className="mt-4">
                         <p className="text-white/40 text-xs mb-2"><i className="fas fa-users mr-1"></i> {records.length} customer(s)</p>
                         <div className="overflow-x-auto">
                           <table className="admin-table text-sm">
-                            <thead>
-                              <tr>
-                                <th>Name</th>
-                                <th>Username</th>
-                                <th>WhatsApp</th>
-                                <th>Screen</th>
-                                <th>Account</th>
-                                <th>Expiry</th>
-                                <th>Status</th>
-                                <th>Actions</th>
-                              </tr>
-                            </thead>
+                            <thead><tr><th>Name</th><th>Username</th><th>WhatsApp</th><th>Screen</th><th>Account</th><th>Expiry</th><th>Status</th><th>Actions</th></tr></thead>
                             <tbody>
                               {records.map((r, idx) => {
                                 const status = checkExpiry(r.expiry);
@@ -4920,12 +4518,8 @@
                                     <td><span className={`badge ${statusColors[status] || 'badge-red-light'}`}>{statusLabels[status] || 'N/A'}</span></td>
                                     <td>
                                       <div className="flex gap-1">
-                                        <button onClick={() => openEditModal(sub.id, r.accountId, r.screenId, r.customerIdx, r.customer)} className="btn-warning text-xs">
-                                          <i className="fas fa-edit"></i>
-                                        </button>
-                                        <button onClick={() => deleteCustomer(sub.id, r.accountId, r.screenId, r.customerIdx)} className="btn-danger text-xs">
-                                          <i className="fas fa-trash"></i>
-                                        </button>
+                                        <button onClick={() => openEditModal(sub.id, r.accountId, r.screenId, r.customerIdx, r.customer)} className="btn-warning text-xs"><i className="fas fa-edit"></i></button>
+                                        <button onClick={() => deleteCustomer(sub.id, r.accountId, r.screenId, r.customerIdx)} className="btn-danger text-xs"><i className="fas fa-trash"></i></button>
                                       </div>
                                     </td>
                                   </tr>
@@ -4942,7 +4536,6 @@
             </div>
           )}
 
-          {/* Customers tab */}
           {activeTab === 'customers' && (
             <div className="space-y-4">
               {subscriptions.map(sub => {
@@ -4966,18 +4559,7 @@
                     </h4>
                     <div className="overflow-x-auto">
                       <table className="admin-table text-sm">
-                        <thead>
-                          <tr>
-                            <th>Name</th>
-                            <th>Username</th>
-                            <th>WhatsApp</th>
-                            <th>Screen</th>
-                            <th>Account</th>
-                            <th>Expiry</th>
-                            <th>Status</th>
-                            <th>Actions</th>
-                          </tr>
-                        </thead>
+                        <thead><tr><th>Name</th><th>Username</th><th>WhatsApp</th><th>Screen</th><th>Account</th><th>Expiry</th><th>Status</th><th>Actions</th></tr></thead>
                         <tbody>
                           {records.map((r, idx) => {
                             const status = checkExpiry(r.expiry);
@@ -4994,12 +4576,8 @@
                                 <td><span className={`badge ${statusColors[status] || 'badge-red-light'}`}>{statusLabels[status] || 'N/A'}</span></td>
                                 <td>
                                   <div className="flex gap-1">
-                                    <button onClick={() => openEditModal(sub.id, r.accountId, r.screenId, r.customerIdx, r.customer)} className="btn-warning text-xs">
-                                      <i className="fas fa-edit"></i>
-                                    </button>
-                                    <button onClick={() => deleteCustomer(sub.id, r.accountId, r.screenId, r.customerIdx)} className="btn-danger text-xs">
-                                      <i className="fas fa-trash"></i>
-                                    </button>
+                                    <button onClick={() => openEditModal(sub.id, r.accountId, r.screenId, r.customerIdx, r.customer)} className="btn-warning text-xs"><i className="fas fa-edit"></i></button>
+                                    <button onClick={() => deleteCustomer(sub.id, r.accountId, r.screenId, r.customerIdx)} className="btn-danger text-xs"><i className="fas fa-trash"></i></button>
                                   </div>
                                 </td>
                               </tr>
@@ -5012,20 +4590,15 @@
                 );
               })}
               {subscriptions.every(s => getCustomerRecords(s).length === 0) && (
-                <div className="text-center py-8 text-white/30">
-                  <i className="fas fa-users text-4xl mb-3 block"></i> No customers yet.
-                </div>
+                <div className="text-center py-8 text-white/30"><i className="fas fa-users text-4xl mb-3 block"></i> No customers yet.</div>
               )}
             </div>
           )}
 
-          {/* Income tab */}
           {activeTab === 'income' && (
             <div className="glass-panel">
               <div className="flex flex-wrap justify-between items-center mb-4">
-                <h3 className="text-lg font-semibold text-white">
-                  <i className="fas fa-coins mr-2 text-green-400"></i> Income Dashboard
-                </h3>
+                <h3 className="text-lg font-semibold text-white"><i className="fas fa-coins mr-2 text-green-400"></i> Income Dashboard</h3>
                 <div className="flex gap-2">
                   <select value={incomePeriod} onChange={(e) => setIncomePeriod(e.target.value)} className="input-neon text-sm py-1 px-3 w-auto">
                     <option value="all">All Time</option>
@@ -5033,17 +4606,11 @@
                     <option value="60">Last 60 Days</option>
                     <option value="90">Last 90 Days</option>
                   </select>
-                  <button onClick={() => loadIncome(incomePeriod)} className="btn-red text-sm">
-                    <i className="fas fa-sync mr-1"></i>
-                  </button>
+                  <button onClick={() => loadIncome(incomePeriod)} className="btn-red text-sm"><i className="fas fa-sync mr-1"></i></button>
                 </div>
               </div>
-
               {incomeLoading ? (
-                <div className="text-center py-8">
-                  <div className="spinner mx-auto"></div>
-                  <p className="text-white/30 mt-2">Loading income data...</p>
-                </div>
+                <div className="text-center py-8"><div className="spinner mx-auto"></div><p className="text-white/30 mt-2">Loading income data...</p></div>
               ) : incomeData ? (
                 <div className="space-y-4">
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -5054,9 +4621,7 @@
                     </div>
                     <div className="bg-blue-500/10 rounded-xl p-4 border border-blue-500/20 text-center">
                       <p className="text-white/40 text-sm">Period</p>
-                      <p className="text-lg font-bold text-blue-400">
-                        {incomePeriod === 'all' ? 'All Time' : `Last ${incomePeriod} Days`}
-                      </p>
+                      <p className="text-lg font-bold text-blue-400">{incomePeriod === 'all' ? 'All Time' : `Last ${incomePeriod} Days`}</p>
                       <p className="text-white/20 text-xs mt-1">{incomeData.startDate ? new Date(incomeData.startDate).toLocaleDateString() : 'N/A'} - {new Date(incomeData.endDate).toLocaleDateString()}</p>
                     </div>
                     <div className="bg-yellow-500/10 rounded-xl p-4 border border-yellow-500/20 text-center">
@@ -5064,7 +4629,6 @@
                       <p className="text-2xl font-bold text-yellow-400">RS {incomeData.customers?.length > 0 ? (incomeData.totalIncome / incomeData.customers.length).toFixed(2) : 0}</p>
                     </div>
                   </div>
-
                   {incomeData.incomeByType && Object.keys(incomeData.incomeByType).length > 0 && (
                     <div>
                       <h4 className="text-white font-medium mb-2">Revenue by Type</h4>
@@ -5083,32 +4647,15 @@
                       </div>
                     </div>
                   )}
-
                   {incomeData.customers && incomeData.customers.length > 0 && (
                     <div>
                       <h4 className="text-white font-medium mb-2">Customer Breakdown</h4>
                       <div className="overflow-x-auto max-h-60 overflow-y-auto">
                         <table className="admin-table text-sm">
-                          <thead>
-                            <tr>
-                              <th>Customer</th>
-                              <th>Subscription</th>
-                              <th>Screen</th>
-                              <th>Months</th>
-                              <th>Revenue</th>
-                              <th>Expiry</th>
-                            </tr>
-                          </thead>
+                          <thead><tr><th>Customer</th><th>Subscription</th><th>Screen</th><th>Months</th><th>Revenue</th><th>Expiry</th></tr></thead>
                           <tbody>
                             {incomeData.customers.map((c, idx) => (
-                              <tr key={idx}>
-                                <td>{c.customerName}</td>
-                                <td>{c.subscriptionName}</td>
-                                <td>{c.screenName}</td>
-                                <td>{c.months}</td>
-                                <td className="text-green-400">RS {c.income.toFixed(2)}</td>
-                                <td className="text-yellow-400">{c.expiryDate ? new Date(c.expiryDate).toLocaleDateString() : 'N/A'}</td>
-                              </tr>
+                              <tr key={idx}><td>{c.customerName}</td><td>{c.subscriptionName}</td><td>{c.screenName}</td><td>{c.months}</td><td className="text-green-400">RS {c.income.toFixed(2)}</td><td className="text-yellow-400">{c.expiryDate ? new Date(c.expiryDate).toLocaleDateString() : 'N/A'}</td></tr>
                             ))}
                           </tbody>
                         </table>
@@ -5117,37 +4664,20 @@
                   )}
                 </div>
               ) : (
-                <div className="text-center py-8 text-white/30">
-                  <i className="fas fa-chart-line text-4xl mb-3 block"></i>
-                  <p>No income data available yet.</p>
-                  <p className="text-sm mt-1">Income will appear once customers purchase subscriptions.</p>
-                </div>
+                <div className="text-center py-8 text-white/30"><i className="fas fa-chart-line text-4xl mb-3 block"></i><p>No income data available yet.</p><p className="text-sm mt-1">Income will appear once customers purchase subscriptions.</p></div>
               )}
             </div>
           )}
 
-          {/* Users tab */}
           {activeTab === 'users' && (
             <div className="glass-panel">
-              <h3 className="text-lg font-semibold text-white mb-4">
-                <i className="fas fa-user-friends mr-2 text-red-400"></i> Registered Users
-              </h3>
+              <h3 className="text-lg font-semibold text-white mb-4"><i className="fas fa-user-friends mr-2 text-red-400"></i> Registered Users</h3>
               {usersList.length === 0 ? (
-                <div className="text-center py-8 text-white/30">
-                  <i className="fas fa-user-slash text-3xl mb-3 block"></i> No users registered yet.
-                </div>
+                <div className="text-center py-8 text-white/30"><i className="fas fa-user-slash text-3xl mb-3 block"></i> No users registered yet.</div>
               ) : (
                 <div className="overflow-x-auto">
                   <table className="admin-table text-sm">
-                    <thead>
-                      <tr>
-                        <th>Username</th>
-                        <th>WhatsApp</th>
-                        <th>Credits</th>
-                        <th>Purchases</th>
-                        <th>Actions</th>
-                      </tr>
-                    </thead>
+                    <thead><tr><th>Username</th><th>WhatsApp</th><th>Credits</th><th>Purchases</th><th>Actions</th></tr></thead>
                     <tbody>
                       {usersList.map(u => (
                         <tr key={u.username}>
@@ -5172,34 +4702,18 @@
             </div>
           )}
 
-          {/* Deals tab */}
           {activeTab === 'deals' && (
             <div className="glass-panel">
               <div className="flex justify-between items-center mb-4">
-                <h3 className="text-lg font-semibold text-white">
-                  <i className="fas fa-fire mr-2 text-orange-400"></i> Promotional Deals
-                </h3>
-                <button onClick={() => openDealModal()} className="btn-neon text-sm">
-                  <i className="fas fa-plus mr-2"></i> New Deal
-                </button>
+                <h3 className="text-lg font-semibold text-white"><i className="fas fa-fire mr-2 text-orange-400"></i> Promotional Deals</h3>
+                <button onClick={() => openDealModal()} className="btn-neon text-sm"><i className="fas fa-plus mr-2"></i> New Deal</button>
               </div>
               {deals.length === 0 ? (
-                <div className="text-center py-8 text-white/30">
-                  <i className="fas fa-tags text-3xl mb-3 block"></i> No deals created yet.
-                </div>
+                <div className="text-center py-8 text-white/30"><i className="fas fa-tags text-3xl mb-3 block"></i> No deals created yet.</div>
               ) : (
                 <div className="overflow-x-auto">
                   <table className="admin-table text-sm">
-                    <thead>
-                      <tr>
-                        <th>Title</th>
-                        <th>Subscriptions</th>
-                        <th>Original</th>
-                        <th>Discount</th>
-                        <th>Status</th>
-                        <th>Actions</th>
-                      </tr>
-                    </thead>
+                    <thead><tr><th>Title</th><th>Subscriptions</th><th>Original</th><th>Discount</th><th>Status</th><th>Actions</th></tr></thead>
                     <tbody>
                       {deals.map(deal => {
                         const subNames = (deal.subscriptionIds || []).map(id => subscriptions.find(s => s.id === id)).filter(Boolean).map(s => s.name).join(', ');
@@ -5227,40 +4741,26 @@
             </div>
           )}
 
-          {/* OTP tab */}
           {activeTab === 'otp' && (
             <div className="glass-panel">
-              <h3 className="text-lg font-semibold text-white mb-3">
-                <i className="fas fa-key mr-2 text-red-400"></i> OTP Logs
-              </h3>
+              <h3 className="text-lg font-semibold text-white mb-3"><i className="fas fa-key mr-2 text-red-400"></i> OTP Logs</h3>
               <p className="text-white/30 text-xs mb-4">All OTPs generated (latest first). Expire after 5 minutes.</p>
               {otpList.length === 0 ? (
-                <div className="text-center py-8 text-white/30">
-                  <i className="fas fa-inbox text-3xl mb-3 block"></i> No OTPs generated yet.
-                </div>
+                <div className="text-center py-8 text-white/30"><i className="fas fa-inbox text-3xl mb-3 block"></i> No OTPs generated yet.</div>
               ) : (
                 <div className="overflow-x-auto">
                   <table className="admin-table text-sm">
-                    <thead>
-                      <tr>
-                        <th>OTP</th>
-                        <th>User</th>
-                        <th>Description</th>
-                        <th>Created</th>
-                        <th>Status</th>
-                      </tr>
-                    </thead>
+                    <thead><tr><th>OTP</th><th>User</th><th>Description</th><th>Created</th><th>Status</th></tr></thead>
                     <tbody>
                       {otpList.map(o => {
                         let statusLabel = '', statusColor = '';
-                        if (o.verified) { statusLabel = 'Verified'; statusColor = 'badge-green'; } else if (o.expired) { statusLabel = 'Expired'; statusColor = 'badge-red'; } else { statusLabel = 'Pending'; statusColor = 'badge-yellow'; }
+                        if (o.verified) { statusLabel = 'Verified'; statusColor = 'badge-green'; }
+                        else if (o.expired) { statusLabel = 'Expired'; statusColor = 'badge-red'; }
+                        else { statusLabel = 'Pending'; statusColor = 'badge-yellow'; }
                         return (
                           <tr key={o.id}>
-                            <td className="font-mono font-bold text-red-400">
-                              {o.otp}
-                              <button className="copy-btn" onClick={() => { navigator?.clipboard?.writeText(o.otp); addToast('OTP copied!', 'success'); }}>
-                                <i className="fas fa-copy"></i>
-                              </button>
+                            <td className="font-mono font-bold text-red-400">{o.otp}
+                              <button className="copy-btn" onClick={() => { navigator?.clipboard?.writeText(o.otp); addToast('OTP copied!', 'success'); }}><i className="fas fa-copy"></i></button>
                             </td>
                             <td>{o.userIdentifier}</td>
                             <td className="text-xs text-white/40">{o.description || 'N/A'}</td>
@@ -5276,20 +4776,13 @@
             </div>
           )}
 
-          {/* Deal Modal */}
           {showDealModal && (
             <div className="modal-overlay">
               <div className="modal-content glass-panel">
                 <h3 className="text-xl font-bold text-white mb-4">{editingDeal ? 'Edit Deal' : 'Create New Deal'}</h3>
                 <div className="space-y-4">
-                  <div>
-                    <label className="text-white/50 text-sm">Title</label>
-                    <input type="text" value={dealForm.title} onChange={(e) => setDealForm({ ...dealForm, title: e.target.value })} className="input-neon mt-1" placeholder="e.g. Netflix Premium Deal" />
-                  </div>
-                  <div>
-                    <label className="text-white/50 text-sm">Description</label>
-                    <input type="text" value={dealForm.description} onChange={(e) => setDealForm({ ...dealForm, description: e.target.value })} className="input-neon mt-1" placeholder="e.g. Watch unlimited movies & TV shows" />
-                  </div>
+                  <div><label className="text-white/50 text-sm">Title</label><input type="text" value={dealForm.title} onChange={(e) => setDealForm({ ...dealForm, title: e.target.value })} className="input-neon mt-1" placeholder="e.g. Netflix Premium Deal" /></div>
+                  <div><label className="text-white/50 text-sm">Description</label><input type="text" value={dealForm.description} onChange={(e) => setDealForm({ ...dealForm, description: e.target.value })} className="input-neon mt-1" placeholder="e.g. Watch unlimited movies & TV shows" /></div>
                   <div>
                     <label className="text-white/50 text-sm">Select Subscriptions</label>
                     <div className="mt-2 space-y-2 max-h-40 overflow-y-auto bg-red-500/5 rounded-xl p-3 border border-red-500/10">
@@ -5308,14 +4801,8 @@
                     {(!dealForm.subscriptionIds || dealForm.subscriptionIds.length === 0) && <p className="text-red-400 text-xs mt-1">Please select at least one subscription</p>}
                   </div>
                   <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="text-white/50 text-sm">Original Price (RS)</label>
-                      <input type="number" value={dealForm.actualPrice} onChange={(e) => setDealForm({ ...dealForm, actualPrice: e.target.value })} className="input-neon mt-1" placeholder="500" />
-                    </div>
-                    <div>
-                      <label className="text-white/50 text-sm">Discounted Price (RS)</label>
-                      <input type="number" value={dealForm.discountPrice} onChange={(e) => setDealForm({ ...dealForm, discountPrice: e.target.value })} className="input-neon mt-1" placeholder="350" />
-                    </div>
+                    <div><label className="text-white/50 text-sm">Original Price (RS)</label><input type="number" value={dealForm.actualPrice} onChange={(e) => setDealForm({ ...dealForm, actualPrice: e.target.value })} className="input-neon mt-1" placeholder="500" /></div>
+                    <div><label className="text-white/50 text-sm">Discounted Price (RS)</label><input type="number" value={dealForm.discountPrice} onChange={(e) => setDealForm({ ...dealForm, discountPrice: e.target.value })} className="input-neon mt-1" placeholder="350" /></div>
                   </div>
                   <div className="flex items-center gap-3">
                     <input type="checkbox" checked={dealForm.active} onChange={(e) => setDealForm({ ...dealForm, active: e.target.checked })} className="w-4 h-4 accent-red-500" />
@@ -5330,32 +4817,16 @@
             </div>
           )}
 
-          {/* Edit Customer Modal */}
           {editingCustomer && (
             <div className="modal-overlay">
               <div className="modal-content glass-panel">
                 <h3 className="text-xl font-bold text-white mb-4">Edit Customer</h3>
                 <div className="space-y-4">
-                  <div>
-                    <label className="text-white/50 text-sm">Name</label>
-                    <input type="text" value={editForm.name} onChange={(e) => setEditForm({ ...editForm, name: e.target.value })} className="input-neon mt-1" />
-                  </div>
-                  <div>
-                    <label className="text-white/50 text-sm">Username</label>
-                    <input type="text" value={editForm.username} onChange={(e) => setEditForm({ ...editForm, username: e.target.value })} className="input-neon mt-1" />
-                  </div>
-                  <div>
-                    <label className="text-white/50 text-sm">Password</label>
-                    <input type="text" value={editForm.password} onChange={(e) => setEditForm({ ...editForm, password: e.target.value })} className="input-neon mt-1" />
-                  </div>
-                  <div>
-                    <label className="text-white/50 text-sm">WhatsApp</label>
-                    <input type="text" value={editForm.whatsapp} onChange={(e) => setEditForm({ ...editForm, whatsapp: e.target.value })} className="input-neon mt-1" />
-                  </div>
-                  <div>
-                    <label className="text-white/50 text-sm">Expiry Date</label>
-                    <input type="date" value={editForm.expiryDate} onChange={(e) => setEditForm({ ...editForm, expiryDate: e.target.value })} className="input-neon mt-1" />
-                  </div>
+                  <div><label className="text-white/50 text-sm">Name</label><input type="text" value={editForm.name} onChange={(e) => setEditForm({ ...editForm, name: e.target.value })} className="input-neon mt-1" /></div>
+                  <div><label className="text-white/50 text-sm">Username</label><input type="text" value={editForm.username} onChange={(e) => setEditForm({ ...editForm, username: e.target.value })} className="input-neon mt-1" /></div>
+                  <div><label className="text-white/50 text-sm">Password</label><input type="text" value={editForm.password} onChange={(e) => setEditForm({ ...editForm, password: e.target.value })} className="input-neon mt-1" /></div>
+                  <div><label className="text-white/50 text-sm">WhatsApp</label><input type="text" value={editForm.whatsapp} onChange={(e) => setEditForm({ ...editForm, whatsapp: e.target.value })} className="input-neon mt-1" /></div>
+                  <div><label className="text-white/50 text-sm">Expiry Date</label><input type="date" value={editForm.expiryDate} onChange={(e) => setEditForm({ ...editForm, expiryDate: e.target.value })} className="input-neon mt-1" /></div>
                 </div>
                 <div className="flex gap-3 mt-6">
                   <button onClick={saveEdit} className="btn-neon">Save</button>
@@ -5365,20 +4836,13 @@
             </div>
           )}
 
-          {/* Edit Account Modal */}
           {editingAccount && (
             <div className="modal-overlay">
               <div className="modal-content glass-panel">
                 <h3 className="text-xl font-bold text-white mb-4">Edit Account</h3>
                 <div className="space-y-4">
-                  <div>
-                    <label className="text-white/50 text-sm">Email</label>
-                    <input type="text" value={editAccountForm.email} onChange={(e) => setEditAccountForm({ ...editAccountForm, email: e.target.value })} className="input-neon mt-1" />
-                  </div>
-                  <div>
-                    <label className="text-white/50 text-sm">Password</label>
-                    <input type="text" value={editAccountForm.password} onChange={(e) => setEditAccountForm({ ...editAccountForm, password: e.target.value })} className="input-neon mt-1" />
-                  </div>
+                  <div><label className="text-white/50 text-sm">Email</label><input type="text" value={editAccountForm.email} onChange={(e) => setEditAccountForm({ ...editAccountForm, email: e.target.value })} className="input-neon mt-1" /></div>
+                  <div><label className="text-white/50 text-sm">Password</label><input type="text" value={editAccountForm.password} onChange={(e) => setEditAccountForm({ ...editAccountForm, password: e.target.value })} className="input-neon mt-1" /></div>
                 </div>
                 <div className="flex gap-3 mt-6">
                   <button onClick={saveAccountEdit} className="btn-neon">Save</button>
@@ -5388,20 +4852,13 @@
             </div>
           )}
 
-          {/* Edit Screen Modal */}
           {editingScreen && (
             <div className="modal-overlay">
               <div className="modal-content glass-panel">
                 <h3 className="text-xl font-bold text-white mb-4">Edit Screen</h3>
                 <div className="space-y-4">
-                  <div>
-                    <label className="text-white/50 text-sm">Screen Name</label>
-                    <input type="text" value={editScreenForm.name} onChange={(e) => setEditScreenForm({ ...editScreenForm, name: e.target.value })} className="input-neon mt-1" />
-                  </div>
-                  <div>
-                    <label className="text-white/50 text-sm">PIN</label>
-                    <input type="text" value={editScreenForm.pin} onChange={(e) => setEditScreenForm({ ...editScreenForm, pin: e.target.value })} className="input-neon mt-1" placeholder="4-digit PIN" maxLength="4" />
-                  </div>
+                  <div><label className="text-white/50 text-sm">Screen Name</label><input type="text" value={editScreenForm.name} onChange={(e) => setEditScreenForm({ ...editScreenForm, name: e.target.value })} className="input-neon mt-1" /></div>
+                  <div><label className="text-white/50 text-sm">PIN</label><input type="text" value={editScreenForm.pin} onChange={(e) => setEditScreenForm({ ...editScreenForm, pin: e.target.value })} className="input-neon mt-1" placeholder="4-digit PIN" maxLength="4" /></div>
                 </div>
                 <div className="flex gap-3 mt-6">
                   <button onClick={saveScreenEdit} className="btn-neon">Save</button>
@@ -5730,7 +5187,6 @@
         return { ...deal, subscriptions: subs };
       }).filter(d => d.subscriptions.length > 0);
 
-      // ─── FOOTER ──────────────────────────────────────────────────
       function Footer() {
         return (
           <footer className="footer">
@@ -5738,9 +5194,7 @@
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8 lg:gap-12">
                 <div>
                   <div className="footer-brand"><span>Zetlify</span></div>
-                  <p className="footer-desc mt-3">
-                    Your one-stop destination for premium subscriptions from the world's best platforms.
-                  </p>
+                  <p className="footer-desc mt-3">Your one-stop destination for premium subscriptions from the world's best platforms.</p>
                   <div className="footer-social mt-4 flex gap-2">
                     <a href="https://facebook.com" target="_blank" rel="noopener noreferrer" aria-label="Facebook"><i className="fab fa-facebook-f"></i></a>
                     <a href="https://instagram.com" target="_blank" rel="noopener noreferrer" aria-label="Instagram"><i className="fab fa-instagram"></i></a>
@@ -5749,7 +5203,6 @@
                     <a href="https://linkedin.com" target="_blank" rel="noopener noreferrer" aria-label="LinkedIn"><i className="fab fa-linkedin-in"></i></a>
                   </div>
                 </div>
-
                 <div>
                   <h4 className="footer-heading">Quick Links</h4>
                   <div className="flex flex-col gap-1">
@@ -5760,29 +5213,15 @@
                     <a href="#" className="footer-link">Support</a>
                   </div>
                 </div>
-
                 <div>
                   <h4 className="footer-heading">Contact Info</h4>
                   <div className="flex flex-col gap-2">
-                    <div className="flex items-start gap-3 text-white/30 text-sm">
-                      <i className="fas fa-map-marker-alt text-red-400 mt-1"></i>
-                      <span>Lahore, Pakistan</span>
-                    </div>
-                    <div className="flex items-center gap-3 text-white/30 text-sm">
-                      <i className="fas fa-phone text-red-400"></i>
-                      <a href="tel:+923079163485" className="footer-link">+92 307 9163485</a>
-                    </div>
-                    <div className="flex items-center gap-3 text-white/30 text-sm">
-                      <i className="fab fa-whatsapp text-green-400"></i>
-                      <a href="https://wa.me/923079163485" target="_blank" rel="noopener noreferrer" className="footer-link">WhatsApp</a>
-                    </div>
-                    <div className="flex items-center gap-3 text-white/30 text-sm">
-                      <i className="fas fa-envelope text-red-400"></i>
-                      <a href="mailto:support@zetlify.com" className="footer-link">support@zetlify.com</a>
-                    </div>
+                    <div className="flex items-start gap-3 text-white/30 text-sm"><i className="fas fa-map-marker-alt text-red-400 mt-1"></i><span>Lahore, Pakistan</span></div>
+                    <div className="flex items-center gap-3 text-white/30 text-sm"><i className="fas fa-phone text-red-400"></i><a href="tel:+923079163485" className="footer-link">+92 307 9163485</a></div>
+                    <div className="flex items-center gap-3 text-white/30 text-sm"><i className="fab fa-whatsapp text-green-400"></i><a href="https://wa.me/923079163485" target="_blank" rel="noopener noreferrer" className="footer-link">WhatsApp</a></div>
+                    <div className="flex items-center gap-3 text-white/30 text-sm"><i className="fas fa-envelope text-red-400"></i><a href="mailto:support@zetlify.com" className="footer-link">support@zetlify.com</a></div>
                   </div>
                 </div>
-
                 <div>
                   <h4 className="footer-heading">Newsletter</h4>
                   <p className="text-white/30 text-sm mb-3">Stay updated with the latest deals and subscriptions.</p>
@@ -5800,7 +5239,6 @@
         );
       }
 
-      // ─── LOADING STATE ──────────────────────────────────────────
       if (loadingData) {
         return (
           <div className="min-h-screen pt-16 flex items-center justify-center">
@@ -5819,7 +5257,6 @@
 
           {activeTab === 'home' && !showSubscriptions && (
             <>
-              {/* Hot Deals carousel is at the TOP, below the navbar */}
               {dealsWithSub.length > 0 && (
                 <div className="max-w-7xl mx-auto px-4 pt-4 pb-2">
                   <DealsCarousel deals={dealsWithSub} subscriptions={subscriptions} onPurchaseClick={handleDealPurchase} />
@@ -5837,22 +5274,14 @@
               <div className="pt-6">
                 {flowStep === 'welcome' && (
                   <div className="text-center">
-                    <h2 className="text-3xl font-bold text-white mb-4">
-                      <span className="brand-z brand-z-sm">Z</span> Get Subscription
-                    </h2>
+                    <h2 className="text-3xl font-bold text-white mb-4"><span className="brand-z brand-z-sm">Z</span> Get Subscription</h2>
                     <p className="text-white/40 mb-8">Choose an option to continue.</p>
                     <div className="flex flex-wrap justify-center gap-4">
-                      <button onClick={handleGetStarted} className="btn-neon px-10 py-4 text-lg">
-                        <i className="fas fa-plus-circle mr-3"></i> New Subscription
-                      </button>
+                      <button onClick={handleGetStarted} className="btn-neon px-10 py-4 text-lg"><i className="fas fa-plus-circle mr-3"></i> New Subscription</button>
                       {user ? (
-                        <button onClick={() => { const found = findCustomers(user.username); setCustomerData(found); setFlowStep('customer-dash'); }} className="btn-neon-outline px-10 py-4 text-lg">
-                          <i className="fas fa-user-circle mr-3"></i> My Dashboard
-                        </button>
+                        <button onClick={() => { const found = findCustomers(user.username); setCustomerData(found); setFlowStep('customer-dash'); }} className="btn-neon-outline px-10 py-4 text-lg"><i className="fas fa-user-circle mr-3"></i> My Dashboard</button>
                       ) : (
-                        <button onClick={() => { setShowAuth(true); setFlowStep('auth'); }} className="btn-neon-outline px-10 py-4 text-lg">
-                          <i className="fas fa-sign-in-alt mr-3"></i> Customer Portal
-                        </button>
+                        <button onClick={() => { setShowAuth(true); setFlowStep('auth'); }} className="btn-neon-outline px-10 py-4 text-lg"><i className="fas fa-sign-in-alt mr-3"></i> Customer Portal</button>
                       )}
                     </div>
                   </div>
@@ -5860,17 +5289,11 @@
                 {flowStep === 'auth' && <AuthPage onLogin={handleLogin} onSignup={handleLogin} />}
                 {flowStep === 'select' && (
                   <div>
-                    <button onClick={() => { setFlowStep('welcome'); setFlowType(null); }} className="text-red-400 hover:text-red-300 text-sm mb-6 inline-flex items-center">
-                      <i className="fas fa-arrow-left mr-2"></i> Back
-                    </button>
-                    <h2 className="text-2xl font-bold text-white mb-6">
-                      <span className="brand-z brand-z-sm">Z</span> Choose Subscription
-                    </h2>
+                    <button onClick={() => { setFlowStep('welcome'); setFlowType(null); }} className="text-red-400 hover:text-red-300 text-sm mb-6 inline-flex items-center"><i className="fas fa-arrow-left mr-2"></i> Back</button>
+                    <h2 className="text-2xl font-bold text-white mb-6"><span className="brand-z brand-z-sm">Z</span> Choose Subscription</h2>
                     {dealsWithSub.length > 0 && (
                       <div className="mb-8">
-                        <h3 className="text-xl font-bold text-white mb-4">
-                          <span className="brand-z brand-z-sm">Z</span> Hot Deals
-                        </h3>
+                        <h3 className="text-xl font-bold text-white mb-4"><span className="brand-z brand-z-sm">Z</span> Hot Deals</h3>
                         <DealsCarousel deals={dealsWithSub} subscriptions={subscriptions} onPurchaseClick={handleDealPurchase} />
                       </div>
                     )}
@@ -5898,36 +5321,12 @@
                 <p className="text-white/30 mt-3 max-w-2xl mx-auto">Have questions or need help? We're here for you.</p>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                <div className="contact-icon-box">
-                  <span className="icon"><i className="fas fa-phone-alt text-red-400"></i></span>
-                  <div className="label">Phone</div>
-                  <div className="value"><a href="tel:+923079163485">+92 307 9163485</a></div>
-                </div>
-                <div className="contact-icon-box">
-                  <span className="icon"><i className="fab fa-whatsapp text-green-400"></i></span>
-                  <div className="label">WhatsApp</div>
-                  <div className="value"><a href="https://wa.me/923079163485" target="_blank" rel="noopener noreferrer">Chat Now</a></div>
-                </div>
-                <div className="contact-icon-box">
-                  <span className="icon"><i className="fas fa-envelope text-red-400"></i></span>
-                  <div className="label">Email</div>
-                  <div className="value"><a href="mailto:support@zetlify.com">support@zetlify.com</a></div>
-                </div>
-                <div className="contact-icon-box">
-                  <span className="icon"><i className="fas fa-map-marker-alt text-red-400"></i></span>
-                  <div className="label">Location</div>
-                  <div className="value">Lahore, Pakistan</div>
-                </div>
-                <div className="contact-icon-box">
-                  <span className="icon"><i className="fas fa-clock text-yellow-400"></i></span>
-                  <div className="label">Support Hours</div>
-                  <div className="value">24/7</div>
-                </div>
-                <div className="contact-icon-box">
-                  <span className="icon"><i className="fas fa-globe text-blue-400"></i></span>
-                  <div className="label">Website</div>
-                  <div className="value">zetlify.com</div>
-                </div>
+                <div className="contact-icon-box"><span className="icon"><i className="fas fa-phone-alt text-red-400"></i></span><div className="label">Phone</div><div className="value"><a href="tel:+923079163485">+92 307 9163485</a></div></div>
+                <div className="contact-icon-box"><span className="icon"><i className="fab fa-whatsapp text-green-400"></i></span><div className="label">WhatsApp</div><div className="value"><a href="https://wa.me/923079163485" target="_blank" rel="noopener noreferrer">Chat Now</a></div></div>
+                <div className="contact-icon-box"><span className="icon"><i className="fas fa-envelope text-red-400"></i></span><div className="label">Email</div><div className="value"><a href="mailto:support@zetlify.com">support@zetlify.com</a></div></div>
+                <div className="contact-icon-box"><span className="icon"><i className="fas fa-map-marker-alt text-red-400"></i></span><div className="label">Location</div><div className="value">Lahore, Pakistan</div></div>
+                <div className="contact-icon-box"><span className="icon"><i className="fas fa-clock text-yellow-400"></i></span><div className="label">Support Hours</div><div className="value">24/7</div></div>
+                <div className="contact-icon-box"><span className="icon"><i className="fas fa-globe text-blue-400"></i></span><div className="label">Website</div><div className="value">zetlify.com</div></div>
               </div>
             </section>
           )}
@@ -5940,54 +5339,12 @@
                 <p className="text-white/30 mt-3 max-w-2xl mx-auto">Connect with us on social media for the latest updates and offers.</p>
               </div>
               <div className="space-y-4 max-w-xl mx-auto">
-                <a href="https://facebook.com" target="_blank" rel="noopener noreferrer" className="social-link-card">
-                  <span className="social-icon"><i className="fab fa-facebook-f text-blue-500"></i></span>
-                  <div>
-                    <div className="social-name">Facebook</div>
-                    <div className="social-handle">Follow us for updates</div>
-                  </div>
-                  <span className="social-arrow"><i className="fas fa-arrow-right"></i></span>
-                </a>
-                <a href="https://instagram.com" target="_blank" rel="noopener noreferrer" className="social-link-card">
-                  <span className="social-icon"><i className="fab fa-instagram text-pink-500"></i></span>
-                  <div>
-                    <div className="social-name">Instagram</div>
-                    <div className="social-handle">See our stories</div>
-                  </div>
-                  <span className="social-arrow"><i className="fas fa-arrow-right"></i></span>
-                </a>
-                <a href="https://youtube.com" target="_blank" rel="noopener noreferrer" className="social-link-card">
-                  <span className="social-icon"><i className="fab fa-youtube text-red-500"></i></span>
-                  <div>
-                    <div className="social-name">YouTube</div>
-                    <div className="social-handle">Watch our videos</div>
-                  </div>
-                  <span className="social-arrow"><i className="fas fa-arrow-right"></i></span>
-                </a>
-                <a href="https://twitter.com" target="_blank" rel="noopener noreferrer" className="social-link-card">
-                  <span className="social-icon"><i className="fab fa-twitter text-blue-400"></i></span>
-                  <div>
-                    <div className="social-name">Twitter</div>
-                    <div className="social-handle">Latest news</div>
-                  </div>
-                  <span className="social-arrow"><i className="fas fa-arrow-right"></i></span>
-                </a>
-                <a href="https://linkedin.com" target="_blank" rel="noopener noreferrer" className="social-link-card">
-                  <span className="social-icon"><i className="fab fa-linkedin-in text-blue-600"></i></span>
-                  <div>
-                    <div className="social-name">LinkedIn</div>
-                    <div className="social-handle">Professional network</div>
-                  </div>
-                  <span className="social-arrow"><i className="fas fa-arrow-right"></i></span>
-                </a>
-                <a href="https://wa.me/923079163485" target="_blank" rel="noopener noreferrer" className="social-link-card">
-                  <span className="social-icon"><i className="fab fa-whatsapp text-green-500"></i></span>
-                  <div>
-                    <div className="social-name">WhatsApp</div>
-                    <div className="social-handle">Chat with us directly</div>
-                  </div>
-                  <span className="social-arrow"><i className="fas fa-arrow-right"></i></span>
-                </a>
+                <a href="https://facebook.com" target="_blank" rel="noopener noreferrer" className="social-link-card"><span className="social-icon"><i className="fab fa-facebook-f text-blue-500"></i></span><div><div className="social-name">Facebook</div><div className="social-handle">Follow us for updates</div></div><span className="social-arrow"><i className="fas fa-arrow-right"></i></span></a>
+                <a href="https://instagram.com" target="_blank" rel="noopener noreferrer" className="social-link-card"><span className="social-icon"><i className="fab fa-instagram text-pink-500"></i></span><div><div className="social-name">Instagram</div><div className="social-handle">See our stories</div></div><span className="social-arrow"><i className="fas fa-arrow-right"></i></span></a>
+                <a href="https://youtube.com" target="_blank" rel="noopener noreferrer" className="social-link-card"><span className="social-icon"><i className="fab fa-youtube text-red-500"></i></span><div><div className="social-name">YouTube</div><div className="social-handle">Watch our videos</div></div><span className="social-arrow"><i className="fas fa-arrow-right"></i></span></a>
+                <a href="https://twitter.com" target="_blank" rel="noopener noreferrer" className="social-link-card"><span className="social-icon"><i className="fab fa-twitter text-blue-400"></i></span><div><div className="social-name">Twitter</div><div className="social-handle">Latest news</div></div><span className="social-arrow"><i className="fas fa-arrow-right"></i></span></a>
+                <a href="https://linkedin.com" target="_blank" rel="noopener noreferrer" className="social-link-card"><span className="social-icon"><i className="fab fa-linkedin-in text-blue-600"></i></span><div><div className="social-name">LinkedIn</div><div className="social-handle">Professional network</div></div><span className="social-arrow"><i className="fas fa-arrow-right"></i></span></a>
+                <a href="https://wa.me/923079163485" target="_blank" rel="noopener noreferrer" className="social-link-card"><span className="social-icon"><i className="fab fa-whatsapp text-green-500"></i></span><div><div className="social-name">WhatsApp</div><div className="social-handle">Chat with us directly</div></div><span className="social-arrow"><i className="fas fa-arrow-right"></i></span></a>
               </div>
             </section>
           )}
@@ -6003,7 +5360,6 @@
       );
     }
 
-    // ─── RENDER ────────────────────────────────────────────────
     const root = ReactDOM.createRoot(document.getElementById('root'));
     root.render(
       <AppProvider>

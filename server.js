@@ -36,17 +36,17 @@ let dealsCollection;
 
 // ─── SUBSCRIPTION COSTS (Monthly) ──────────────────────────
 const SUBSCRIPTION_COSTS = {
-  netflix: 1250,      // per account per month
-  amazon: 250,        // per account per month
-  youtube: 150,       // per member per month (900/6)
-  spotify: 0,         // custom pricing
-  chatgpt: 1000,      // per invite per month
-  canva: 250,         // per year (pro-rated)
-  capcut: 200,        // per month
-  hbomax: 300,        // per month
-  crunchyroll: 200,   // per month
-  chaupal: 150,       // per month
-  custom: 0           // variable
+  netflix: 1250,
+  amazon: 250,
+  youtube: 150,
+  spotify: 0,
+  chatgpt: 1000,
+  canva: 250,
+  capcut: 200,
+  hbomax: 300,
+  crunchyroll: 200,
+  chaupal: 150,
+  custom: 0
 };
 
 async function connectDB() {
@@ -62,151 +62,163 @@ async function connectDB() {
   console.log('✅ Connected to MongoDB');
 }
 
-// ─── Initial seed data ──────────────────────────────────────
+// ─── Seed / Upsert subscriptions ────────────────────────────
 async function seedData() {
   try {
-    const subCount = await subscriptionsCollection.countDocuments();
-    if (subCount === 0) {
-      const initialSubscriptions = [
-        {
-          id: '1',
-          name: 'Netflix',
-          type: 'netflix',
-          costPerMonth: 1250,
-          accounts: [
-            {
-              id: 'a1',
-              email: 'netflix1@example.com',
-              password: 'Mvpcm$263@986',
-              screens: [
-                { id: 's1', name: 'Screen 1', pin: '3273', customers: [] },
-                { id: 's2', name: 'Screen 2', pin: '2222', customers: [] },
-                { id: 's3', name: 'Screen 3', pin: '3333', customers: [] },
-                { id: 's4', name: 'Screen 4', pin: '4444', customers: [] },
-                { id: 's5', name: 'Screen 5', pin: '5555', customers: [] }
-              ]
-            },
-            {
-              id: 'a2',
-              email: 'netflix2@example.com',
-              password: 'pass2',
-              screens: [
-                { id: 's6', name: 'Screen 1', pin: '6666', customers: [] },
-                { id: 's7', name: 'Screen 2', pin: '7777', customers: [] },
-                { id: 's8', name: 'Screen 3', pin: '8888', customers: [] },
-                { id: 's9', name: 'Screen 4', pin: '9999', customers: [] },
-                { id: 's10', name: 'Screen 5', pin: '1010', customers: [] }
-              ]
-            }
-          ]
-        },
-        {
-          id: '2',
-          name: 'Amazon Prime',
-          type: 'amazon',
-          costPerMonth: 250,
-          accounts: [
-            {
-              id: 'a3',
-              email: 'amazon1@example.com',
-              password: 'pass3',
-              screens: Array.from({ length: 6 }, (_, i) => ({
-                id: `s_${i+1}`,
-                name: `Slot ${i+1}`,
-                pin: '',
-                customers: []
-              }))
-            }
-          ]
-        },
-        {
-          id: '3',
-          name: 'YouTube Premium',
-          type: 'youtube',
-          costPerMonth: 150,
-          accounts: []
-        },
-        {
-          id: '4',
-          name: 'Spotify Premium',
-          type: 'spotify',
-          costPerMonth: 0,
-          accounts: [
-            {
-              id: 'a4',
-              email: 'spotify1@example.com',
-              password: 'pass4',
-              screens: [
-                { id: 's1', name: 'Premium 1', pin: '', customers: [] }
-              ]
-            }
-          ]
-        },
-        {
-          id: '5',
-          name: 'ChatGPT',
-          type: 'chatgpt',
-          costPerMonth: 1000,
-          accounts: [
-            {
-              id: 'a5',
-              email: 'chatgpt1@example.com',
-              password: 'pass5',
-              screens: [
-                { id: 's1', name: 'Pro 1', pin: '', customers: [] }
-              ]
-            }
-          ]
-        },
-        {
-          id: '6',
-          name: 'Canva Pro',
-          type: 'canva',
-          costPerMonth: 20.83, // 250/year
-          accounts: [
-            {
-              id: 'a6',
-              email: 'canva1@example.com',
-              password: 'pass6',
-              screens: [
-                { id: 's1', name: 'Canva Pro 1', pin: '', customers: [] }
-              ]
-            }
-          ]
-        },
-        {
-          id: '7',
-          name: 'Capcut Pro',
-          type: 'capcut',
-          costPerMonth: 200,
-          accounts: []
-        },
-        {
-          id: '8',
-          name: 'HBO Max',
-          type: 'hbomax',
-          costPerMonth: 300,
-          accounts: []
-        },
-        {
-          id: '9',
-          name: 'Crunchyroll',
-          type: 'crunchyroll',
-          costPerMonth: 200,
-          accounts: []
-        },
-        {
-          id: '10',
-          name: 'Chaupal',
-          type: 'chaupal',
-          costPerMonth: 150,
-          accounts: []
-        }
-      ];
-      await subscriptionsCollection.insertMany(initialSubscriptions);
-      console.log('✅ Initial subscriptions seeded');
+    // Define all subscription definitions
+    const subscriptionDefs = [
+      {
+        id: '1',
+        name: 'Netflix',
+        type: 'netflix',
+        costPerMonth: 1250,
+        accounts: [
+          {
+            id: 'a1',
+            email: 'netflix1@example.com',
+            password: 'Mvpcm$263@986',
+            screens: [
+              { id: 's1', name: 'Screen 1', pin: '3273', customers: [] },
+              { id: 's2', name: 'Screen 2', pin: '2222', customers: [] },
+              { id: 's3', name: 'Screen 3', pin: '3333', customers: [] },
+              { id: 's4', name: 'Screen 4', pin: '4444', customers: [] },
+              { id: 's5', name: 'Screen 5', pin: '5555', customers: [] }
+            ]
+          },
+          {
+            id: 'a2',
+            email: 'netflix2@example.com',
+            password: 'pass2',
+            screens: [
+              { id: 's6', name: 'Screen 1', pin: '6666', customers: [] },
+              { id: 's7', name: 'Screen 2', pin: '7777', customers: [] },
+              { id: 's8', name: 'Screen 3', pin: '8888', customers: [] },
+              { id: 's9', name: 'Screen 4', pin: '9999', customers: [] },
+              { id: 's10', name: 'Screen 5', pin: '1010', customers: [] }
+            ]
+          }
+        ]
+      },
+      {
+        id: '2',
+        name: 'Amazon Prime',
+        type: 'amazon',
+        costPerMonth: 250,
+        accounts: [
+          {
+            id: 'a3',
+            email: 'amazon1@example.com',
+            password: 'pass3',
+            screens: Array.from({ length: 6 }, (_, i) => ({
+              id: `s_${i+1}`,
+              name: `Slot ${i+1}`,
+              pin: '',
+              customers: []
+            }))
+          }
+        ]
+      },
+      {
+        id: '3',
+        name: 'YouTube Premium',
+        type: 'youtube',
+        costPerMonth: 150,
+        accounts: []
+      },
+      {
+        id: '4',
+        name: 'Spotify Premium',
+        type: 'spotify',
+        costPerMonth: 0,
+        accounts: [
+          {
+            id: 'a4',
+            email: 'spotify1@example.com',
+            password: 'pass4',
+            screens: [
+              { id: 's1', name: 'Premium 1', pin: '', customers: [] }
+            ]
+          }
+        ]
+      },
+      {
+        id: '5',
+        name: 'ChatGPT Plus',
+        type: 'chatgpt',
+        costPerMonth: 1000,
+        accounts: [
+          {
+            id: 'a5',
+            email: 'chatgpt1@example.com',
+            password: 'pass5',
+            screens: [
+              { id: 's1', name: 'Pro 1', pin: '', customers: [] }
+            ]
+          }
+        ]
+      },
+      {
+        id: '6',
+        name: 'Canva Pro',
+        type: 'canva',
+        costPerMonth: 20.83,
+        accounts: [
+          {
+            id: 'a6',
+            email: 'canva1@example.com',
+            password: 'pass6',
+            screens: [
+              { id: 's1', name: 'Canva Pro 1', pin: '', customers: [] }
+            ]
+          }
+        ]
+      },
+      {
+        id: '7',
+        name: 'Capcut Pro',
+        type: 'capcut',
+        costPerMonth: 200,
+        accounts: []
+      },
+      {
+        id: '8',
+        name: 'HBO Max',
+        type: 'hbomax',
+        costPerMonth: 300,
+        accounts: []
+      },
+      {
+        id: '9',
+        name: 'Crunchyroll',
+        type: 'crunchyroll',
+        costPerMonth: 200,
+        accounts: []
+      },
+      {
+        id: '10',
+        name: 'Chaupal',
+        type: 'chaupal',
+        costPerMonth: 150,
+        accounts: []
+      }
+    ];
+
+    // Upsert each subscription
+    for (const def of subscriptionDefs) {
+      const existing = await subscriptionsCollection.findOne({ id: def.id });
+      if (!existing) {
+        await subscriptionsCollection.insertOne(def);
+        console.log(`✅ Inserted subscription: ${def.name}`);
+      } else {
+        // Optionally update fields if needed
+        await subscriptionsCollection.updateOne(
+          { id: def.id },
+          { $set: { costPerMonth: def.costPerMonth, accounts: def.accounts } }
+        );
+      }
     }
 
+    // ─── Deals ──────────────────────────────────────────────────
     const dealCount = await dealsCollection.countDocuments();
     if (dealCount === 0) {
       const defaultDeals = [
@@ -245,6 +257,7 @@ async function seedData() {
       console.log('✅ Default deals seeded');
     }
 
+    // ─── Users ──────────────────────────────────────────────────
     const userCount = await usersCollection.countDocuments();
     if (userCount === 0) {
       await usersCollection.insertOne({
@@ -601,7 +614,7 @@ app.get('/api/otp/list', async (req, res) => {
 // ---- INCOME CALCULATION ----
 app.get('/api/income', async (req, res) => {
   try {
-    const { period } = req.query; // '30', '60', '90', 'monthly'
+    const { period } = req.query;
     const now = new Date();
     let startDate = new Date(now);
     
@@ -615,10 +628,9 @@ app.get('/api/income', async (req, res) => {
     } else if (period === '90') {
       startDate.setDate(startDate.getDate() - 90);
     } else {
-      startDate = new Date(0); // all time
+      startDate = new Date(0);
     }
 
-    // Get all subscriptions with customer data
     const subs = await subscriptionsCollection.find({}).toArray();
     let totalIncome = 0;
     let customers = [];
@@ -630,17 +642,13 @@ app.get('/api/income', async (req, res) => {
         acc.screens.forEach(screen => {
           if (screen.customers && screen.customers.length > 0) {
             screen.customers.forEach(c => {
-              // Check if customer is active and within the period
               const expiryDate = c.expiryDate ? new Date(c.expiryDate) : null;
               const purchaseDate = c.purchasedAt ? new Date(c.purchasedAt) : null;
               
-              // Skip if not active
               if (expiryDate && expiryDate < now) return;
               
-              // Skip if purchased after the period
               if (purchaseDate && purchaseDate < startDate) return;
               if (!purchaseDate) {
-                // If no purchase date, use expiry - duration
                 const months = c.months || 1;
                 const estPurchase = new Date(expiryDate);
                 estPurchase.setMonth(estPurchase.getMonth() - months);
