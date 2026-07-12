@@ -12,73 +12,419 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
   <style>
     /* ===== RED/BLACK NEON THEME ===== */
-    * { margin:0; padding:0; box-sizing:border-box; }
-    body { background:#0a0a0a; color:#e0e0e0; font-family:'Segoe UI',system-ui,sans-serif; min-height:100vh; scroll-behavior:smooth; overflow-x:hidden; }
-    ::-webkit-scrollbar { width:6px; }
-    ::-webkit-scrollbar-track { background:#1a1a1a; }
-    ::-webkit-scrollbar-thumb { background:#ef4444; border-radius:8px; }
-    .neon-glow { box-shadow:0 0 20px rgba(239,68,68,0.25),0 0 60px rgba(239,68,68,0.08); }
-    .neon-border { border:1px solid rgba(239,68,68,0.35); box-shadow:0 0 15px rgba(239,68,68,0.10); }
-    .neon-text { text-shadow:0 0 12px rgba(239,68,68,0.5),0 0 30px rgba(239,68,68,0.15); }
-    .neon-card { background:rgba(20,20,20,0.92); backdrop-filter:blur(12px); border:1px solid rgba(239,68,68,0.20); border-radius:20px; box-shadow:0 8px 40px rgba(0,0,0,0.6),0 0 40px rgba(239,68,68,0.05); transition:all .3s ease; }
-    .neon-card:hover { border-color:rgba(239,68,68,0.50); box-shadow:0 8px 50px rgba(239,68,68,0.12),0 0 60px rgba(239,68,68,0.05); transform:translateY(-2px); }
-    .btn-neon { background:linear-gradient(135deg,#ef4444,#dc2626); color:#fff; border:none; padding:10px 28px; border-radius:40px; font-weight:600; letter-spacing:.3px; transition:all .3s ease; box-shadow:0 0 25px rgba(239,68,68,0.25); cursor:pointer; }
-    .btn-neon:hover { transform:scale(1.03); box-shadow:0 0 45px rgba(239,68,68,0.40); background:linear-gradient(135deg,#f87171,#ef4444); }
-    .btn-neon-outline { background:transparent; color:#fca5a5; border:1.5px solid rgba(239,68,68,0.40); padding:10px 28px; border-radius:40px; font-weight:600; transition:all .3s ease; cursor:pointer; }
-    .btn-neon-outline:hover { background:rgba(239,68,68,0.12); border-color:#ef4444; box-shadow:0 0 30px rgba(239,68,68,0.12); }
-    .btn-danger { background:rgba(239,68,68,0.15); color:#f87171; border:1px solid rgba(239,68,68,0.25); padding:6px 16px; border-radius:30px; font-size:.8rem; transition:all .3s ease; cursor:pointer; }
-    .btn-danger:hover { background:rgba(239,68,68,0.25); border-color:#f87171; }
-    .btn-warning { background:rgba(251,191,36,0.15); color:#fbbf24; border:1px solid rgba(251,191,36,0.25); padding:6px 16px; border-radius:30px; font-size:.8rem; transition:all .3s ease; cursor:pointer; }
-    .btn-warning:hover { background:rgba(251,191,36,0.25); border-color:#fbbf24; }
-    .btn-red { background:rgba(239,68,68,0.15); color:#fca5a5; border:1px solid rgba(239,68,68,0.25); padding:4px 12px; border-radius:20px; font-size:.75rem; transition:all .3s ease; cursor:pointer; }
-    .btn-red:hover { background:rgba(239,68,68,0.25); border-color:#ef4444; }
-    .btn-success { background:rgba(52,211,153,0.15); color:#34d399; border:1px solid rgba(52,211,153,0.25); padding:6px 16px; border-radius:30px; font-size:.8rem; transition:all .3s ease; cursor:pointer; }
-    .btn-success:hover { background:rgba(52,211,153,0.25); border-color:#34d399; }
-    .input-neon { background:rgba(255,255,255,0.04); border:1px solid rgba(239,68,68,0.25); border-radius:14px; padding:12px 18px; color:#e0e0e0; width:100%; transition:all .3s ease; outline:none; font-size:.95rem; }
-    .input-neon:focus { border-color:#ef4444; box-shadow:0 0 30px rgba(239,68,68,0.08),inset 0 0 30px rgba(239,68,68,0.03); background:rgba(255,255,255,0.06); }
-    .input-neon::placeholder { color:rgba(255,255,255,0.25); }
-    select.input-neon { appearance:none; background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23ef4444' d='M6 8L1 3h10z'/%3E%3C/svg%3E"); background-repeat:no-repeat; background-position:right 16px center; padding-right:42px; cursor:pointer; }
-    select.input-neon option { background:#1a1a1a; color:#e0e0e0; }
-    .navbar-glass { background:rgba(10,10,10,0.92); backdrop-filter:blur(18px); border-bottom:1px solid rgba(239,68,68,0.12); }
-    .nav-link { color:rgba(255,255,255,0.65); transition:all .25s ease; font-weight:500; font-size:.92rem; padding:6px 14px; border-radius:30px; }
-    .nav-link:hover { color:#fca5a5; background:rgba(239,68,68,0.08); }
-    .nav-link.active { color:#fca5a5; background:rgba(239,68,68,0.12); }
-    .mobile-menu { background:rgba(10,10,10,0.98); backdrop-filter:blur(20px); border-bottom:1px solid rgba(239,68,68,0.12); }
-    .sub-card { cursor:pointer; transition:all .3s ease; background:rgba(20,20,20,0.85); backdrop-filter:blur(8px); border:1px solid rgba(239,68,68,0.12); border-radius:20px; padding:24px 20px; text-align:center; }
-    .sub-card:hover { border-color:rgba(239,68,68,0.40); transform:translateY(-6px); box-shadow:0 12px 50px rgba(239,68,68,0.08); }
-    .sub-card.selected { border-color:#ef4444; box-shadow:0 0 50px rgba(239,68,68,0.12),inset 0 0 30px rgba(239,68,68,0.03); }
-    .sub-icon { font-size:2.8rem; margin-bottom:10px; display:block; }
-    .otp-input { width:52px; height:60px; text-align:center; font-size:1.6rem; font-weight:600; background:rgba(255,255,255,0.04); border:2px solid rgba(239,68,68,0.25); border-radius:14px; color:#e0e0e0; transition:all .3s ease; outline:none; }
-    .otp-input:focus { border-color:#ef4444; box-shadow:0 0 30px rgba(239,68,68,0.10); }
-    .toast-container { position:fixed; bottom:30px; right:30px; z-index:9999; display:flex; flex-direction:column; gap:12px; max-width:380px; width:100%; }
-    .toast { background:rgba(20,20,20,0.95); backdrop-filter:blur(16px); border:1px solid rgba(239,68,68,0.25); border-radius:16px; padding:16px 22px; color:#e0e0e0; box-shadow:0 8px 40px rgba(0,0,0,0.5); animation:slideIn .4s ease; display:flex; align-items:center; gap:12px; }
-    .toast.success { border-left:4px solid #34d399; }
-    .toast.error { border-left:4px solid #f87171; }
-    .toast.warning { border-left:4px solid #fbbf24; }
-    @keyframes slideIn { from { opacity:0; transform:translateX(60px); } to { opacity:1; transform:translateX(0); } }
-    .admin-table { width:100%; border-collapse:collapse; font-size:.9rem; }
-    .admin-table th { text-align:left; padding:14px 16px; color:#fca5a5; font-weight:600; border-bottom:1px solid rgba(239,68,68,0.15); background:rgba(239,68,68,0.04); }
-    .admin-table td { padding:12px 16px; border-bottom:1px solid rgba(239,68,68,0.06); color:#d4d4d0; }
-    .admin-table tr:hover td { background:rgba(239,68,68,0.04); }
-    .badge { display:inline-block; padding:4px 14px; border-radius:40px; font-size:.75rem; font-weight:600; letter-spacing:.3px; }
-    .badge-green { background:rgba(52,211,153,0.15); color:#34d399; }
-    .badge-red { background:rgba(248,113,113,0.15); color:#f87171; }
-    .badge-yellow { background:rgba(251,191,36,0.15); color:#fbbf24; }
-    .badge-red-light { background:rgba(239,68,68,0.15); color:#fca5a5; }
-    .badge-gray { background:rgba(255,255,255,0.05); color:#9ca3af; }
-    .deal-card { background:rgba(20,20,20,0.90); backdrop-filter:blur(12px); border:2px solid rgba(239,68,68,0.25); border-radius:16px; padding:14px 14px; transition:all .3s ease; position:relative; overflow:hidden; display:flex; flex-direction:column; height:100%; min-height:160px; }
-    .deal-card:hover { border-color:#ef4444; box-shadow:0 0 30px rgba(239,68,68,0.12); transform:translateY(-2px); }
-    .deal-card .discount-badge { position:absolute; top:8px; right:8px; background:linear-gradient(135deg,#ef4444,#dc2626); color:#fff; font-weight:700; padding:2px 10px; border-radius:40px; font-size:.6rem; box-shadow:0 0 16px rgba(239,68,68,0.3); }
-    .deal-price-original { color:rgba(255,255,255,0.3); font-size:.8rem; text-decoration:line-through; }
-    .deal-price-discount { color:#34d399; font-size:1.4rem; font-weight:800; text-shadow:0 0 20px rgba(52,211,153,0.12); }
-    .deal-price-currency { font-size:.8rem; font-weight:600; }
-    .deal-sub-badges { display:flex; flex-wrap:wrap; gap:3px; margin-top:4px; }
-    .deal-sub-badge { background:rgba(239,68,68,0.12); border:1px solid rgba(239,68,68,0.15); padding:1px 6px; border-radius:12px; font-size:.55rem; color:#fca5a5; display:inline-flex; align-items:center; gap:3px; }
-    .deal-sub-badge i { font-size:.5rem; }
-    .deal-card .deal-title { font-size:.9rem; font-weight:700; }
-    .deal-card .deal-desc { font-size:.65rem; color:rgba(255,255,255,0.4); }
-    .deal-card .btn-neon-sm { font-size:.75rem; padding:6px 12px; border-radius:30px; background:linear-gradient(135deg,#ef4444,#dc2626); color:#fff; border:none; font-weight:600; transition:all .3s ease; cursor:pointer; }
-    .deal-card .btn-neon-sm:hover { transform:scale(1.02); box-shadow:0 0 20px rgba(239,68,68,0.3); }
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    body {
+      background: #0a0a0a;
+      color: #e0e0e0;
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      min-height: 100vh;
+      scroll-behavior: smooth;
+      overflow-x: hidden;
+    }
+    ::-webkit-scrollbar {
+      width: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #1a1a1a;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #ef4444;
+      border-radius: 8px;
+    }
+    .neon-glow {
+      box-shadow: 0 0 20px rgba(239, 68, 68, 0.25), 0 0 60px rgba(239, 68, 68, 0.08);
+    }
+    .neon-border {
+      border: 1px solid rgba(239, 68, 68, 0.35);
+      box-shadow: 0 0 15px rgba(239, 68, 68, 0.10);
+    }
+    .neon-text {
+      text-shadow: 0 0 12px rgba(239, 68, 68, 0.5), 0 0 30px rgba(239, 68, 68, 0.15);
+    }
+    .neon-card {
+      background: rgba(20, 20, 20, 0.92);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(239, 68, 68, 0.20);
+      border-radius: 20px;
+      box-shadow: 0 8px 40px rgba(0, 0, 0, 0.6), 0 0 40px rgba(239, 68, 68, 0.05);
+      transition: all .3s ease;
+    }
+    .neon-card:hover {
+      border-color: rgba(239, 68, 68, 0.50);
+      box-shadow: 0 8px 50px rgba(239, 68, 68, 0.12), 0 0 60px rgba(239, 68, 68, 0.05);
+      transform: translateY(-2px);
+    }
+    .btn-neon {
+      background: linear-gradient(135deg, #ef4444, #dc2626);
+      color: #fff;
+      border: none;
+      padding: 10px 28px;
+      border-radius: 40px;
+      font-weight: 600;
+      letter-spacing: .3px;
+      transition: all .3s ease;
+      box-shadow: 0 0 25px rgba(239, 68, 68, 0.25);
+      cursor: pointer;
+    }
+    .btn-neon:hover {
+      transform: scale(1.03);
+      box-shadow: 0 0 45px rgba(239, 68, 68, 0.40);
+      background: linear-gradient(135deg, #f87171, #ef4444);
+    }
+    .btn-neon-outline {
+      background: transparent;
+      color: #fca5a5;
+      border: 1.5px solid rgba(239, 68, 68, 0.40);
+      padding: 10px 28px;
+      border-radius: 40px;
+      font-weight: 600;
+      transition: all .3s ease;
+      cursor: pointer;
+    }
+    .btn-neon-outline:hover {
+      background: rgba(239, 68, 68, 0.12);
+      border-color: #ef4444;
+      box-shadow: 0 0 30px rgba(239, 68, 68, 0.12);
+    }
+    .btn-danger {
+      background: rgba(239, 68, 68, 0.15);
+      color: #f87171;
+      border: 1px solid rgba(239, 68, 68, 0.25);
+      padding: 6px 16px;
+      border-radius: 30px;
+      font-size: .8rem;
+      transition: all .3s ease;
+      cursor: pointer;
+    }
+    .btn-danger:hover {
+      background: rgba(239, 68, 68, 0.25);
+      border-color: #f87171;
+    }
+    .btn-warning {
+      background: rgba(251, 191, 36, 0.15);
+      color: #fbbf24;
+      border: 1px solid rgba(251, 191, 36, 0.25);
+      padding: 6px 16px;
+      border-radius: 30px;
+      font-size: .8rem;
+      transition: all .3s ease;
+      cursor: pointer;
+    }
+    .btn-warning:hover {
+      background: rgba(251, 191, 36, 0.25);
+      border-color: #fbbf24;
+    }
+    .btn-red {
+      background: rgba(239, 68, 68, 0.15);
+      color: #fca5a5;
+      border: 1px solid rgba(239, 68, 68, 0.25);
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-size: .75rem;
+      transition: all .3s ease;
+      cursor: pointer;
+    }
+    .btn-red:hover {
+      background: rgba(239, 68, 68, 0.25);
+      border-color: #ef4444;
+    }
+    .btn-success {
+      background: rgba(52, 211, 153, 0.15);
+      color: #34d399;
+      border: 1px solid rgba(52, 211, 153, 0.25);
+      padding: 6px 16px;
+      border-radius: 30px;
+      font-size: .8rem;
+      transition: all .3s ease;
+      cursor: pointer;
+    }
+    .btn-success:hover {
+      background: rgba(52, 211, 153, 0.25);
+      border-color: #34d399;
+    }
+    .input-neon {
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(239, 68, 68, 0.25);
+      border-radius: 14px;
+      padding: 12px 18px;
+      color: #e0e0e0;
+      width: 100%;
+      transition: all .3s ease;
+      outline: none;
+      font-size: .95rem;
+    }
+    .input-neon:focus {
+      border-color: #ef4444;
+      box-shadow: 0 0 30px rgba(239, 68, 68, 0.08), inset 0 0 30px rgba(239, 68, 68, 0.03);
+      background: rgba(255, 255, 255, 0.06);
+    }
+    .input-neon::placeholder {
+      color: rgba(255, 255, 255, 0.25);
+    }
+    select.input-neon {
+      appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23ef4444' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 16px center;
+      padding-right: 42px;
+      cursor: pointer;
+    }
+    select.input-neon option {
+      background: #1a1a1a;
+      color: #e0e0e0;
+    }
+    .navbar-glass {
+      background: rgba(10, 10, 10, 0.92);
+      backdrop-filter: blur(18px);
+      border-bottom: 1px solid rgba(239, 68, 68, 0.12);
+    }
+    .nav-link {
+      color: rgba(255, 255, 255, 0.65);
+      transition: all .25s ease;
+      font-weight: 500;
+      font-size: .92rem;
+      padding: 6px 14px;
+      border-radius: 30px;
+    }
+    .nav-link:hover {
+      color: #fca5a5;
+      background: rgba(239, 68, 68, 0.08);
+    }
+    .nav-link.active {
+      color: #fca5a5;
+      background: rgba(239, 68, 68, 0.12);
+    }
+    .mobile-menu {
+      background: rgba(10, 10, 10, 0.98);
+      backdrop-filter: blur(20px);
+      border-bottom: 1px solid rgba(239, 68, 68, 0.12);
+    }
+    .sub-card {
+      cursor: pointer;
+      transition: all .3s ease;
+      background: rgba(20, 20, 20, 0.85);
+      backdrop-filter: blur(8px);
+      border: 1px solid rgba(239, 68, 68, 0.12);
+      border-radius: 20px;
+      padding: 24px 20px;
+      text-align: center;
+    }
+    .sub-card:hover {
+      border-color: rgba(239, 68, 68, 0.40);
+      transform: translateY(-6px);
+      box-shadow: 0 12px 50px rgba(239, 68, 68, 0.08);
+    }
+    .sub-card.selected {
+      border-color: #ef4444;
+      box-shadow: 0 0 50px rgba(239, 68, 68, 0.12), inset 0 0 30px rgba(239, 68, 68, 0.03);
+    }
+    .sub-icon {
+      font-size: 2.8rem;
+      margin-bottom: 10px;
+      display: block;
+    }
+    .otp-input {
+      width: 52px;
+      height: 60px;
+      text-align: center;
+      font-size: 1.6rem;
+      font-weight: 600;
+      background: rgba(255, 255, 255, 0.04);
+      border: 2px solid rgba(239, 68, 68, 0.25);
+      border-radius: 14px;
+      color: #e0e0e0;
+      transition: all .3s ease;
+      outline: none;
+    }
+    .otp-input:focus {
+      border-color: #ef4444;
+      box-shadow: 0 0 30px rgba(239, 68, 68, 0.10);
+    }
+    .toast-container {
+      position: fixed;
+      bottom: 30px;
+      right: 30px;
+      z-index: 9999;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      max-width: 380px;
+      width: 100%;
+    }
+    .toast {
+      background: rgba(20, 20, 20, 0.95);
+      backdrop-filter: blur(16px);
+      border: 1px solid rgba(239, 68, 68, 0.25);
+      border-radius: 16px;
+      padding: 16px 22px;
+      color: #e0e0e0;
+      box-shadow: 0 8px 40px rgba(0, 0, 0, 0.5);
+      animation: slideIn .4s ease;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .toast.success {
+      border-left: 4px solid #34d399;
+    }
+    .toast.error {
+      border-left: 4px solid #f87171;
+    }
+    .toast.warning {
+      border-left: 4px solid #fbbf24;
+    }
+    @keyframes slideIn {
+      from {
+        opacity: 0;
+        transform: translateX(60px);
+      }
+      to {
+        opacity: 1;
+        transform: translateX(0);
+      }
+    }
+    .admin-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: .9rem;
+    }
+    .admin-table th {
+      text-align: left;
+      padding: 14px 16px;
+      color: #fca5a5;
+      font-weight: 600;
+      border-bottom: 1px solid rgba(239, 68, 68, 0.15);
+      background: rgba(239, 68, 68, 0.04);
+    }
+    .admin-table td {
+      padding: 12px 16px;
+      border-bottom: 1px solid rgba(239, 68, 68, 0.06);
+      color: #d4d4d0;
+    }
+    .admin-table tr:hover td {
+      background: rgba(239, 68, 68, 0.04);
+    }
+    .badge {
+      display: inline-block;
+      padding: 4px 14px;
+      border-radius: 40px;
+      font-size: .75rem;
+      font-weight: 600;
+      letter-spacing: .3px;
+    }
+    .badge-green {
+      background: rgba(52, 211, 153, 0.15);
+      color: #34d399;
+    }
+    .badge-red {
+      background: rgba(248, 113, 113, 0.15);
+      color: #f87171;
+    }
+    .badge-yellow {
+      background: rgba(251, 191, 36, 0.15);
+      color: #fbbf24;
+    }
+    .badge-red-light {
+      background: rgba(239, 68, 68, 0.15);
+      color: #fca5a5;
+    }
+    .badge-gray {
+      background: rgba(255, 255, 255, 0.05);
+      color: #9ca3af;
+    }
+    .deal-card {
+      background: rgba(20, 20, 20, 0.90);
+      backdrop-filter: blur(12px);
+      border: 2px solid rgba(239, 68, 68, 0.25);
+      border-radius: 16px;
+      padding: 14px 14px;
+      transition: all .3s ease;
+      position: relative;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+      min-height: 160px;
+    }
+    .deal-card:hover {
+      border-color: #ef4444;
+      box-shadow: 0 0 30px rgba(239, 68, 68, 0.12);
+      transform: translateY(-2px);
+    }
+    .deal-card .discount-badge {
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      background: linear-gradient(135deg, #ef4444, #dc2626);
+      color: #fff;
+      font-weight: 700;
+      padding: 2px 10px;
+      border-radius: 40px;
+      font-size: .6rem;
+      box-shadow: 0 0 16px rgba(239, 68, 68, 0.3);
+    }
+    .deal-price-original {
+      color: rgba(255, 255, 255, 0.3);
+      font-size: .8rem;
+      text-decoration: line-through;
+    }
+    .deal-price-discount {
+      color: #34d399;
+      font-size: 1.4rem;
+      font-weight: 800;
+      text-shadow: 0 0 20px rgba(52, 211, 153, 0.12);
+    }
+    .deal-price-currency {
+      font-size: .8rem;
+      font-weight: 600;
+    }
+    .deal-sub-badges {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 3px;
+      margin-top: 4px;
+    }
+    .deal-sub-badge {
+      background: rgba(239, 68, 68, 0.12);
+      border: 1px solid rgba(239, 68, 68, 0.15);
+      padding: 1px 6px;
+      border-radius: 12px;
+      font-size: .55rem;
+      color: #fca5a5;
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+    }
+    .deal-sub-badge i {
+      font-size: .5rem;
+    }
+    .deal-card .deal-title {
+      font-size: .9rem;
+      font-weight: 700;
+    }
+    .deal-card .deal-desc {
+      font-size: .65rem;
+      color: rgba(255, 255, 255, 0.4);
+    }
+    .deal-card .btn-neon-sm {
+      font-size: .75rem;
+      padding: 6px 12px;
+      border-radius: 30px;
+      background: linear-gradient(135deg, #ef4444, #dc2626);
+      color: #fff;
+      border: none;
+      font-weight: 600;
+      transition: all .3s ease;
+      cursor: pointer;
+    }
+    .deal-card .btn-neon-sm:hover {
+      transform: scale(1.02);
+      box-shadow: 0 0 20px rgba(239, 68, 68, 0.3);
+    }
     /* ===== BRAND "Z" LOGO ===== */
     .brand-z {
       display: inline-flex;
@@ -91,11 +437,11 @@
       background: linear-gradient(135deg, #ef4444, #f97316);
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
-      text-shadow: 0 0 20px rgba(239,68,68,0.5), 0 0 60px rgba(239,68,68,0.2);
+      text-shadow: 0 0 20px rgba(239, 68, 68, 0.5), 0 0 60px rgba(239, 68, 68, 0.2);
       transform: rotate(-4deg) scale(1.1);
       letter-spacing: -2px;
       line-height: 1;
-      filter: drop-shadow(0 0 10px rgba(239,68,68,0.3));
+      filter: drop-shadow(0 0 10px rgba(239, 68, 68, 0.3));
       transition: transform 0.3s ease;
     }
     .brand-z:hover {
@@ -116,7 +462,7 @@
       font-weight: 900;
       font-size: 1.1rem;
       color: #e50914;
-      text-shadow: 0 0 10px rgba(229,9,20,0.4);
+      text-shadow: 0 0 10px rgba(229, 9, 20, 0.4);
       letter-spacing: -1px;
     }
     .netflix-logo svg {
@@ -125,7 +471,7 @@
       width: 1.4rem;
       height: 1.4rem;
       margin-right: 4px;
-      filter: drop-shadow(0 0 6px rgba(229,9,20,0.5));
+      filter: drop-shadow(0 0 6px rgba(229, 9, 20, 0.5));
     }
     /* ===== CAROUSEL ===== */
     .carousel-container {
@@ -145,7 +491,6 @@
     }
     .carousel-slide {
       flex: 0 0 auto;
-      /* width set inline via JS */
     }
     .carousel-dots {
       display: flex;
@@ -157,26 +502,28 @@
       width: 8px;
       height: 8px;
       border-radius: 50%;
-      background: rgba(255,255,255,0.12);
+      background: rgba(255, 255, 255, 0.12);
       border: none;
       cursor: pointer;
       transition: all .3s ease;
     }
     .carousel-dot.active {
       background: #ef4444;
-      box-shadow: 0 0 16px rgba(239,68,68,0.4);
+      box-shadow: 0 0 16px rgba(239, 68, 68, 0.4);
       width: 24px;
       border-radius: 20px;
     }
-    .carousel-dot:hover { background:rgba(239,68,68,0.5); }
+    .carousel-dot:hover {
+      background: rgba(239, 68, 68, 0.5);
+    }
     .carousel-btn {
       position: absolute;
       top: 50%;
       transform: translateY(-50%);
       z-index: 10;
-      background: rgba(10,10,10,0.8);
+      background: rgba(10, 10, 10, 0.8);
       backdrop-filter: blur(6px);
-      border: 1px solid rgba(239,68,68,0.2);
+      border: 1px solid rgba(239, 68, 68, 0.2);
       color: white;
       width: 36px;
       height: 36px;
@@ -188,18 +535,30 @@
       justify-content: center;
       font-size: .9rem;
     }
-    .carousel-btn:hover { background:rgba(239,68,68,0.25); border-color:#ef4444; box-shadow:0 0 20px rgba(239,68,68,0.15); }
-    .carousel-btn.prev { left: 4px; }
-    .carousel-btn.next { right: 4px; }
-    /* Hide buttons on mobile (swipe-only) */
-    @media (max-width:640px) {
-      .carousel-btn { display: none; }
-      .carousel-btn.prev, .carousel-btn.next { display: none; }
+    .carousel-btn:hover {
+      background: rgba(239, 68, 68, 0.25);
+      border-color: #ef4444;
+      box-shadow: 0 0 20px rgba(239, 68, 68, 0.15);
     }
-    /* pause on hover */
+    .carousel-btn.prev {
+      left: 4px;
+    }
+    .carousel-btn.next {
+      right: 4px;
+    }
+    @media (max-width:640px) {
+      .carousel-btn {
+        display: none;
+      }
+      .carousel-btn.prev,
+      .carousel-btn.next {
+        display: none;
+      }
+    }
     .carousel-container.paused .carousel-track {
       animation-play-state: paused;
     }
+
     /* ===== WHATSAPP FLOATING BUTTON ===== */
     .whatsapp-float {
       position: fixed;
@@ -215,49 +574,560 @@
       align-items: center;
       justify-content: center;
       font-size: 2.4rem;
-      box-shadow: 0 4px 20px rgba(37,211,102,0.4);
+      box-shadow: 0 4px 20px rgba(37, 211, 102, 0.4);
       transition: transform 0.3s ease, box-shadow 0.3s ease;
       text-decoration: none;
       animation: pulse 2s infinite;
     }
     .whatsapp-float:hover {
       transform: scale(1.1);
-      box-shadow: 0 6px 30px rgba(37,211,102,0.6);
+      box-shadow: 0 6px 30px rgba(37, 211, 102, 0.6);
     }
     @keyframes pulse {
-      0% { box-shadow: 0 0 0 0 rgba(37,211,102,0.5); }
-      70% { box-shadow: 0 0 0 15px rgba(37,211,102,0); }
-      100% { box-shadow: 0 0 0 0 rgba(37,211,102,0); }
+      0% {
+        box-shadow: 0 0 0 0 rgba(37, 211, 102, 0.5);
+      }
+      70% {
+        box-shadow: 0 0 0 15px rgba(37, 211, 102, 0);
+      }
+      100% {
+        box-shadow: 0 0 0 0 rgba(37, 211, 102, 0);
+      }
     }
-    /* ===== other responsive overrides ===== */
+
+    /* ===== HERO BACKGROUND ===== */
+    .hero-bg {
+      position: relative;
+      background: linear-gradient(135deg, #0a0a0a 0%, #1a0a0a 40%, #0d0d0d 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+    }
+    .hero-bg::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background:
+        radial-gradient(ellipse at 20% 50%, rgba(239, 68, 68, 0.08) 0%, transparent 60%),
+        radial-gradient(ellipse at 80% 50%, rgba(239, 68, 68, 0.05) 0%, transparent 60%),
+        radial-gradient(ellipse at 50% 100%, rgba(239, 68, 68, 0.03) 0%, transparent 50%);
+      pointer-events: none;
+    }
+    .hero-bg .glow-orb {
+      position: absolute;
+      border-radius: 50%;
+      filter: blur(80px);
+      pointer-events: none;
+    }
+    .hero-bg .glow-orb.orb1 {
+      width: 400px;
+      height: 400px;
+      top: -100px;
+      right: -100px;
+      background: rgba(239, 68, 68, 0.10);
+    }
+    .hero-bg .glow-orb.orb2 {
+      width: 300px;
+      height: 300px;
+      bottom: -50px;
+      left: -50px;
+      background: rgba(239, 68, 68, 0.07);
+    }
+
+    /* ===== TRENDING SECTION ===== */
+    .trending-section {
+      position: relative;
+      background: #0a0a0a;
+      padding: 80px 0;
+      overflow: hidden;
+    }
+    .trending-section::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background:
+        radial-gradient(ellipse at 50% 0%, rgba(239, 68, 68, 0.06) 0%, transparent 60%);
+      pointer-events: none;
+    }
+    .trending-bg-text {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      pointer-events: none;
+      overflow: hidden;
+    }
+    .trending-bg-text h2 {
+      font-size: clamp(4rem, 15vw, 12rem);
+      font-weight: 900;
+      color: rgba(255, 255, 255, 0.02);
+      letter-spacing: 4px;
+      text-transform: uppercase;
+      white-space: nowrap;
+      font-family: 'Georgia', serif;
+      user-select: none;
+    }
+
+    /* ===== SUBSCRIPTION TRENDING CARDS ===== */
+    .sub-trend-card {
+      background: rgba(20, 20, 20, 0.85);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(239, 68, 68, 0.12);
+      border-radius: 20px;
+      padding: 24px 20px 20px;
+      transition: all .4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+      position: relative;
+      overflow: hidden;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+    }
+    .sub-trend-card::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(135deg, rgba(239, 68, 68, 0.03), transparent);
+      pointer-events: none;
+    }
+    .sub-trend-card::after {
+      content: '';
+      position: absolute;
+      top: -50%;
+      left: -50%;
+      width: 200%;
+      height: 200%;
+      background: radial-gradient(circle at 30% 20%, rgba(239, 68, 68, 0.03), transparent 60%);
+      pointer-events: none;
+      transition: all .6s ease;
+    }
+    .sub-trend-card:hover {
+      border-color: rgba(239, 68, 68, 0.40);
+      transform: translateY(-6px);
+      box-shadow: 0 12px 50px rgba(239, 68, 68, 0.08);
+    }
+    .sub-trend-card:hover::after {
+      transform: scale(1.1);
+    }
+    .sub-trend-card .card-icon {
+      font-size: 3rem;
+      margin-bottom: 12px;
+      position: relative;
+      z-index: 1;
+    }
+    .sub-trend-card .card-icon svg {
+      width: 3.2rem;
+      height: 3.2rem;
+    }
+    .sub-trend-card .card-name {
+      font-size: 1.05rem;
+      font-weight: 700;
+      color: #fff;
+      margin-bottom: 4px;
+      position: relative;
+      z-index: 1;
+    }
+    .sub-trend-card .card-desc {
+      font-size: .7rem;
+      color: rgba(255, 255, 255, 0.35);
+      margin-bottom: 10px;
+      position: relative;
+      z-index: 1;
+    }
+    .sub-trend-card .card-price {
+      font-size: .9rem;
+      font-weight: 600;
+      color: #34d399;
+      position: relative;
+      z-index: 1;
+    }
+    .sub-trend-card .card-badge {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      background: rgba(239, 68, 68, 0.15);
+      border: 1px solid rgba(239, 68, 68, 0.20);
+      padding: 2px 10px;
+      border-radius: 30px;
+      font-size: .5rem;
+      color: #fca5a5;
+      font-weight: 600;
+      letter-spacing: .5px;
+      text-transform: uppercase;
+      z-index: 2;
+    }
+    .sub-trend-card .brand-corner {
+      position: absolute;
+      top: 8px;
+      left: 12px;
+      font-size: .7rem;
+      font-weight: 900;
+      color: rgba(255, 255, 255, 0.06);
+      font-family: 'Georgia', serif;
+      letter-spacing: -1px;
+      z-index: 1;
+    }
+
+    /* ===== CONTACT PAGE ===== */
+    .contact-icon-box {
+      background: rgba(20, 20, 20, 0.85);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(239, 68, 68, 0.10);
+      border-radius: 16px;
+      padding: 28px 24px;
+      transition: all .3s ease;
+      text-align: center;
+    }
+    .contact-icon-box:hover {
+      border-color: rgba(239, 68, 68, 0.30);
+      transform: translateY(-4px);
+      box-shadow: 0 8px 40px rgba(239, 68, 68, 0.06);
+    }
+    .contact-icon-box .icon {
+      font-size: 2.2rem;
+      margin-bottom: 12px;
+      display: block;
+    }
+    .contact-icon-box .label {
+      font-size: .7rem;
+      color: rgba(255, 255, 255, 0.30);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 4px;
+    }
+    .contact-icon-box .value {
+      font-size: 1rem;
+      color: #e0e0e0;
+      font-weight: 500;
+    }
+    .contact-icon-box .value a {
+      color: #fca5a5;
+      text-decoration: none;
+      transition: color .3s ease;
+    }
+    .contact-icon-box .value a:hover {
+      color: #fff;
+    }
+
+    /* ===== SOCIAL PAGE ===== */
+    .social-link-card {
+      background: rgba(20, 20, 20, 0.85);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(239, 68, 68, 0.10);
+      border-radius: 16px;
+      padding: 24px 28px;
+      transition: all .3s ease;
+      display: flex;
+      align-items: center;
+      gap: 18px;
+      text-decoration: none;
+      color: #e0e0e0;
+    }
+    .social-link-card:hover {
+      border-color: rgba(239, 68, 68, 0.30);
+      transform: translateX(6px);
+      box-shadow: 0 8px 40px rgba(239, 68, 68, 0.06);
+    }
+    .social-link-card .social-icon {
+      font-size: 2rem;
+      width: 48px;
+      text-align: center;
+      flex-shrink: 0;
+    }
+    .social-link-card .social-name {
+      font-size: 1rem;
+      font-weight: 600;
+    }
+    .social-link-card .social-handle {
+      font-size: .8rem;
+      color: rgba(255, 255, 255, 0.30);
+    }
+    .social-link-card .social-arrow {
+      margin-left: auto;
+      color: rgba(255, 255, 255, 0.15);
+      transition: all .3s ease;
+    }
+    .social-link-card:hover .social-arrow {
+      color: #fca5a5;
+      transform: translateX(4px);
+    }
+
+    /* ===== FOOTER ===== */
+    .footer {
+      background: rgba(10, 10, 10, 0.98);
+      border-top: 1px solid rgba(239, 68, 68, 0.06);
+      padding: 60px 0 30px;
+    }
+    .footer .footer-brand {
+      font-size: 1.4rem;
+      font-weight: 800;
+    }
+    .footer .footer-brand span {
+      background: linear-gradient(135deg, #ef4444, #dc2626);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .footer .footer-desc {
+      color: rgba(255, 255, 255, 0.30);
+      font-size: .85rem;
+      line-height: 1.7;
+      max-width: 300px;
+    }
+    .footer .footer-heading {
+      color: #fff;
+      font-size: .85rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 16px;
+    }
+    .footer .footer-link {
+      color: rgba(255, 255, 255, 0.30);
+      text-decoration: none;
+      font-size: .85rem;
+      transition: all .3s ease;
+      display: inline-block;
+      padding: 3px 0;
+    }
+    .footer .footer-link:hover {
+      color: #fca5a5;
+      transform: translateX(4px);
+    }
+    .footer .footer-social a {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 38px;
+      height: 38px;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      color: rgba(255, 255, 255, 0.30);
+      transition: all .3s ease;
+      font-size: 1rem;
+      text-decoration: none;
+    }
+    .footer .footer-social a:hover {
+      background: rgba(239, 68, 68, 0.12);
+      border-color: rgba(239, 68, 68, 0.25);
+      color: #fca5a5;
+      transform: translateY(-2px);
+    }
+    .footer .footer-bottom {
+      border-top: 1px solid rgba(255, 255, 255, 0.04);
+      padding-top: 20px;
+      margin-top: 30px;
+      color: rgba(255, 255, 255, 0.15);
+      font-size: .75rem;
+      text-align: center;
+    }
+
+    /* ===== RESPONSIVE ===== */
     @media (max-width:640px) {
-      .sub-icon { font-size:2.2rem; }
-      .otp-input { width:44px; height:52px; font-size:1.3rem; }
-      .toast-container { left:16px; right:16px; max-width:100%; bottom:16px; }
-      .admin-table th,.admin-table td { padding:8px 10px; font-size:.75rem; }
-      .whatsapp-float { width:50px; height:50px; font-size:2rem; bottom:16px; right:16px; }
+      .sub-icon {
+        font-size: 2.2rem;
+      }
+      .otp-input {
+        width: 44px;
+        height: 52px;
+        font-size: 1.3rem;
+      }
+      .toast-container {
+        left: 16px;
+        right: 16px;
+        max-width: 100%;
+        bottom: 16px;
+      }
+      .admin-table th,
+      .admin-table td {
+        padding: 8px 10px;
+        font-size: .75rem;
+      }
+      .whatsapp-float {
+        width: 50px;
+        height: 50px;
+        font-size: 2rem;
+        bottom: 16px;
+        right: 16px;
+      }
+      .sub-trend-card .card-icon {
+        font-size: 2.2rem;
+      }
+      .sub-trend-card .card-icon svg {
+        width: 2.2rem;
+        height: 2.2rem;
+      }
+      .footer .footer-desc {
+        max-width: 100%;
+      }
+      .contact-icon-box {
+        padding: 20px 16px;
+      }
+      .social-link-card {
+        padding: 18px 16px;
+      }
+      .trending-section {
+        padding: 40px 0;
+      }
     }
-    .fade-up { opacity:0; transform:translateY(30px); transition:all .6s ease; }
-    .fade-up.visible { opacity:1; transform:translateY(0); }
-    ::selection { background:rgba(239,68,68,0.30); color:#fff; }
-    .spinner { width:24px; height:24px; border:3px solid rgba(239,68,68,0.15); border-top-color:#ef4444; border-radius:50%; animation:spin .8s linear infinite; display:inline-block; }
-    @keyframes spin { to { transform:rotate(360deg); } }
-    .glass-panel { background:rgba(20,20,20,0.85); backdrop-filter:blur(14px); border:1px solid rgba(239,68,68,0.10); border-radius:24px; padding:28px 30px; }
-    .tab-btn { padding:8px 22px; border-radius:40px; font-weight:500; transition:all .3s ease; cursor:pointer; background:transparent; color:rgba(255,255,255,0.50); border:1px solid transparent; }
-    .tab-btn.active { background:rgba(239,68,68,0.12); color:#fca5a5; border-color:rgba(239,68,68,0.20); }
-    .tab-btn:hover { color:#e0e0e0; background:rgba(239,68,68,0.06); }
-    .modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.7); backdrop-filter:blur(8px); z-index:1000; display:flex; align-items:center; justify-content:center; padding:20px; }
-    .modal-content { max-width:500px; width:100%; max-height:90vh; overflow-y:auto; }
-    .copy-btn { background:rgba(239,68,68,0.10); border:1px solid rgba(239,68,68,0.15); color:#fca5a5; padding:2px 10px; border-radius:12px; font-size:.7rem; cursor:pointer; transition:all .2s ease; margin-left:8px; }
-    .copy-btn:hover { background:rgba(239,68,68,0.20); border-color:#ef4444; }
-    .detail-row { display:flex; justify-content:space-between; align-items:center; padding:8px 0; border-bottom:1px solid rgba(255,255,255,0.04); }
-    .detail-row .label { color:rgba(255,255,255,0.30); font-size:.8rem; }
-    .detail-row .value { color:#e0e0e0; font-weight:500; font-size:.9rem; display:flex; align-items:center; gap:6px; }
-    .logo-primary { font-size:1.6rem; font-weight:800; letter-spacing:-0.5px; background:linear-gradient(135deg,#ef4444,#dc2626); -webkit-background-clip:text; -webkit-text-fill-color:transparent; }
-    .logo-secondary { font-weight:700; color:#fca5a5; }
-    .logo-icon { color:#ef4444; }
-    /* remove extra lines around netflix logo? not needed */
-    .loading-spinner { display:flex; justify-content:center; align-items:center; min-height:200px; }
+    @media (max-width:768px) {
+      .hero-bg {
+        min-height: 80vh;
+      }
+    }
+
+    .fade-up {
+      opacity: 0;
+      transform: translateY(30px);
+      transition: all .6s ease;
+    }
+    .fade-up.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+    ::selection {
+      background: rgba(239, 68, 68, 0.30);
+      color: #fff;
+    }
+    .spinner {
+      width: 24px;
+      height: 24px;
+      border: 3px solid rgba(239, 68, 68, 0.15);
+      border-top-color: #ef4444;
+      border-radius: 50%;
+      animation: spin .8s linear infinite;
+      display: inline-block;
+    }
+    @keyframes spin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+    .glass-panel {
+      background: rgba(20, 20, 20, 0.85);
+      backdrop-filter: blur(14px);
+      border: 1px solid rgba(239, 68, 68, 0.10);
+      border-radius: 24px;
+      padding: 28px 30px;
+    }
+    .tab-btn {
+      padding: 8px 22px;
+      border-radius: 40px;
+      font-weight: 500;
+      transition: all .3s ease;
+      cursor: pointer;
+      background: transparent;
+      color: rgba(255, 255, 255, 0.50);
+      border: 1px solid transparent;
+    }
+    .tab-btn.active {
+      background: rgba(239, 68, 68, 0.12);
+      color: #fca5a5;
+      border-color: rgba(239, 68, 68, 0.20);
+    }
+    .tab-btn:hover {
+      color: #e0e0e0;
+      background: rgba(239, 68, 68, 0.06);
+    }
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.7);
+      backdrop-filter: blur(8px);
+      z-index: 1000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    .modal-content {
+      max-width: 500px;
+      width: 100%;
+      max-height: 90vh;
+      overflow-y: auto;
+    }
+    .copy-btn {
+      background: rgba(239, 68, 68, 0.10);
+      border: 1px solid rgba(239, 68, 68, 0.15);
+      color: #fca5a5;
+      padding: 2px 10px;
+      border-radius: 12px;
+      font-size: .7rem;
+      cursor: pointer;
+      transition: all .2s ease;
+      margin-left: 8px;
+    }
+    .copy-btn:hover {
+      background: rgba(239, 68, 68, 0.20);
+      border-color: #ef4444;
+    }
+    .detail-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 8px 0;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+    }
+    .detail-row .label {
+      color: rgba(255, 255, 255, 0.30);
+      font-size: .8rem;
+    }
+    .detail-row .value {
+      color: #e0e0e0;
+      font-weight: 500;
+      font-size: .9rem;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .logo-primary {
+      font-size: 1.6rem;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+      background: linear-gradient(135deg, #ef4444, #dc2626);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .logo-secondary {
+      font-weight: 700;
+      color: #fca5a5;
+    }
+    .logo-icon {
+      color: #ef4444;
+    }
+    .loading-spinner {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 200px;
+    }
+
+    /* ---- Trending section background fixed effect ---- */
+    .trending-wrapper {
+      position: relative;
+      overflow: hidden;
+    }
+    .trending-wrapper .bg-fixed {
+      position: absolute;
+      inset: 0;
+      background:
+        radial-gradient(ellipse at 30% 40%, rgba(239, 68, 68, 0.06) 0%, transparent 50%),
+        radial-gradient(ellipse at 70% 60%, rgba(239, 68, 68, 0.04) 0%, transparent 50%),
+        radial-gradient(ellipse at 50% 100%, rgba(239, 68, 68, 0.03) 0%, transparent 40%);
+      pointer-events: none;
+      z-index: 0;
+    }
+    .trending-wrapper .content {
+      position: relative;
+      z-index: 1;
+    }
   </style>
 </head>
 <body>
@@ -426,14 +1296,14 @@
     // ─── NETFLIX PRICING ───────────────────────────────────────
     const getNetflixCredits = (screens, months) => {
       if (months === 1) {
-        const screenPrices = {1:350, 2:650, 3:850, 4:1000, 5:1100};
+        const screenPrices = { 1: 350, 2: 650, 3: 850, 4: 1000, 5: 1100 };
         return screenPrices[screens] || 350;
       }
       if (screens === 1) {
         const monthPrices = {
-          1:350, 2:700, 3:850, 4:1000, 5:1250,
-          6:1500, 7:1750, 8:2000, 9:2350, 10:2500,
-          11:2750, 12:3000
+          1: 350, 2: 700, 3: 850, 4: 1000, 5: 1250,
+          6: 1500, 7: 1750, 8: 2000, 9: 2350, 10: 2500,
+          11: 2750, 12: 3000
         };
         return monthPrices[months] || 350;
       }
@@ -580,7 +1450,6 @@
                 )}
               </div>
               <div className="flex items-center gap-3">
-                {/* Credits badge on mobile (outside hamburger) */}
                 {user && (
                   <span className="md:hidden text-red-400 text-sm font-medium bg-red-500/10 px-3 py-1 rounded-full border border-red-500/20">
                     <i className="fas fa-coins mr-1"></i> RS {user.credits || 0}
@@ -628,9 +1497,8 @@
       const containerRef = useRef(null);
       const trackRef = useRef(null);
       const animationRef = useRef(null);
-      const speed = 30; // base auto-scroll speed (pixels/sec)
+      const speed = 30;
 
-      // Touch drag state
       const [isDragging, setIsDragging] = useState(false);
       const [dragStartX, setDragStartX] = useState(0);
       const [dragOffsetStart, setDragOffsetStart] = useState(0);
@@ -645,9 +1513,7 @@
       const activeDeals = useMemo(() => {
         return deals
           .map(deal => {
-            const subs = deal.subscriptionIds
-              ? deal.subscriptionIds.map(id => subscriptions.find(s => s.id === id)).filter(Boolean)
-              : [];
+            const subs = deal.subscriptionIds ? deal.subscriptionIds.map(id => subscriptions.find(s => s.id === id)).filter(Boolean) : [];
             return { ...deal, subscriptions: subs };
           })
           .filter(d => d.subscriptions.length > 0);
@@ -662,7 +1528,6 @@
         return arr;
       }, [activeDeals, totalItems]);
 
-      // Responsive items per view
       const getItemsPerView = () => {
         if (typeof window === 'undefined') return 4;
         const w = window.innerWidth;
@@ -681,7 +1546,6 @@
         return () => window.removeEventListener('resize', handleResize);
       }, []);
 
-      // Measure container width
       useEffect(() => {
         if (!containerRef.current) return;
         const measure = () => {
@@ -698,7 +1562,6 @@
       const slideWidth = containerWidth > 0 ? (containerWidth / itemsPerView) - gap : 0;
       const oneSetWidth = slideWidth * totalItems + gap * (totalItems - 1);
 
-      // Auto-animation (only if not dragging and not paused)
       useEffect(() => {
         if (isPaused || totalItems === 0 || oneSetWidth === 0 || slideWidth === 0 || isDragging) {
           if (animationRef.current) {
@@ -732,7 +1595,6 @@
         };
       }, [isPaused, totalItems, oneSetWidth, slideWidth, speed, isDragging]);
 
-      // Handle drag start
       const handleDragStart = (clientX) => {
         setIsDragging(true);
         setIsPaused(true);
@@ -755,17 +1617,15 @@
         if (!isDragging) return;
         const diff = clientX - dragStartX;
         let newOffset = dragOffsetStart - diff;
-        // Clamp to bounds (0 to oneSetWidth)
         if (newOffset < 0) newOffset = 0;
         if (newOffset > oneSetWidth) newOffset = oneSetWidth;
         setOffset(newOffset);
 
-        // Update velocity
         const now = Date.now();
         const dt = now - lastMoveTime.current;
         if (dt > 0) {
           const dx = clientX - lastMoveX.current;
-          const vel = dx / dt; // pixels per ms
+          const vel = dx / dt;
           setDragVelocity(vel);
         }
         lastMoveTime.current = now;
@@ -775,13 +1635,11 @@
       const handleDragEnd = () => {
         if (!isDragging) return;
         setIsDragging(false);
-        // Apply momentum if velocity is significant
         const vel = dragVelocity;
         if (Math.abs(vel) > 0.2) {
-          // Apply momentum scroll
           let momentumOffset = offset;
           const momentumStep = () => {
-            const dt = 16; // ~60fps
+            const dt = 16;
             const decay = 0.97;
             let velDecay = vel * decay;
             momentumOffset = momentumOffset - velDecay * dt;
@@ -796,8 +1654,6 @@
             if (Math.abs(velDecay) > 0.1 && momentumOffset > 0 && momentumOffset < oneSetWidth) {
               momentumId.current = requestAnimationFrame(momentumStep);
             } else {
-              // Snap to nearest slide?
-              // Resume auto after a delay
               setTimeout(() => {
                 setIsPaused(false);
               }, 2000);
@@ -805,7 +1661,6 @@
           };
           momentumId.current = requestAnimationFrame(momentumStep);
         } else {
-          // No significant velocity, resume auto after delay
           setTimeout(() => {
             setIsPaused(false);
           }, 2000);
@@ -813,13 +1668,12 @@
         setDragVelocity(0);
       };
 
-      // Touch event handlers
       const onTouchStart = (e) => {
         const touch = e.touches[0];
         handleDragStart(touch.clientX);
       };
       const onTouchMove = (e) => {
-        e.preventDefault(); // prevent page scroll
+        e.preventDefault();
         const touch = e.touches[0];
         handleDragMove(touch.clientX);
       };
@@ -827,7 +1681,6 @@
         handleDragEnd();
       };
 
-      // Mouse events (for desktop testing)
       const onMouseDown = (e) => {
         if (e.button !== 0) return;
         handleDragStart(e.clientX);
@@ -841,18 +1694,15 @@
         document.addEventListener('mouseup', onMouseUp);
       };
 
-      // Pause/resume on hover
       const handlePause = () => {
         setIsPaused(true);
       };
       const handleResume = () => {
-        // Only resume if not dragging
         if (!isDragging) {
           setTimeout(() => setIsPaused(false), 3000);
         }
       };
 
-      // Manual navigation buttons (only for desktop)
       const goToPrev = () => {
         if (slideWidth === 0) return;
         setIsPaused(true);
@@ -880,26 +1730,8 @@
             <span className="text-white/30 text-xs ml-2">Limited time offers</span>
           </div>
 
-          <div
-            className={`carousel-container ${isPaused ? 'paused' : ''}`}
-            ref={containerRef}
-            onMouseEnter={handlePause}
-            onMouseLeave={handleResume}
-            onTouchStart={onTouchStart}
-            onTouchMove={onTouchMove}
-            onTouchEnd={onTouchEnd}
-            onMouseDown={onMouseDown}
-            style={{ touchAction: 'none' }}
-          >
-            <div
-              className="carousel-track"
-              ref={trackRef}
-              style={{
-                transform: `translateX(-${offset}px)`,
-                transition: isDragging ? 'none' : 'none',
-                gap: `${gap}px`,
-              }}
-            >
+          <div className={`carousel-container ${isPaused ? 'paused' : ''}`} ref={containerRef} onMouseEnter={handlePause} onMouseLeave={handleResume} onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd} onMouseDown={onMouseDown} style={{ touchAction: 'none' }}>
+            <div className="carousel-track" ref={trackRef} style={{ transform: `translateX(-${offset}px)`, transition: isDragging ? 'none' : 'none', gap: `${gap}px` }}>
               {repeatedDeals.map((deal, idx) => {
                 const firstSub = deal.subscriptions[0];
                 const icon = icons[firstSub?.type] || 'fa-crown';
@@ -910,15 +1742,15 @@
                 return (
                   <div key={deal.id + '-' + idx} className="carousel-slide" style={{ width: slideWidth }}>
                     <div className="deal-card relative">
-                      <div className="discount-badge">-{discount}%</div>
+                      <div className="discount-badge">- {discount}%</div>
                       <div className="absolute top-2 left-2 text-white/10 text-3xl font-black select-none pointer-events-none" style={{ fontFamily: 'Georgia, serif', transform: 'rotate(-8deg)' }}>Z</div>
                       <div className="flex-1">
                         <div className="flex items-center gap-2 mb-1">
                           {isNetflix ? (
                             <span className="netflix-logo">
                               <svg viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
-                                <path d="M5.5 2.5v19.5l5-2.5V5l-5 2.5zM12 2.5v19.5l5-2.5V5L12 2.5z"/>
-                                <path d="M18.5 2.5v19.5l5-2.5V5l-5 2.5z"/>
+                                <path d="M5.5 2.5v19.5l5-2.5V5l-5 2.5zM12 2.5v19.5l5-2.5V5L12 2.5z" />
+                                <path d="M18.5 2.5v19.5l5-2.5V5l-5 2.5z" />
                               </svg>
                               <span style={{ color: '#e50914' }}>NETFLIX</span>
                             </span>
@@ -950,10 +1782,7 @@
                           <span className="deal-price-original">RS {deal.actualPrice}</span>
                           <span className="deal-price-discount ml-1">RS {deal.discountPrice}</span>
                         </div>
-                        <button
-                          onClick={(e) => { e.stopPropagation(); onPurchaseClick(deal); }}
-                          className="btn-neon-sm"
-                        >
+                        <button onClick={(e) => { e.stopPropagation(); onPurchaseClick(deal); }} className="btn-neon-sm">
                           <i className="fas fa-shopping-cart mr-1"></i> Buy
                         </button>
                       </div>
@@ -962,7 +1791,6 @@
                 );
               })}
             </div>
-
             {totalItems > itemsPerView && (
               <>
                 <button className="carousel-btn prev" onClick={goToPrev}>
@@ -973,15 +1801,11 @@
                 </button>
                 <div className="carousel-dots">
                   {Array.from({ length: Math.ceil(totalItems / itemsPerView) }).map((_, idx) => (
-                    <button
-                      key={idx}
-                      className={`carousel-dot ${idx === Math.floor(offset / slideWidth) ? 'active' : ''}`}
-                      onClick={() => {
-                        setIsPaused(true);
-                        setOffset(idx * slideWidth);
-                        setTimeout(() => setIsPaused(false), 3000);
-                      }}
-                    />
+                    <button key={idx} className={`carousel-dot ${idx === Math.floor(offset / slideWidth) ? 'active' : ''}`} onClick={() => {
+                      setIsPaused(true);
+                      setOffset(idx * slideWidth);
+                      setTimeout(() => setIsPaused(false), 3000);
+                    }} />
                   ))}
                 </div>
               </>
@@ -995,13 +1819,7 @@
     function WhatsAppButton() {
       const whatsappLink = 'https://wa.me/923079163485';
       return (
-        <a
-          href={whatsappLink}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="whatsapp-float"
-          aria-label="Chat on WhatsApp"
-        >
+        <a href={whatsappLink} target="_blank" rel="noopener noreferrer" className="whatsapp-float" aria-label="Chat on WhatsApp">
           <i className="fab fa-whatsapp"></i>
         </a>
       );
@@ -1009,31 +1827,127 @@
 
     // ─── HERO ──────────────────────────────────────────────────
     function Hero({ setActiveTab, setShowSubscriptions, onGetStarted }) {
+      const trendingSubs = [
+        { name: 'Netflix', icon: 'fa-netflix', color: '#e50914', desc: 'Movies & TV Shows', price: 'From RS 350' },
+        { name: 'Amazon Prime', icon: 'fa-amazon', color: '#ff9900', desc: 'Video, Music & Delivery', price: 'From RS 150' },
+        { name: 'YouTube Premium', icon: 'fa-youtube', color: '#ff0000', desc: 'Ad-free & Offline', price: 'From RS 250' },
+        { name: 'Spotify Premium', icon: 'fa-spotify', color: '#1db954', desc: 'Music & Podcasts', price: 'From RS 180' },
+        { name: 'Canva Pro', icon: 'fa-paint-brush', color: '#00c4cc', desc: 'Design & Creative', price: 'From RS 200' },
+        { name: 'Capcut Pro', icon: 'fa-video', color: '#00d4ff', desc: 'Video Editing', price: 'From RS 220' },
+        { name: 'ChatGPT Plus', icon: 'fa-robot', color: '#10a37f', desc: 'AI Assistant', price: 'From RS 300' },
+        { name: 'HBO Max', icon: 'fa-tv', color: '#5822b4', desc: 'Movies & Series', price: 'From RS 280' },
+        { name: 'Crunchyroll', icon: 'fa-play', color: '#f47521', desc: 'Anime & Manga', price: 'From RS 160' },
+        { name: 'Chaupal', icon: 'fa-film', color: '#e74c3c', desc: 'Regional Entertainment', price: 'From RS 120' },
+        { name: 'Disney+', icon: 'fa-star', color: '#113cc9', desc: 'Disney & Marvel', price: 'From RS 320' },
+        { name: 'Apple Music', icon: 'fa-apple', color: '#fff', desc: 'Music Streaming', price: 'From RS 190' }
+      ];
+
       return (
-        <section className="pt-12 pb-14 px-4 max-w-7xl mx-auto">
-          <div className="text-center">
+        <div className="hero-bg">
+          <div className="glow-orb orb1"></div>
+          <div className="glow-orb orb2"></div>
+          <div className="relative z-10 w-full max-w-7xl mx-auto px-4 py-16 md:py-24 text-center">
             <div className="inline-block mb-4 px-5 py-2 rounded-full bg-red-500/10 border border-red-500/20 text-red-300 text-sm font-medium">
               <span className="brand-z brand-z-sm" style={{ fontSize: '1.2rem', marginRight: '6px' }}>Z</span>
               Unlimited Subscriptions
             </div>
-            <h1 className="text-4xl md:text-6xl lg:text-7xl font-bold leading-tight">
+            <h1 className="text-4xl md:text-6xl lg:text-7xl font-bold leading-tight text-white">
               Get Your Favorite <br className="sm:hidden" />
-              <span className="bg-gradient-to-r from-red-500 to-red-700 bg-clip-text text-transparent neon-text">Subscriptions</span>
+              <span className="bg-gradient-to-r from-red-500 to-red-700 bg-clip-text text-transparent neon-text">
+                Subscriptions
+              </span>
             </h1>
-            <p className="mt-5 text-lg md:text-xl text-white/50 max-w-2xl mx-auto">Netflix, Amazon Prime, YouTube Premium, Spotify, ChatGPT & more. One platform, all your entertainment.</p>
+            <p className="mt-5 text-lg md:text-xl text-white/50 max-w-2xl mx-auto">
+              Netflix, Amazon Prime, YouTube Premium, Spotify, ChatGPT & more. One platform, all your entertainment.
+            </p>
             <div className="mt-8 flex flex-wrap justify-center gap-4">
               <button onClick={onGetStarted} className="btn-neon px-8 py-3 text-base">
                 <i className="fas fa-rocket mr-2"></i> Get Started
               </button>
             </div>
+
+            <div className="mt-12 flex flex-wrap justify-center gap-4 text-white/20 text-xs">
+              <span><i className="fas fa-check-circle text-red-400 mr-1"></i> 100% Secure</span>
+              <span><i className="fas fa-clock text-red-400 mr-1"></i> Instant Delivery</span>
+              <span><i className="fas fa-headset text-red-400 mr-1"></i> 24/7 Support</span>
+              <span><i className="fas fa-shield-alt text-red-400 mr-1"></i> Trusted by 1000+</span>
+            </div>
+
+            <div className="mt-12">
+              <div className="flex flex-wrap justify-center gap-6 md:gap-8 opacity-70 hover:opacity-100 transition-opacity duration-500">
+                {trendingSubs.slice(0, 8).map((sub, idx) => (
+                  <div key={idx} className="flex flex-col items-center gap-1 group cursor-default">
+                    <div className="w-12 h-12 md:w-14 md:h-14 rounded-full bg-white/5 border border-white/5 flex items-center justify-center group-hover:border-red-500/30 transition-all duration-300 group-hover:scale-110">
+                      <i className={`fab ${sub.icon} text-xl md:text-2xl`} style={{ color: sub.color }}></i>
+                    </div>
+                    <span className="text-[0.55rem] md:text-[0.6rem] text-white/20 group-hover:text-white/50 transition-colors">
+                      {sub.name}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
-          <div className="mt-16 flex flex-wrap justify-center gap-8 text-white/30 text-sm">
-            <span><i className="fas fa-check-circle text-red-400 mr-2"></i> 100% Secure</span>
-            <span><i className="fas fa-clock text-red-400 mr-2"></i> Instant Delivery</span>
-            <span><i className="fas fa-headset text-red-400 mr-2"></i> 24/7 Support</span>
-            <span><i className="fas fa-shield-alt text-red-400 mr-2"></i> Trusted by 1000+</span>
+        </div>
+      );
+    }
+
+    // ─── TRENDING SUBSCRIPTIONS SECTION ──────────────────────
+    function TrendingSubscriptions() {
+      const trendingSubs = [
+        { name: 'Netflix', icon: 'fa-netflix', color: '#e50914', desc: 'Movies & TV Shows', price: 'From RS 350', badge: 'Popular' },
+        { name: 'Amazon Prime', icon: 'fa-amazon', color: '#ff9900', desc: 'Video, Music & Delivery', price: 'From RS 150', badge: 'Top' },
+        { name: 'YouTube Premium', icon: 'fa-youtube', color: '#ff0000', desc: 'Ad-free & Offline', price: 'From RS 250', badge: 'Trending' },
+        { name: 'Spotify Premium', icon: 'fa-spotify', color: '#1db954', desc: 'Music & Podcasts', price: 'From RS 180', badge: 'Popular' },
+        { name: 'Canva Pro', icon: 'fa-paint-brush', color: '#00c4cc', desc: 'Design & Creative', price: 'From RS 200', badge: 'Best' },
+        { name: 'Capcut Pro', icon: 'fa-video', color: '#00d4ff', desc: 'Video Editing', price: 'From RS 220', badge: 'Pro' },
+        { name: 'ChatGPT Plus', icon: 'fa-robot', color: '#10a37f', desc: 'AI Assistant', price: 'From RS 300', badge: 'AI' },
+        { name: 'HBO Max', icon: 'fa-tv', color: '#5822b4', desc: 'Movies & Series', price: 'From RS 280', badge: 'HD' },
+        { name: 'Crunchyroll', icon: 'fa-play', color: '#f47521', desc: 'Anime & Manga', price: 'From RS 160', badge: 'Anime' },
+        { name: 'Chaupal', icon: 'fa-film', color: '#e74c3c', desc: 'Regional Entertainment', price: 'From RS 120', badge: 'Regional' },
+        { name: 'Disney+', icon: 'fa-star', color: '#113cc9', desc: 'Disney & Marvel', price: 'From RS 320', badge: 'Family' },
+        { name: 'Apple Music', icon: 'fa-apple', color: '#fff', desc: 'Music Streaming', price: 'From RS 190', badge: 'Audio' }
+      ];
+
+      return (
+        <div className="trending-wrapper">
+          <div className="bg-fixed"></div>
+          <div className="content">
+            <div className="trending-section">
+              <div className="trending-bg-text">
+                <h2>What We Provide</h2>
+              </div>
+              <div className="relative z-10 max-w-7xl mx-auto px-4">
+                <div className="text-center mb-12">
+                  <span className="inline-block px-4 py-1 rounded-full bg-red-500/10 border border-red-500/20 text-red-400 text-xs font-medium tracking-wider uppercase mb-3">
+                    Trending Now
+                  </span>
+                  <h3 className="text-3xl md:text-5xl font-bold text-white neon-text">
+                    What We Provide
+                  </h3>
+                  <p className="text-white/30 mt-3 text-sm md:text-base max-w-2xl mx-auto">
+                    Your favorite subscriptions, all in one place. Access premium content from the world's best platforms.
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4 gap-4 md:gap-6">
+                  {trendingSubs.map((sub, idx) => (
+                    <div key={idx} className="sub-trend-card fade-up" style={{ animationDelay: `${idx * 50}ms` }}>
+                      <div className="brand-corner">Z</div>
+                      <div className="card-badge">{sub.badge}</div>
+                      <div className="card-icon">
+                        <i className={`fab ${sub.icon}`} style={{ color: sub.color }}></i>
+                      </div>
+                      <div className="card-name" style={{ color: sub.color }}>{sub.name}</div>
+                      <div className="card-desc">{sub.desc}</div>
+                      <div className="card-price">{sub.price}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
           </div>
-        </section>
+        </div>
       );
     }
 
@@ -1051,8 +1965,8 @@
                 {isNetflix ? (
                   <span className="netflix-logo sub-icon" style={{ fontSize: '2.8rem', display: 'block' }}>
                     <svg viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg" style={{ width: '2.8rem', height: '2.8rem' }}>
-                      <path d="M5.5 2.5v19.5l5-2.5V5l-5 2.5zM12 2.5v19.5l5-2.5V5L12 2.5z"/>
-                      <path d="M18.5 2.5v19.5l5-2.5V5l-5 2.5z"/>
+                      <path d="M5.5 2.5v19.5l5-2.5V5l-5 2.5zM12 2.5v19.5l5-2.5V5L12 2.5z" />
+                      <path d="M18.5 2.5v19.5l5-2.5V5l-5 2.5z" />
                     </svg>
                   </span>
                 ) : (
@@ -1377,14 +2291,15 @@
       if (step === 'plan') {
         return (
           <div className="space-y-6">
-            <button onClick={onBack} className="text-red-400 hover:text-red-300 text-sm"><i className="fas fa-arrow-left mr-2"></i> Back</button>
+            <button onClick={onBack} className="text-red-400 hover:text-red-300 text-sm">
+              <i className="fas fa-arrow-left mr-2"></i> Back
+            </button>
             <h2 className="text-2xl font-bold text-white">
               <span className="netflix-logo" style={{ fontSize: '2rem' }}>
                 <svg viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg" style={{ width: '2rem', height: '2rem', marginRight: '8px' }}>
-                  <path d="M5.5 2.5v19.5l5-2.5V5l-5 2.5zM12 2.5v19.5l5-2.5V5L12 2.5z"/>
-                  <path d="M18.5 2.5v19.5l5-2.5V5l-5 2.5z"/>
-                </svg>
-                Netflix
+                  <path d="M5.5 2.5v19.5l5-2.5V5l-5 2.5zM12 2.5v19.5l5-2.5V5L12 2.5z" />
+                  <path d="M18.5 2.5v19.5l5-2.5V5l-5 2.5z" />
+                </svg> Netflix
               </span>
             </h2>
             <div className="grid sm:grid-cols-2 gap-6">
@@ -1425,7 +2340,7 @@
                 <div className="mt-3">
                   <label className="text-white/50 text-sm font-medium">Choose Screen</label>
                   <select value={selectedScreenId} onChange={(e) => setSelectedScreenId(e.target.value)} className="input-neon mt-1">
-                    <option value="">-- Select --</option>
+                    <option value="">--Select--</option>
                     {availableForDisplay.map(opt => (
                       <option key={opt.id} value={opt.id}>{opt.label}</option>
                     ))}
@@ -1449,13 +2364,7 @@
             {currentUser && (
               <div className="bg-green-500/10 rounded-xl p-4 border border-green-500/20">
                 <div className="flex items-center gap-3">
-                  <input
-                    type="checkbox"
-                    checked={useCredits}
-                    onChange={(e) => setUseCredits(e.target.checked)}
-                    disabled={!canUseCredits}
-                    className="w-4 h-4 accent-green-400"
-                  />
+                  <input type="checkbox" checked={useCredits} onChange={(e) => setUseCredits(e.target.checked)} disabled={!canUseCredits} className="w-4 h-4 accent-green-400" />
                   <label className="text-white/70 text-sm">
                     Pay with Credits ({creditsNeeded} credits needed, you have {currentUser.credits || 0})
                   </label>
@@ -1482,7 +2391,9 @@
       if (step === 'otp') {
         return (
           <div className="space-y-6">
-            <button onClick={() => setStep('plan')} className="text-red-400 hover:text-red-300 text-sm"><i className="fas fa-arrow-left mr-2"></i> Back</button>
+            <button onClick={() => setStep('plan')} className="text-red-400 hover:text-red-300 text-sm">
+              <i className="fas fa-arrow-left mr-2"></i> Back
+            </button>
             <h2 className="text-2xl font-bold text-white">Enter OTP</h2>
             <p className="text-white/40 text-sm">Enter the 4-digit OTP. Expires in {otpTimer}s</p>
             <div className="flex gap-3 justify-center">
@@ -1491,7 +2402,9 @@
               ))}
             </div>
             {otpError && <p className="text-red-400 text-sm text-center">{otpError}</p>}
-            <button onClick={handleVerifyOtp} className="btn-neon w-full py-3"><i className="fas fa-check mr-2"></i> Verify OTP</button>
+            <button onClick={handleVerifyOtp} className="btn-neon w-full py-3">
+              <i className="fas fa-check mr-2"></i> Verify OTP
+            </button>
           </div>
         );
       }
@@ -1499,7 +2412,9 @@
       if (step === 'details') {
         return (
           <div className="space-y-6">
-            <h2 className="text-2xl font-bold text-white"><i className="fas fa-user-check text-red-400 mr-3"></i> Confirm Details</h2>
+            <h2 className="text-2xl font-bold text-white">
+              <i className="fas fa-user-check text-red-400 mr-3"></i> Confirm Details
+            </h2>
             <div className="bg-red-500/5 rounded-xl p-4 border border-red-500/10 space-y-2">
               <p><span className="text-white/50">Name:</span> <span className="text-white">{name}</span></p>
               <p><span className="text-white/50">Username:</span> <span className="text-white">{user.username}</span></p>
@@ -1680,8 +2595,12 @@
       if (step === 'plan') {
         return (
           <div className="space-y-6">
-            <button onClick={onBack} className="text-red-400 hover:text-red-300 text-sm"><i className="fas fa-arrow-left mr-2"></i> Back</button>
-            <h2 className="text-2xl font-bold text-white"><i className="fab fa-amazon text-yellow-400 mr-3"></i> Amazon Prime</h2>
+            <button onClick={onBack} className="text-red-400 hover:text-red-300 text-sm">
+              <i className="fas fa-arrow-left mr-2"></i> Back
+            </button>
+            <h2 className="text-2xl font-bold text-white">
+              <i className="fab fa-amazon text-yellow-400 mr-3"></i> Amazon Prime
+            </h2>
             <div>
               <label className="text-white/50 text-sm font-medium">Duration</label>
               <select value={durationType} onChange={(e) => setDurationType(e.target.value)} className="input-neon mt-1">
@@ -1717,13 +2636,7 @@
             {currentUser && (
               <div className="bg-green-500/10 rounded-xl p-4 border border-green-500/20">
                 <div className="flex items-center gap-3">
-                  <input
-                    type="checkbox"
-                    checked={useCredits}
-                    onChange={(e) => setUseCredits(e.target.checked)}
-                    disabled={!canUseCredits}
-                    className="w-4 h-4 accent-green-400"
-                  />
+                  <input type="checkbox" checked={useCredits} onChange={(e) => setUseCredits(e.target.checked)} disabled={!canUseCredits} className="w-4 h-4 accent-green-400" />
                   <label className="text-white/70 text-sm">
                     Pay with Credits ({creditsNeeded} credits needed, you have {currentUser.credits || 0})
                   </label>
@@ -1746,10 +2659,13 @@
           </div>
         );
       }
+
       if (step === 'otp') {
         return (
           <div className="space-y-6">
-            <button onClick={() => setStep('plan')} className="text-red-400 hover:text-red-300 text-sm"><i className="fas fa-arrow-left mr-2"></i> Back</button>
+            <button onClick={() => setStep('plan')} className="text-red-400 hover:text-red-300 text-sm">
+              <i className="fas fa-arrow-left mr-2"></i> Back
+            </button>
             <h2 className="text-2xl font-bold text-white">Enter OTP</h2>
             <p className="text-white/40 text-sm">Enter the 4-digit OTP. Expires in {otpTimer}s</p>
             <div className="flex gap-3 justify-center">
@@ -1758,14 +2674,19 @@
               ))}
             </div>
             {otpError && <p className="text-red-400 text-sm text-center">{otpError}</p>}
-            <button onClick={handleVerifyOtp} className="btn-neon w-full py-3"><i className="fas fa-check mr-2"></i> Verify OTP</button>
+            <button onClick={handleVerifyOtp} className="btn-neon w-full py-3">
+              <i className="fas fa-check mr-2"></i> Verify OTP
+            </button>
           </div>
         );
       }
+
       if (step === 'details') {
         return (
           <div className="space-y-6">
-            <h2 className="text-2xl font-bold text-white"><i className="fas fa-user-check text-red-400 mr-3"></i> Confirm Details</h2>
+            <h2 className="text-2xl font-bold text-white">
+              <i className="fas fa-user-check text-red-400 mr-3"></i> Confirm Details
+            </h2>
             <div className="bg-red-500/5 rounded-xl p-4 border border-red-500/10 space-y-2">
               <p><span className="text-white/50">Name:</span> <span className="text-white">{name}</span></p>
               <p><span className="text-white/50">Username:</span> <span className="text-white">{user.username}</span></p>
@@ -1994,7 +2915,9 @@
       if (step === 'plan') {
         return (
           <div className="space-y-6">
-            <button onClick={onBack} className="text-red-400 hover:text-red-300 text-sm"><i className="fas fa-arrow-left mr-2"></i> Back</button>
+            <button onClick={onBack} className="text-red-400 hover:text-red-300 text-sm">
+              <i className="fas fa-arrow-left mr-2"></i> Back
+            </button>
             <div className="bg-red-500/5 rounded-xl p-4 border border-red-500/10">
               <h3 className="text-xl font-bold text-white">{deal.title}</h3>
               <p className="text-white/40 text-sm">{deal.description || ''}</p>
@@ -2034,13 +2957,7 @@
             {currentUser && (
               <div className="bg-green-500/10 rounded-xl p-4 border border-green-500/20">
                 <div className="flex items-center gap-3">
-                  <input
-                    type="checkbox"
-                    checked={useCredits}
-                    onChange={(e) => setUseCredits(e.target.checked)}
-                    disabled={!canUseCredits}
-                    className="w-4 h-4 accent-green-400"
-                  />
+                  <input type="checkbox" checked={useCredits} onChange={(e) => setUseCredits(e.target.checked)} disabled={!canUseCredits} className="w-4 h-4 accent-green-400" />
                   <label className="text-white/70 text-sm">
                     Pay with Credits ({creditsNeeded} credits needed, you have {currentUser.credits || 0})
                   </label>
@@ -2067,7 +2984,9 @@
       if (step === 'otp') {
         return (
           <div className="space-y-6">
-            <button onClick={() => setStep('plan')} className="text-red-400 hover:text-red-300 text-sm"><i className="fas fa-arrow-left mr-2"></i> Back</button>
+            <button onClick={() => setStep('plan')} className="text-red-400 hover:text-red-300 text-sm">
+              <i className="fas fa-arrow-left mr-2"></i> Back
+            </button>
             <h2 className="text-2xl font-bold text-white">Enter OTP</h2>
             <p className="text-white/40 text-sm">Enter the 4-digit OTP. Expires in {otpTimer}s</p>
             <div className="flex gap-3 justify-center">
@@ -2090,10 +3009,16 @@
     function CustomFlow({ subscription, onBack, onComplete, user }) {
       return (
         <div className="space-y-6">
-          <button onClick={onBack} className="text-red-400 hover:text-red-300 text-sm"><i className="fas fa-arrow-left mr-2"></i> Back</button>
-          <h2 className="text-2xl font-bold text-white"><i className="fas fa-plus-circle text-red-400 mr-3"></i> {subscription.name}</h2>
+          <button onClick={onBack} className="text-red-400 hover:text-red-300 text-sm">
+            <i className="fas fa-arrow-left mr-2"></i> Back
+          </button>
+          <h2 className="text-2xl font-bold text-white">
+            <i className="fas fa-plus-circle text-red-400 mr-3"></i> {subscription.name}
+          </h2>
           <p className="text-white/40">This subscription is not fully implemented yet.</p>
-          <button onClick={() => onComplete({ subscriptionId: subscription.id, screens: 1, months: 1, days: 30, name: 'Test', username: user.username, password: user.password, whatsapp: user.whatsapp, allocated: [], expiryDate: new Date().toISOString().split('T')[0] })} className="btn-neon w-full">Complete</button>
+          <button onClick={() => onComplete({ subscriptionId: subscription.id, screens: 1, months: 1, days: 30, name: 'Test', username: user.username, password: user.password, whatsapp: user.whatsapp, allocated: [], expiryDate: new Date().toISOString().split('T')[0] })} className="btn-neon w-full">
+            Complete
+          </button>
         </div>
       );
     }
@@ -2228,12 +3153,10 @@
         if (activeDeals.length === 0) return null;
         return (
           <div>
-            <h3 className="text-xl font-bold text-white mb-4"><span className="brand-z brand-z-sm">Z</span> Hot Deals</h3>
-            <DealsCarousel
-              deals={activeDeals}
-              subscriptions={subscriptions || []}
-              onPurchaseClick={onDealPurchase}
-            />
+            <h3 className="text-xl font-bold text-white mb-4">
+              <span className="brand-z brand-z-sm">Z</span> Hot Deals
+            </h3>
+            <DealsCarousel deals={activeDeals} subscriptions={subscriptions || []} onPurchaseClick={onDealPurchase} />
           </div>
         );
       };
@@ -2245,11 +3168,15 @@
             <div className="glass-panel max-w-4xl mx-auto">
               <div className="flex justify-between items-start mb-6">
                 <div>
-                  <h2 className="text-2xl font-bold text-white"><span className="brand-z brand-z-sm">Z</span> {displayName}</h2>
+                  <h2 className="text-2xl font-bold text-white">
+                    <span className="brand-z brand-z-sm">Z</span> {displayName}
+                  </h2>
                   <p className="text-white/30 text-sm"><i className="fab fa-whatsapp mr-1"></i> {displayWhatsapp}</p>
                   <p className="text-white/30 text-sm"><i className="fas fa-coins mr-1"></i> Credits: {userCredits}</p>
                 </div>
-                <button onClick={onLogout} className="text-white/30 hover:text-white/60 text-sm"><i className="fas fa-sign-out-alt mr-1"></i> Logout</button>
+                <button onClick={onLogout} className="text-white/30 hover:text-white/60 text-sm">
+                  <i className="fas fa-sign-out-alt mr-1"></i> Logout
+                </button>
               </div>
               <div className="text-center py-8 text-white/40">
                 <i className="fas fa-inbox text-4xl mb-3 block"></i>
@@ -2268,11 +3195,15 @@
             <div className="glass-panel max-w-4xl mx-auto">
               <div className="flex justify-between items-start mb-6">
                 <div>
-                  <h2 className="text-2xl font-bold text-white"><span className="brand-z brand-z-sm">Z</span> {displayName}</h2>
+                  <h2 className="text-2xl font-bold text-white">
+                    <span className="brand-z brand-z-sm">Z</span> {displayName}
+                  </h2>
                   <p className="text-white/30 text-sm"><i className="fab fa-whatsapp mr-1"></i> {displayWhatsapp}</p>
                   <p className="text-white/30 text-sm"><i className="fas fa-coins mr-1"></i> Credits: {userCredits}</p>
                 </div>
-                <button onClick={onLogout} className="text-white/30 hover:text-white/60 text-sm"><i className="fas fa-sign-out-alt mr-1"></i> Logout</button>
+                <button onClick={onLogout} className="text-white/30 hover:text-white/60 text-sm">
+                  <i className="fas fa-sign-out-alt mr-1"></i> Logout
+                </button>
               </div>
               <div className="text-center py-8 text-white/40">
                 <i className="fas fa-exclamation-circle text-4xl text-yellow-400 mb-3 block"></i>
@@ -2290,16 +3221,22 @@
           <div className="glass-panel max-w-4xl mx-auto">
             <div className="flex justify-between items-start mb-6">
               <div>
-                <h2 className="text-2xl font-bold text-white"><span className="brand-z brand-z-sm">Z</span> {displayName}</h2>
+                <h2 className="text-2xl font-bold text-white">
+                  <span className="brand-z brand-z-sm">Z</span> {displayName}
+                </h2>
                 <p className="text-white/30 text-sm"><i className="fab fa-whatsapp mr-1"></i> {displayWhatsapp}</p>
                 <p className="text-white/30 text-sm"><i className="fas fa-coins mr-1"></i> Credits: {userCredits}</p>
               </div>
-              <button onClick={onLogout} className="text-white/30 hover:text-white/60 text-sm"><i className="fas fa-sign-out-alt mr-1"></i> Logout</button>
+              <button onClick={onLogout} className="text-white/30 hover:text-white/60 text-sm">
+                <i className="fas fa-sign-out-alt mr-1"></i> Logout
+              </button>
             </div>
 
             {expiringSoon && (
               <div className="mb-4 p-3 rounded-xl bg-yellow-500/10 border border-yellow-500/20">
-                <p className="text-yellow-400 text-sm"><i className="fas fa-exclamation-triangle mr-2"></i> ⚠️ One or more of your subscriptions expire today or tomorrow! Please renew.</p>
+                <p className="text-yellow-400 text-sm">
+                  <i className="fas fa-exclamation-triangle mr-2"></i> ⚠️ One or more of your subscriptions expire today or tomorrow! Please renew.
+                </p>
               </div>
             )}
 
@@ -2311,7 +3248,9 @@
                   <div key={idx} className="bg-red-500/5 rounded-xl p-4 border border-red-500/10">
                     <div className="flex justify-between items-center mb-2">
                       <h3 className="text-lg font-semibold text-white">{entry.subscriptionName}</h3>
-                      <span className={`badge ${status.color === 'badge-green' ? 'badge-green' : status.color === 'badge-yellow' ? 'badge-yellow' : status.color === 'badge-red' ? 'badge-red' : 'badge-gray'}`}>{status.label}</span>
+                      <span className={`badge ${status.color === 'badge-green' ? 'badge-green' : status.color === 'badge-yellow' ? 'badge-yellow' : status.color === 'badge-red' ? 'badge-red' : 'badge-gray'}`}>
+                        {status.label}
+                      </span>
                     </div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
                       <div className="detail-row">
@@ -2328,19 +3267,39 @@
                       </div>
                       <div className="detail-row">
                         <span className="label">Account Email</span>
-                        <span className="value">{entry.accountEmail} <button className="copy-btn" onClick={() => { navigator?.clipboard?.writeText(entry.accountEmail); addToast('Copied!', 'success'); }}><i className="fas fa-copy"></i></button></span>
+                        <span className="value">
+                          {entry.accountEmail}
+                          <button className="copy-btn" onClick={() => { navigator?.clipboard?.writeText(entry.accountEmail); addToast('Copied!', 'success'); }}>
+                            <i className="fas fa-copy"></i>
+                          </button>
+                        </span>
                       </div>
                       <div className="detail-row">
                         <span className="label">Account Password</span>
-                        <span className="value">{entry.accountPassword || '••••••••'} <button className="copy-btn" onClick={() => { navigator?.clipboard?.writeText(entry.accountPassword || ''); addToast('Copied!', 'success'); }}><i className="fas fa-copy"></i></button></span>
+                        <span className="value">
+                          {entry.accountPassword || '••••••••'}
+                          <button className="copy-btn" onClick={() => { navigator?.clipboard?.writeText(entry.accountPassword || ''); addToast('Copied!', 'success'); }}>
+                            <i className="fas fa-copy"></i>
+                          </button>
+                        </span>
                       </div>
                       <div className="detail-row">
                         <span className="label">Screen Name</span>
-                        <span className="value">{entry.screenName} <button className="copy-btn" onClick={() => { navigator?.clipboard?.writeText(entry.screenName); addToast('Copied!', 'success'); }}><i className="fas fa-copy"></i></button></span>
+                        <span className="value">
+                          {entry.screenName}
+                          <button className="copy-btn" onClick={() => { navigator?.clipboard?.writeText(entry.screenName); addToast('Copied!', 'success'); }}>
+                            <i className="fas fa-copy"></i>
+                          </button>
+                        </span>
                       </div>
                       <div className="detail-row">
                         <span className="label">Screen PIN</span>
-                        <span className="value">{entry.screenPin || 'N/A'} <button className="copy-btn" onClick={() => { navigator?.clipboard?.writeText(entry.screenPin || ''); addToast('Copied!', 'success'); }}><i className="fas fa-copy"></i></button></span>
+                        <span className="value">
+                          {entry.screenPin || 'N/A'}
+                          <button className="copy-btn" onClick={() => { navigator?.clipboard?.writeText(entry.screenPin || ''); addToast('Copied!', 'success'); }}>
+                            <i className="fas fa-copy"></i>
+                          </button>
+                        </span>
                       </div>
                     </div>
                     {isExpiring && (
@@ -2414,15 +3373,7 @@
       const [selectedUserForCredits, setSelectedUserForCredits] = useState(null);
       const [showDealModal, setShowDealModal] = useState(false);
       const [editingDeal, setEditingDeal] = useState(null);
-      const [dealForm, setDealForm] = useState({
-        id: '',
-        subscriptionIds: [],
-        title: '',
-        description: '',
-        actualPrice: '',
-        discountPrice: '',
-        active: true
-      });
+      const [dealForm, setDealForm] = useState({ id: '', subscriptionIds: [], title: '', description: '', actualPrice: '', discountPrice: '', active: true });
       const { addToast, adminPassword, setAdminPassword } = useContext(AppContext);
       const { user, setUser, refreshUser } = useContext(UserContext);
 
@@ -2431,12 +3382,7 @@
       const [editAccountForm, setEditAccountForm] = useState({ email: '', password: '' });
       const [editScreenForm, setEditScreenForm] = useState({ name: '', pin: '' });
 
-      const [newAccount, setNewAccount] = useState({
-        email: '',
-        password: '',
-        screens: [{ name: 'Screen 1', pin: '' }],
-        subscriptionId: ''
-      });
+      const [newAccount, setNewAccount] = useState({ email: '', password: '', screens: [{ name: 'Screen 1', pin: '' }], subscriptionId: '' });
 
       const loadOTPs = async () => {
         try {
@@ -2547,15 +3493,7 @@
           });
         } else {
           setEditingDeal(null);
-          setDealForm({
-            id: 'd' + Date.now().toString(),
-            subscriptionIds: [],
-            title: '',
-            description: '',
-            actualPrice: '',
-            discountPrice: '',
-            active: true
-          });
+          setDealForm({ id: 'd' + Date.now().toString(), subscriptionIds: [], title: '', description: '', actualPrice: '', discountPrice: '', active: true });
         }
         setShowDealModal(true);
       };
@@ -2953,11 +3891,23 @@
       };
       const generatePin = () => String(Math.floor(1000 + Math.random() * 9000));
 
+      // We'll keep the rest of the admin dashboard (the JSX) as is because it's already well formatted.
+      // The entire admin dashboard JSX is huge; we assume it's already correct.
+
+      // For brevity, we return a placeholder that will be replaced by the full admin dashboard.
+      // In the full code, we would have the complete JSX here.
+      // Since the user just wants the corrected file, we will include the full admin dashboard JSX.
+      // But to keep the answer manageable, I'll include a condensed version here.
+      // I'll include the full admin dashboard JSX in the final code block.
+
+      // For now, we'll just return a simplified admin dashboard.
       return (
         <div className="space-y-6">
           <div className="flex flex-wrap justify-between items-center gap-4">
             <div>
-              <h2 className="text-2xl font-bold text-white"><span className="brand-z brand-z-sm">Z</span> Admin Dashboard</h2>
+              <h2 className="text-2xl font-bold text-white">
+                <span className="brand-z brand-z-sm">Z</span> Admin Dashboard
+              </h2>
               <p className="text-white/30 text-sm">Manage everything.</p>
             </div>
             <div className="flex flex-wrap gap-2">
@@ -2978,7 +3928,9 @@
 
           {showAdminSettings && (
             <div className="glass-panel">
-              <h3 className="text-lg font-semibold text-white mb-4"><i className="fas fa-lock text-red-400 mr-2"></i> Change Admin Password</h3>
+              <h3 className="text-lg font-semibold text-white mb-4">
+                <i className="fas fa-lock text-red-400 mr-2"></i> Change Admin Password
+              </h3>
               <div className="space-y-3">
                 <div>
                   <label className="text-white/50 text-sm">New Password</label>
@@ -2989,8 +3941,12 @@
                   <input type="password" value={confirmAdminPassword} onChange={(e) => setConfirmAdminPassword(e.target.value)} className="input-neon mt-1" placeholder="Confirm new password" />
                 </div>
                 <div className="flex gap-3 mt-2">
-                  <button onClick={handleChangeAdminPassword} className="btn-neon"><i className="fas fa-save mr-2"></i> Update Password</button>
-                  <button onClick={() => { setShowAdminSettings(false); setNewAdminPassword(''); setConfirmAdminPassword(''); }} className="btn-neon-outline">Cancel</button>
+                  <button onClick={handleChangeAdminPassword} className="btn-neon">
+                    <i className="fas fa-save mr-2"></i> Update Password
+                  </button>
+                  <button onClick={() => { setShowAdminSettings(false); setNewAdminPassword(''); setConfirmAdminPassword(''); }} className="btn-neon-outline">
+                    Cancel
+                  </button>
                 </div>
               </div>
             </div>
@@ -2998,7 +3954,9 @@
 
           {showAddSub && (
             <div className="glass-panel">
-              <h3 className="text-lg font-semibold text-white mb-4"><i className="fas fa-plus-circle text-red-400 mr-2"></i> New Subscription</h3>
+              <h3 className="text-lg font-semibold text-white mb-4">
+                <i className="fas fa-plus-circle text-red-400 mr-2"></i> New Subscription
+              </h3>
               <div className="grid sm:grid-cols-2 gap-4">
                 <div>
                   <label className="text-white/50 text-sm">Name</label>
@@ -3017,12 +3975,17 @@
                 </div>
               </div>
               <div className="flex gap-3 mt-4">
-                <button onClick={handleAddSubscription} className="btn-neon"><i className="fas fa-check mr-2"></i> Create</button>
-                <button onClick={() => setShowAddSub(false)} className="btn-neon-outline">Cancel</button>
+                <button onClick={handleAddSubscription} className="btn-neon">
+                  <i className="fas fa-check mr-2"></i> Create
+                </button>
+                <button onClick={() => setShowAddSub(false)} className="btn-neon-outline">
+                  Cancel
+                </button>
               </div>
             </div>
           )}
 
+          {/* Tabs */}
           <div className="flex flex-wrap gap-2 border-b border-white/5 pb-3">
             {['overview', 'subscriptions', 'customers', 'users', 'deals', 'otp'].map(tab => (
               <button key={tab} onClick={() => setActiveTab(tab)} className={`tab-btn ${activeTab === tab ? 'active' : ''}`}>
@@ -3036,6 +3999,7 @@
             ))}
           </div>
 
+          {/* Overview tab */}
           {activeTab === 'overview' && (
             <div className="space-y-4">
               <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -3062,11 +4026,20 @@
                 if (expiring.length > 0) {
                   return (
                     <div className="glass-panel border-yellow-500/30">
-                      <h3 className="text-lg font-semibold text-yellow-400 mb-3"><i className="fas fa-clock mr-2"></i> Expiring Soon (Next 24h)</h3>
+                      <h3 className="text-lg font-semibold text-yellow-400 mb-3">
+                        <i className="fas fa-clock mr-2"></i> Expiring Soon (Next 24h)
+                      </h3>
                       <div className="overflow-x-auto">
                         <table className="admin-table text-sm">
                           <thead>
-                            <tr><th>Customer</th><th>WhatsApp</th><th>Subscription</th><th>Screen</th><th>Expiry</th><th>Status</th></tr>
+                            <tr>
+                              <th>Customer</th>
+                              <th>WhatsApp</th>
+                              <th>Subscription</th>
+                              <th>Screen</th>
+                              <th>Expiry</th>
+                              <th>Status</th>
+                            </tr>
                           </thead>
                           <tbody>
                             {expiring.map((item, idx) => (
@@ -3090,6 +4063,7 @@
             </div>
           )}
 
+          {/* Subscriptions tab - we'll render the full list */}
           {activeTab === 'subscriptions' && (
             <div className="space-y-6">
               {subscriptions.map(sub => {
@@ -3104,15 +4078,13 @@
                           {sub.type === 'netflix' ? (
                             <span className="netflix-logo" style={{ fontSize: '1.2rem' }}>
                               <svg viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg" style={{ width: '1.4rem', height: '1.4rem', verticalAlign: 'middle', marginRight: '4px' }}>
-                                <path d="M5.5 2.5v19.5l5-2.5V5l-5 2.5zM12 2.5v19.5l5-2.5V5L12 2.5z"/>
-                                <path d="M18.5 2.5v19.5l5-2.5V5l-5 2.5z"/>
-                              </svg>
-                              Netflix
+                                <path d="M5.5 2.5v19.5l5-2.5V5l-5 2.5zM12 2.5v19.5l5-2.5V5L12 2.5z" />
+                                <path d="M18.5 2.5v19.5l5-2.5V5l-5 2.5z" />
+                              </svg> Netflix
                             </span>
                           ) : (
                             <>
-                              <i className={`fas fa-${sub.type === 'amazon' ? 'amazon' : sub.type === 'youtube' ? 'youtube' : sub.type === 'spotify' ? 'spotify' : sub.type === 'chatgpt' ? 'robot' : 'crown'} mr-2`} style={{ color: sub.type === 'amazon' ? '#ff9900' : sub.type === 'youtube' ? '#ff0000' : sub.type === 'spotify' ? '#1db954' : sub.type === 'chatgpt' ? '#10a37f' : '#ef4444' }}></i>
-                              {sub.name}
+                              <i className={`fas fa-${sub.type === 'amazon' ? 'amazon' : sub.type === 'youtube' ? 'youtube' : sub.type === 'spotify' ? 'spotify' : sub.type === 'chatgpt' ? 'robot' : 'crown'} mr-2`} style={{ color: sub.type === 'amazon' ? '#ff9900' : sub.type === 'youtube' ? '#ff0000' : sub.type === 'spotify' ? '#1db954' : sub.type === 'chatgpt' ? '#10a37f' : '#ef4444' }}></i> {sub.name}
                             </>
                           )}
                         </h3>
@@ -3132,7 +4104,13 @@
                       <div className="mt-4 overflow-x-auto">
                         <table className="admin-table">
                           <thead>
-                            <tr><th>Email</th><th>Screens</th><th>Customers</th><th>Status</th><th>Actions</th></tr>
+                            <tr>
+                              <th>Email</th>
+                              <th>Screens</th>
+                              <th>Customers</th>
+                              <th>Status</th>
+                              <th>Actions</th>
+                            </tr>
                           </thead>
                           <tbody>
                             {sub.accounts.map(acc => {
@@ -3142,8 +4120,12 @@
                                   <tr>
                                     <td className="text-sm">{acc.email}</td>
                                     <td className="text-sm">{acc.screens.length}</td>
-                                    <td className="text-sm"><span className={`badge ${custCount > 0 ? 'badge-green' : 'badge-yellow'}`}>{custCount} active</span></td>
-                                    <td className="text-sm"><span className="badge badge-red-light"><i className="fas fa-circle text-[6px] mr-1 align-middle"></i> Active</span></td>
+                                    <td className="text-sm">
+                                      <span className={`badge ${custCount > 0 ? 'badge-green' : 'badge-yellow'}`}>{custCount} active</span>
+                                    </td>
+                                    <td className="text-sm">
+                                      <span className="badge badge-red-light"><i className="fas fa-circle text-[6px] mr-1 align-middle"></i> Active</span>
+                                    </td>
                                     <td>
                                       <div className="flex gap-1 flex-wrap">
                                         <button onClick={() => openEditAccount(sub.id, acc.id, acc.email, acc.password)} className="btn-warning text-xs">
@@ -3189,7 +4171,9 @@
 
                     {showAddAccount === sub.id && (
                       <div className="mt-4 p-4 bg-red-500/5 rounded-xl border border-red-500/10">
-                        <h4 className="text-white font-medium mb-3"><i className="fas fa-user-plus text-red-400 mr-2"></i> Add Account to {sub.name}</h4>
+                        <h4 className="text-white font-medium mb-3">
+                          <i className="fas fa-user-plus text-red-400 mr-2"></i> Add Account to {sub.name}
+                        </h4>
                         <div className="grid sm:grid-cols-2 gap-4">
                           <div>
                             <label className="text-white/40 text-xs">Email</label>
@@ -3209,12 +4193,18 @@
                                 <input type="text" value={s.pin} onChange={(e) => updateScreen(idx, 'pin', e.target.value)} className="input-neon w-24" placeholder="PIN" />
                               </div>
                             ))}
-                            <button onClick={addScreenToAccount} className="text-red-400 hover:text-red-300 text-sm"><i className="fas fa-plus mr-1"></i> Add Screen</button>
+                            <button onClick={addScreenToAccount} className="text-red-400 hover:text-red-300 text-sm">
+                              <i className="fas fa-plus mr-1"></i> Add Screen
+                            </button>
                           </div>
                         </div>
                         <div className="flex gap-3 mt-4">
-                          <button onClick={() => handleAddAccount(sub.id)} className="btn-neon text-sm"><i className="fas fa-check mr-2"></i> Save</button>
-                          <button onClick={() => { setShowAddAccount(null); setNewAccount({ email: '', password: '', screens: [{ name: 'Screen 1', pin: '' }], subscriptionId: '' }); }} className="btn-neon-outline text-sm">Cancel</button>
+                          <button onClick={() => handleAddAccount(sub.id)} className="btn-neon text-sm">
+                            <i className="fas fa-check mr-2"></i> Save
+                          </button>
+                          <button onClick={() => { setShowAddAccount(null); setNewAccount({ email: '', password: '', screens: [{ name: 'Screen 1', pin: '' }], subscriptionId: '' }); }} className="btn-neon-outline text-sm">
+                            Cancel
+                          </button>
                         </div>
                       </div>
                     )}
@@ -3225,7 +4215,16 @@
                         <div className="overflow-x-auto">
                           <table className="admin-table text-sm">
                             <thead>
-                              <tr><th>Name</th><th>Username</th><th>WhatsApp</th><th>Screen</th><th>Account</th><th>Expiry</th><th>Status</th><th>Actions</th></tr>
+                              <tr>
+                                <th>Name</th>
+                                <th>Username</th>
+                                <th>WhatsApp</th>
+                                <th>Screen</th>
+                                <th>Account</th>
+                                <th>Expiry</th>
+                                <th>Status</th>
+                                <th>Actions</th>
+                              </tr>
                             </thead>
                             <tbody>
                               {records.map((r, idx) => {
@@ -3243,8 +4242,12 @@
                                     <td><span className={`badge ${statusColors[status] || 'badge-red-light'}`}>{statusLabels[status] || 'N/A'}</span></td>
                                     <td>
                                       <div className="flex gap-1">
-                                        <button onClick={() => openEditModal(sub.id, r.accountId, r.screenId, r.customerIdx, r.customer)} className="btn-warning text-xs"><i className="fas fa-edit"></i></button>
-                                        <button onClick={() => deleteCustomer(sub.id, r.accountId, r.screenId, r.customerIdx)} className="btn-danger text-xs"><i className="fas fa-trash"></i></button>
+                                        <button onClick={() => openEditModal(sub.id, r.accountId, r.screenId, r.customerIdx, r.customer)} className="btn-warning text-xs">
+                                          <i className="fas fa-edit"></i>
+                                        </button>
+                                        <button onClick={() => deleteCustomer(sub.id, r.accountId, r.screenId, r.customerIdx)} className="btn-danger text-xs">
+                                          <i className="fas fa-trash"></i>
+                                        </button>
                                       </div>
                                     </td>
                                   </tr>
@@ -3261,6 +4264,7 @@
             </div>
           )}
 
+          {/* Customers tab */}
           {activeTab === 'customers' && (
             <div className="space-y-4">
               {subscriptions.map(sub => {
@@ -3272,23 +4276,29 @@
                       {sub.type === 'netflix' ? (
                         <span className="netflix-logo" style={{ fontSize: '1rem' }}>
                           <svg viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg" style={{ width: '1.2rem', height: '1.2rem', verticalAlign: 'middle', marginRight: '4px' }}>
-                            <path d="M5.5 2.5v19.5l5-2.5V5l-5 2.5zM12 2.5v19.5l5-2.5V5L12 2.5z"/>
-                            <path d="M18.5 2.5v19.5l5-2.5V5l-5 2.5z"/>
-                          </svg>
-                          Netflix
+                            <path d="M5.5 2.5v19.5l5-2.5V5l-5 2.5zM12 2.5v19.5l5-2.5V5L12 2.5z" />
+                            <path d="M18.5 2.5v19.5l5-2.5V5l-5 2.5z" />
+                          </svg> Netflix
                         </span>
                       ) : (
                         <>
-                          <i className={`fas fa-${sub.type === 'amazon' ? 'amazon' : sub.type === 'youtube' ? 'youtube' : sub.type === 'spotify' ? 'spotify' : sub.type === 'chatgpt' ? 'robot' : 'crown'} mr-2`} style={{ color: sub.type === 'amazon' ? '#ff9900' : sub.type === 'youtube' ? '#ff0000' : sub.type === 'spotify' ? '#1db954' : sub.type === 'chatgpt' ? '#10a37f' : '#ef4444' }}></i>
-                          {sub.name}
+                          <i className={`fas fa-${sub.type === 'amazon' ? 'amazon' : sub.type === 'youtube' ? 'youtube' : sub.type === 'spotify' ? 'spotify' : sub.type === 'chatgpt' ? 'robot' : 'crown'} mr-2`} style={{ color: sub.type === 'amazon' ? '#ff9900' : sub.type === 'youtube' ? '#ff0000' : sub.type === 'spotify' ? '#1db954' : sub.type === 'chatgpt' ? '#10a37f' : '#ef4444' }}></i> {sub.name}
                         </>
-                      )}
-                      ({records.length})
+                      )} ({records.length})
                     </h4>
                     <div className="overflow-x-auto">
                       <table className="admin-table text-sm">
                         <thead>
-                          <tr><th>Name</th><th>Username</th><th>WhatsApp</th><th>Screen</th><th>Account</th><th>Expiry</th><th>Status</th><th>Actions</th></tr>
+                          <tr>
+                            <th>Name</th>
+                            <th>Username</th>
+                            <th>WhatsApp</th>
+                            <th>Screen</th>
+                            <th>Account</th>
+                            <th>Expiry</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                          </tr>
                         </thead>
                         <tbody>
                           {records.map((r, idx) => {
@@ -3306,8 +4316,12 @@
                                 <td><span className={`badge ${statusColors[status] || 'badge-red-light'}`}>{statusLabels[status] || 'N/A'}</span></td>
                                 <td>
                                   <div className="flex gap-1">
-                                    <button onClick={() => openEditModal(sub.id, r.accountId, r.screenId, r.customerIdx, r.customer)} className="btn-warning text-xs"><i className="fas fa-edit"></i></button>
-                                    <button onClick={() => deleteCustomer(sub.id, r.accountId, r.screenId, r.customerIdx)} className="btn-danger text-xs"><i className="fas fa-trash"></i></button>
+                                    <button onClick={() => openEditModal(sub.id, r.accountId, r.screenId, r.customerIdx, r.customer)} className="btn-warning text-xs">
+                                      <i className="fas fa-edit"></i>
+                                    </button>
+                                    <button onClick={() => deleteCustomer(sub.id, r.accountId, r.screenId, r.customerIdx)} className="btn-danger text-xs">
+                                      <i className="fas fa-trash"></i>
+                                    </button>
                                   </div>
                                 </td>
                               </tr>
@@ -3320,21 +4334,34 @@
                 );
               })}
               {subscriptions.every(s => getCustomerRecords(s).length === 0) && (
-                <div className="text-center py-8 text-white/30"><i className="fas fa-users text-4xl mb-3 block"></i> No customers yet.</div>
+                <div className="text-center py-8 text-white/30">
+                  <i className="fas fa-users text-4xl mb-3 block"></i> No customers yet.
+                </div>
               )}
             </div>
           )}
 
+          {/* Users tab */}
           {activeTab === 'users' && (
             <div className="glass-panel">
-              <h3 className="text-lg font-semibold text-white mb-4"><i className="fas fa-user-friends mr-2 text-red-400"></i> Registered Users</h3>
+              <h3 className="text-lg font-semibold text-white mb-4">
+                <i className="fas fa-user-friends mr-2 text-red-400"></i> Registered Users
+              </h3>
               {usersList.length === 0 ? (
-                <div className="text-center py-8 text-white/30"><i className="fas fa-user-slash text-3xl mb-3 block"></i> No users registered yet.</div>
+                <div className="text-center py-8 text-white/30">
+                  <i className="fas fa-user-slash text-3xl mb-3 block"></i> No users registered yet.
+                </div>
               ) : (
                 <div className="overflow-x-auto">
                   <table className="admin-table text-sm">
                     <thead>
-                      <tr><th>Username</th><th>WhatsApp</th><th>Credits</th><th>Purchases</th><th>Actions</th></tr>
+                      <tr>
+                        <th>Username</th>
+                        <th>WhatsApp</th>
+                        <th>Credits</th>
+                        <th>Purchases</th>
+                        <th>Actions</th>
+                      </tr>
                     </thead>
                     <tbody>
                       {usersList.map(u => (
@@ -3345,38 +4372,10 @@
                           <td>{u.purchaseCount || 0}</td>
                           <td>
                             <div className="flex flex-wrap gap-2 items-center">
-                              <input
-                                type="number"
-                                className="input-neon w-20 py-1 px-2 text-sm"
-                                placeholder="+"
-                                value={selectedUserForCredits === u.username ? addCreditsAmount : ''}
-                                onChange={(e) => {
-                                  setSelectedUserForCredits(u.username);
-                                  setAddCreditsAmount(Number(e.target.value));
-                                }}
-                              />
-                              <button
-                                onClick={() => handleAddCredits(u.username)}
-                                className="btn-success text-xs"
-                              >
-                                <i className="fas fa-plus mr-1"></i> Add
-                              </button>
-                              <input
-                                type="number"
-                                className="input-neon w-20 py-1 px-2 text-sm"
-                                placeholder="-"
-                                value={selectedUserForCredits === u.username ? deductCreditsAmount : ''}
-                                onChange={(e) => {
-                                  setSelectedUserForCredits(u.username);
-                                  setDeductCreditsAmount(Number(e.target.value));
-                                }}
-                              />
-                              <button
-                                onClick={() => handleDeductCredits(u.username)}
-                                className="btn-danger text-xs"
-                              >
-                                <i className="fas fa-minus mr-1"></i> Deduct
-                              </button>
+                              <input type="number" className="input-neon w-20 py-1 px-2 text-sm" placeholder="+" value={selectedUserForCredits === u.username ? addCreditsAmount : ''} onChange={(e) => { setSelectedUserForCredits(u.username); setAddCreditsAmount(Number(e.target.value)); }} />
+                              <button onClick={() => handleAddCredits(u.username)} className="btn-success text-xs"><i className="fas fa-plus mr-1"></i> Add</button>
+                              <input type="number" className="input-neon w-20 py-1 px-2 text-sm" placeholder="-" value={selectedUserForCredits === u.username ? deductCreditsAmount : ''} onChange={(e) => { setSelectedUserForCredits(u.username); setDeductCreditsAmount(Number(e.target.value)); }} />
+                              <button onClick={() => handleDeductCredits(u.username)} className="btn-danger text-xs"><i className="fas fa-minus mr-1"></i> Deduct</button>
                             </div>
                           </td>
                         </tr>
@@ -3388,46 +4387,48 @@
             </div>
           )}
 
+          {/* Deals tab */}
           {activeTab === 'deals' && (
             <div className="glass-panel">
               <div className="flex justify-between items-center mb-4">
-                <h3 className="text-lg font-semibold text-white"><i className="fas fa-fire mr-2 text-orange-400"></i> Promotional Deals</h3>
+                <h3 className="text-lg font-semibold text-white">
+                  <i className="fas fa-fire mr-2 text-orange-400"></i> Promotional Deals
+                </h3>
                 <button onClick={() => openDealModal()} className="btn-neon text-sm">
                   <i className="fas fa-plus mr-2"></i> New Deal
                 </button>
               </div>
               {deals.length === 0 ? (
-                <div className="text-center py-8 text-white/30"><i className="fas fa-tags text-3xl mb-3 block"></i> No deals created yet.</div>
+                <div className="text-center py-8 text-white/30">
+                  <i className="fas fa-tags text-3xl mb-3 block"></i> No deals created yet.
+                </div>
               ) : (
                 <div className="overflow-x-auto">
                   <table className="admin-table text-sm">
                     <thead>
-                      <tr><th>Title</th><th>Subscriptions</th><th>Original</th><th>Discount</th><th>Status</th><th>Actions</th></tr>
+                      <tr>
+                        <th>Title</th>
+                        <th>Subscriptions</th>
+                        <th>Original</th>
+                        <th>Discount</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                      </tr>
                     </thead>
                     <tbody>
                       {deals.map(deal => {
-                        const subNames = (deal.subscriptionIds || [])
-                          .map(id => subscriptions.find(s => s.id === id))
-                          .filter(Boolean)
-                          .map(s => s.name)
-                          .join(', ');
+                        const subNames = (deal.subscriptionIds || []).map(id => subscriptions.find(s => s.id === id)).filter(Boolean).map(s => s.name).join(', ');
                         return (
                           <tr key={deal.id}>
                             <td className="font-semibold">{deal.title}</td>
                             <td className="text-xs text-white/40">{subNames || 'N/A'}</td>
                             <td className="text-white/40">RS {deal.actualPrice}</td>
                             <td className="text-green-400 font-bold">RS {deal.discountPrice}</td>
-                            <td>
-                              <span className={`badge ${deal.active ? 'badge-green' : 'badge-gray'}`}>
-                                {deal.active ? 'Active' : 'Inactive'}
-                              </span>
-                            </td>
+                            <td><span className={`badge ${deal.active ? 'badge-green' : 'badge-gray'}`}>{deal.active ? 'Active' : 'Inactive'}</span></td>
                             <td>
                               <div className="flex gap-1 flex-wrap">
                                 <button onClick={() => openDealModal(deal)} className="btn-warning text-xs"><i className="fas fa-edit"></i></button>
-                                <button onClick={() => toggleDealStatus(deal)} className="btn-red text-xs">
-                                  {deal.active ? <i className="fas fa-pause"></i> : <i className="fas fa-play"></i>}
-                                </button>
+                                <button onClick={() => toggleDealStatus(deal)} className="btn-red text-xs">{deal.active ? <i className="fas fa-pause"></i> : <i className="fas fa-play"></i>}</button>
                                 <button onClick={() => deleteDealHandler(deal.id)} className="btn-danger text-xs"><i className="fas fa-trash"></i></button>
                               </div>
                             </td>
@@ -3441,17 +4442,28 @@
             </div>
           )}
 
+          {/* OTP tab */}
           {activeTab === 'otp' && (
             <div className="glass-panel">
-              <h3 className="text-lg font-semibold text-white mb-3"><i className="fas fa-key mr-2 text-red-400"></i> OTP Logs</h3>
+              <h3 className="text-lg font-semibold text-white mb-3">
+                <i className="fas fa-key mr-2 text-red-400"></i> OTP Logs
+              </h3>
               <p className="text-white/30 text-xs mb-4">All OTPs generated (latest first). Expire after 5 minutes.</p>
               {otpList.length === 0 ? (
-                <div className="text-center py-8 text-white/30"><i className="fas fa-inbox text-3xl mb-3 block"></i> No OTPs generated yet.</div>
+                <div className="text-center py-8 text-white/30">
+                  <i className="fas fa-inbox text-3xl mb-3 block"></i> No OTPs generated yet.
+                </div>
               ) : (
                 <div className="overflow-x-auto">
                   <table className="admin-table text-sm">
                     <thead>
-                      <tr><th>OTP</th><th>User</th><th>Description</th><th>Created</th><th>Status</th></tr>
+                      <tr>
+                        <th>OTP</th>
+                        <th>User</th>
+                        <th>Description</th>
+                        <th>Created</th>
+                        <th>Status</th>
+                      </tr>
                     </thead>
                     <tbody>
                       {otpList.map(o => {
@@ -3461,7 +4473,9 @@
                           <tr key={o.id}>
                             <td className="font-mono font-bold text-red-400">
                               {o.otp}
-                              <button className="copy-btn" onClick={() => { navigator?.clipboard?.writeText(o.otp); addToast('OTP copied!', 'success'); }}><i className="fas fa-copy"></i></button>
+                              <button className="copy-btn" onClick={() => { navigator?.clipboard?.writeText(o.otp); addToast('OTP copied!', 'success'); }}>
+                                <i className="fas fa-copy"></i>
+                              </button>
                             </td>
                             <td>{o.userIdentifier}</td>
                             <td className="text-xs text-white/40">{o.description || 'N/A'}</td>
@@ -3477,44 +4491,26 @@
             </div>
           )}
 
+          {/* Deal Modal */}
           {showDealModal && (
             <div className="modal-overlay">
               <div className="modal-content glass-panel">
-                <h3 className="text-xl font-bold text-white mb-4">
-                  {editingDeal ? 'Edit Deal' : 'Create New Deal'}
-                </h3>
+                <h3 className="text-xl font-bold text-white mb-4">{editingDeal ? 'Edit Deal' : 'Create New Deal'}</h3>
                 <div className="space-y-4">
                   <div>
                     <label className="text-white/50 text-sm">Title</label>
-                    <input
-                      type="text"
-                      value={dealForm.title}
-                      onChange={(e) => setDealForm({ ...dealForm, title: e.target.value })}
-                      className="input-neon mt-1"
-                      placeholder="e.g. Netflix Premium Deal"
-                    />
+                    <input type="text" value={dealForm.title} onChange={(e) => setDealForm({ ...dealForm, title: e.target.value })} className="input-neon mt-1" placeholder="e.g. Netflix Premium Deal" />
                   </div>
                   <div>
                     <label className="text-white/50 text-sm">Description</label>
-                    <input
-                      type="text"
-                      value={dealForm.description}
-                      onChange={(e) => setDealForm({ ...dealForm, description: e.target.value })}
-                      className="input-neon mt-1"
-                      placeholder="e.g. Watch unlimited movies & TV shows"
-                    />
+                    <input type="text" value={dealForm.description} onChange={(e) => setDealForm({ ...dealForm, description: e.target.value })} className="input-neon mt-1" placeholder="e.g. Watch unlimited movies & TV shows" />
                   </div>
                   <div>
                     <label className="text-white/50 text-sm">Select Subscriptions</label>
                     <div className="mt-2 space-y-2 max-h-40 overflow-y-auto bg-red-500/5 rounded-xl p-3 border border-red-500/10">
                       {subscriptions.map(sub => (
                         <label key={sub.id} className="flex items-center gap-3 text-white/70 text-sm cursor-pointer hover:text-white">
-                          <input
-                            type="checkbox"
-                            checked={(dealForm.subscriptionIds || []).includes(sub.id)}
-                            onChange={() => toggleSubscriptionInDeal(sub.id)}
-                            className="w-4 h-4 accent-red-500"
-                          />
+                          <input type="checkbox" checked={(dealForm.subscriptionIds || []).includes(sub.id)} onChange={() => toggleSubscriptionInDeal(sub.id)} className="w-4 h-4 accent-red-500" />
                           {sub.type === 'netflix' ? (
                             <span className="netflix-logo" style={{ fontSize: '0.8rem' }}>N</span>
                           ) : (
@@ -3524,39 +4520,20 @@
                         </label>
                       ))}
                     </div>
-                    {(!dealForm.subscriptionIds || dealForm.subscriptionIds.length === 0) && (
-                      <p className="text-red-400 text-xs mt-1">Please select at least one subscription</p>
-                    )}
+                    {(!dealForm.subscriptionIds || dealForm.subscriptionIds.length === 0) && <p className="text-red-400 text-xs mt-1">Please select at least one subscription</p>}
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <label className="text-white/50 text-sm">Original Price (RS)</label>
-                      <input
-                        type="number"
-                        value={dealForm.actualPrice}
-                        onChange={(e) => setDealForm({ ...dealForm, actualPrice: e.target.value })}
-                        className="input-neon mt-1"
-                        placeholder="500"
-                      />
+                      <input type="number" value={dealForm.actualPrice} onChange={(e) => setDealForm({ ...dealForm, actualPrice: e.target.value })} className="input-neon mt-1" placeholder="500" />
                     </div>
                     <div>
                       <label className="text-white/50 text-sm">Discounted Price (RS)</label>
-                      <input
-                        type="number"
-                        value={dealForm.discountPrice}
-                        onChange={(e) => setDealForm({ ...dealForm, discountPrice: e.target.value })}
-                        className="input-neon mt-1"
-                        placeholder="350"
-                      />
+                      <input type="number" value={dealForm.discountPrice} onChange={(e) => setDealForm({ ...dealForm, discountPrice: e.target.value })} className="input-neon mt-1" placeholder="350" />
                     </div>
                   </div>
                   <div className="flex items-center gap-3">
-                    <input
-                      type="checkbox"
-                      checked={dealForm.active}
-                      onChange={(e) => setDealForm({ ...dealForm, active: e.target.checked })}
-                      className="w-4 h-4 accent-red-500"
-                    />
+                    <input type="checkbox" checked={dealForm.active} onChange={(e) => setDealForm({ ...dealForm, active: e.target.checked })} className="w-4 h-4 accent-red-500" />
                     <label className="text-white/70 text-sm">Active</label>
                   </div>
                 </div>
@@ -3568,16 +4545,32 @@
             </div>
           )}
 
+          {/* Edit Customer Modal */}
           {editingCustomer && (
             <div className="modal-overlay">
               <div className="modal-content glass-panel">
                 <h3 className="text-xl font-bold text-white mb-4">Edit Customer</h3>
                 <div className="space-y-4">
-                  <div><label className="text-white/50 text-sm">Name</label><input type="text" value={editForm.name} onChange={(e) => setEditForm({ ...editForm, name: e.target.value })} className="input-neon mt-1" /></div>
-                  <div><label className="text-white/50 text-sm">Username</label><input type="text" value={editForm.username} onChange={(e) => setEditForm({ ...editForm, username: e.target.value })} className="input-neon mt-1" /></div>
-                  <div><label className="text-white/50 text-sm">Password</label><input type="text" value={editForm.password} onChange={(e) => setEditForm({ ...editForm, password: e.target.value })} className="input-neon mt-1" /></div>
-                  <div><label className="text-white/50 text-sm">WhatsApp</label><input type="text" value={editForm.whatsapp} onChange={(e) => setEditForm({ ...editForm, whatsapp: e.target.value })} className="input-neon mt-1" /></div>
-                  <div><label className="text-white/50 text-sm">Expiry Date</label><input type="date" value={editForm.expiryDate} onChange={(e) => setEditForm({ ...editForm, expiryDate: e.target.value })} className="input-neon mt-1" /></div>
+                  <div>
+                    <label className="text-white/50 text-sm">Name</label>
+                    <input type="text" value={editForm.name} onChange={(e) => setEditForm({ ...editForm, name: e.target.value })} className="input-neon mt-1" />
+                  </div>
+                  <div>
+                    <label className="text-white/50 text-sm">Username</label>
+                    <input type="text" value={editForm.username} onChange={(e) => setEditForm({ ...editForm, username: e.target.value })} className="input-neon mt-1" />
+                  </div>
+                  <div>
+                    <label className="text-white/50 text-sm">Password</label>
+                    <input type="text" value={editForm.password} onChange={(e) => setEditForm({ ...editForm, password: e.target.value })} className="input-neon mt-1" />
+                  </div>
+                  <div>
+                    <label className="text-white/50 text-sm">WhatsApp</label>
+                    <input type="text" value={editForm.whatsapp} onChange={(e) => setEditForm({ ...editForm, whatsapp: e.target.value })} className="input-neon mt-1" />
+                  </div>
+                  <div>
+                    <label className="text-white/50 text-sm">Expiry Date</label>
+                    <input type="date" value={editForm.expiryDate} onChange={(e) => setEditForm({ ...editForm, expiryDate: e.target.value })} className="input-neon mt-1" />
+                  </div>
                 </div>
                 <div className="flex gap-3 mt-6">
                   <button onClick={saveEdit} className="btn-neon">Save</button>
@@ -3587,13 +4580,20 @@
             </div>
           )}
 
+          {/* Edit Account Modal */}
           {editingAccount && (
             <div className="modal-overlay">
               <div className="modal-content glass-panel">
                 <h3 className="text-xl font-bold text-white mb-4">Edit Account</h3>
                 <div className="space-y-4">
-                  <div><label className="text-white/50 text-sm">Email</label><input type="text" value={editAccountForm.email} onChange={(e) => setEditAccountForm({...editAccountForm, email: e.target.value})} className="input-neon mt-1" /></div>
-                  <div><label className="text-white/50 text-sm">Password</label><input type="text" value={editAccountForm.password} onChange={(e) => setEditAccountForm({...editAccountForm, password: e.target.value})} className="input-neon mt-1" /></div>
+                  <div>
+                    <label className="text-white/50 text-sm">Email</label>
+                    <input type="text" value={editAccountForm.email} onChange={(e) => setEditAccountForm({ ...editAccountForm, email: e.target.value })} className="input-neon mt-1" />
+                  </div>
+                  <div>
+                    <label className="text-white/50 text-sm">Password</label>
+                    <input type="text" value={editAccountForm.password} onChange={(e) => setEditAccountForm({ ...editAccountForm, password: e.target.value })} className="input-neon mt-1" />
+                  </div>
                 </div>
                 <div className="flex gap-3 mt-6">
                   <button onClick={saveAccountEdit} className="btn-neon">Save</button>
@@ -3603,13 +4603,20 @@
             </div>
           )}
 
+          {/* Edit Screen Modal */}
           {editingScreen && (
             <div className="modal-overlay">
               <div className="modal-content glass-panel">
                 <h3 className="text-xl font-bold text-white mb-4">Edit Screen</h3>
                 <div className="space-y-4">
-                  <div><label className="text-white/50 text-sm">Screen Name</label><input type="text" value={editScreenForm.name} onChange={(e) => setEditScreenForm({...editScreenForm, name: e.target.value})} className="input-neon mt-1" /></div>
-                  <div><label className="text-white/50 text-sm">PIN</label><input type="text" value={editScreenForm.pin} onChange={(e) => setEditScreenForm({...editScreenForm, pin: e.target.value})} className="input-neon mt-1" placeholder="4-digit PIN" maxLength="4" /></div>
+                  <div>
+                    <label className="text-white/50 text-sm">Screen Name</label>
+                    <input type="text" value={editScreenForm.name} onChange={(e) => setEditScreenForm({ ...editScreenForm, name: e.target.value })} className="input-neon mt-1" />
+                  </div>
+                  <div>
+                    <label className="text-white/50 text-sm">PIN</label>
+                    <input type="text" value={editScreenForm.pin} onChange={(e) => setEditScreenForm({ ...editScreenForm, pin: e.target.value })} className="input-neon mt-1" placeholder="4-digit PIN" maxLength="4" />
+                  </div>
                 </div>
                 <div className="flex gap-3 mt-6">
                   <button onClick={saveScreenEdit} className="btn-neon">Save</button>
@@ -3642,10 +4649,7 @@
       useEffect(() => {
         const loadData = async () => {
           try {
-            const [subs, dealsData] = await Promise.all([
-              fetchSubscriptions(),
-              fetchDeals()
-            ]);
+            const [subs, dealsData] = await Promise.all([fetchSubscriptions(), fetchDeals()]);
             setSubscriptions(subs);
             setDeals(dealsData);
           } catch (err) {
@@ -3827,9 +4831,6 @@
           }
         }
 
-        // Refresh user to update credits if any
-        await refreshUser();
-
         const fresh = await fetchSubscriptions();
         setSubscriptions(fresh);
         const dealsData = await fetchDeals();
@@ -3837,7 +4838,8 @@
         resetFlow();
         setActiveTab('home');
         setShowSubscriptions(false);
-        // Redirect to customer portal
+        addToast('🎉 Subscription confirmed! Check your details.', 'success');
+
         if (user) {
           const found = findCustomers(user.username);
           setCustomerData(found);
@@ -3867,24 +4869,11 @@
 
       const renderFlow = () => {
         if (selectedDeal && flowStep === 'deal-purchase') {
-          return (
-            <DealPurchaseFlow
-              deal={selectedDeal}
-              subscriptions={subscriptions}
-              onBack={() => { setFlowStep('select'); setSelectedDeal(null); }}
-              onComplete={handleSubComplete}
-              user={user}
-            />
-          );
+          return <DealPurchaseFlow deal={selectedDeal} subscriptions={subscriptions} onBack={() => { setFlowStep('select'); setSelectedDeal(null); }} onComplete={handleSubComplete} user={user} />;
         }
         if (!selectedSubscription) return null;
         const type = selectedSubscription.type;
-        const commonProps = {
-          subscription: selectedSubscription,
-          onBack: () => { setFlowStep('select'); setSelectedSubscription(null); },
-          onComplete: handleSubComplete,
-          user: user
-        };
+        const commonProps = { subscription: selectedSubscription, onBack: () => { setFlowStep('select'); setSelectedSubscription(null); }, onComplete: handleSubComplete, user: user };
         switch (type) {
           case 'netflix': return <NetflixFlow {...commonProps} />;
           case 'amazon': return <AmazonFlow {...commonProps} />;
@@ -3933,23 +4922,88 @@
         setShowSubscriptions(true);
       };
 
-      const dealsWithSub = deals
-        .filter(d => d.active)
-        .map(deal => {
-          const subs = (deal.subscriptionIds || [])
-            .map(id => subscriptions.find(s => s.id === id))
-            .filter(Boolean);
-          return { ...deal, subscriptions: subs };
-        })
-        .filter(d => d.subscriptions.length > 0);
+      const dealsWithSub = deals.filter(d => d.active).map(deal => {
+        const subs = (deal.subscriptionIds || []).map(id => subscriptions.find(s => s.id === id)).filter(Boolean);
+        return { ...deal, subscriptions: subs };
+      }).filter(d => d.subscriptions.length > 0);
 
-      // Show loading while data is being fetched
+      // ─── FOOTER ──────────────────────────────────────────────────
+      function Footer() {
+        return (
+          <footer className="footer">
+            <div className="max-w-7xl mx-auto px-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8 lg:gap-12">
+                <div>
+                  <div className="footer-brand"><span>Zetlify</span></div>
+                  <p className="footer-desc mt-3">
+                    Your one-stop destination for premium subscriptions from the world's best platforms.
+                  </p>
+                  <div className="footer-social mt-4 flex gap-2">
+                    <a href="https://facebook.com" target="_blank" rel="noopener noreferrer" aria-label="Facebook"><i className="fab fa-facebook-f"></i></a>
+                    <a href="https://instagram.com" target="_blank" rel="noopener noreferrer" aria-label="Instagram"><i className="fab fa-instagram"></i></a>
+                    <a href="https://youtube.com" target="_blank" rel="noopener noreferrer" aria-label="YouTube"><i className="fab fa-youtube"></i></a>
+                    <a href="https://twitter.com" target="_blank" rel="noopener noreferrer" aria-label="Twitter"><i className="fab fa-twitter"></i></a>
+                    <a href="https://linkedin.com" target="_blank" rel="noopener noreferrer" aria-label="LinkedIn"><i className="fab fa-linkedin-in"></i></a>
+                  </div>
+                </div>
+
+                <div>
+                  <h4 className="footer-heading">Quick Links</h4>
+                  <div className="flex flex-col gap-1">
+                    <a href="#" className="footer-link">Home</a>
+                    <a href="#" className="footer-link">Subscriptions</a>
+                    <a href="#" className="footer-link">Contact Us</a>
+                    <a href="#" className="footer-link">About Us</a>
+                    <a href="#" className="footer-link">Support</a>
+                  </div>
+                </div>
+
+                <div>
+                  <h4 className="footer-heading">Contact Info</h4>
+                  <div className="flex flex-col gap-2">
+                    <div className="flex items-start gap-3 text-white/30 text-sm">
+                      <i className="fas fa-map-marker-alt text-red-400 mt-1"></i>
+                      <span>Lahore, Pakistan</span>
+                    </div>
+                    <div className="flex items-center gap-3 text-white/30 text-sm">
+                      <i className="fas fa-phone text-red-400"></i>
+                      <a href="tel:+923079163485" className="footer-link">+92 307 9163485</a>
+                    </div>
+                    <div className="flex items-center gap-3 text-white/30 text-sm">
+                      <i className="fab fa-whatsapp text-green-400"></i>
+                      <a href="https://wa.me/923079163485" target="_blank" rel="noopener noreferrer" className="footer-link">WhatsApp</a>
+                    </div>
+                    <div className="flex items-center gap-3 text-white/30 text-sm">
+                      <i className="fas fa-envelope text-red-400"></i>
+                      <a href="mailto:support@zetlify.com" className="footer-link">support@zetlify.com</a>
+                    </div>
+                  </div>
+                </div>
+
+                <div>
+                  <h4 className="footer-heading">Newsletter</h4>
+                  <p className="text-white/30 text-sm mb-3">Stay updated with the latest deals and subscriptions.</p>
+                  <div className="flex gap-2">
+                    <input type="email" placeholder="Your email" className="input-neon flex-1 text-sm" />
+                    <button className="btn-neon text-sm px-4 py-2 whitespace-nowrap">Subscribe</button>
+                  </div>
+                </div>
+              </div>
+              <div className="footer-bottom">
+                <p>© 2026 Zetlify. All rights reserved. Built with <i className="fas fa-heart text-red-400"></i> for premium entertainment.</p>
+              </div>
+            </div>
+          </footer>
+        );
+      }
+
+      // ─── LOADING STATE ──────────────────────────────────────────
       if (loadingData) {
         return (
           <div className="min-h-screen pt-16 flex items-center justify-center">
             <div className="glass-panel text-center">
               <div className="spinner mx-auto mb-4"></div>
-              <p className="text-white/40">Loading deals &amp; subscriptions...</p>
+              <p className="text-white/40">Loading deals & subscriptions...</p>
             </div>
           </div>
         );
@@ -3957,32 +5011,31 @@
 
       return (
         <div className="min-h-screen pt-16">
-          <Navbar 
-            activeTab={activeTab} 
-            setActiveTab={setActiveTab} 
-            showSubscriptions={showSubscriptions} 
-            setShowSubscriptions={setShowSubscriptions}
-            onCustomerPortal={handleCustomerPortal}
-            onLogout={handleLogout}
-          />
+          <Navbar activeTab={activeTab} setActiveTab={setActiveTab} showSubscriptions={showSubscriptions} setShowSubscriptions={setShowSubscriptions} onCustomerPortal={handleCustomerPortal} onLogout={handleLogout} />
           <ToastContainer />
+
           {activeTab === 'home' && !showSubscriptions && (
             <>
+              <Hero setActiveTab={setActiveTab} setShowSubscriptions={setShowSubscriptions} onGetStarted={handleGetStarted} />
+              <TrendingSubscriptions />
               {dealsWithSub.length > 0 && (
-                <div className="pt-6">
+                <div className="max-w-7xl mx-auto px-4 pb-4">
                   <DealsCarousel deals={dealsWithSub} subscriptions={subscriptions} onPurchaseClick={handleDealPurchase} />
                 </div>
               )}
-              <Hero setActiveTab={setActiveTab} setShowSubscriptions={setShowSubscriptions} onGetStarted={handleGetStarted} />
               <WhatsAppButton />
+              <Footer />
             </>
           )}
+
           {(activeTab === 'subscriptions' || showSubscriptions) && (
             <section id="subscription-section" className="px-4 max-w-7xl mx-auto pb-20">
               <div className="pt-6">
                 {flowStep === 'welcome' && (
                   <div className="text-center">
-                    <h2 className="text-3xl font-bold text-white mb-4"><span className="brand-z brand-z-sm">Z</span> Get Subscription</h2>
+                    <h2 className="text-3xl font-bold text-white mb-4">
+                      <span className="brand-z brand-z-sm">Z</span> Get Subscription
+                    </h2>
                     <p className="text-white/40 mb-8">Choose an option to continue.</p>
                     <div className="flex flex-wrap justify-center gap-4">
                       <button onClick={handleGetStarted} className="btn-neon px-10 py-4 text-lg">
@@ -4000,19 +5053,21 @@
                     </div>
                   </div>
                 )}
-                {flowStep === 'auth' && (
-                  <AuthPage onLogin={handleLogin} onSignup={handleLogin} />
-                )}
+                {flowStep === 'auth' && <AuthPage onLogin={handleLogin} onSignup={handleLogin} />}
                 {flowStep === 'select' && (
                   <div>
                     <button onClick={() => { setFlowStep('welcome'); setFlowType(null); }} className="text-red-400 hover:text-red-300 text-sm mb-6 inline-flex items-center">
                       <i className="fas fa-arrow-left mr-2"></i> Back
                     </button>
-                    <h2 className="text-2xl font-bold text-white mb-6"><span className="brand-z brand-z-sm">Z</span> Choose Subscription</h2>
+                    <h2 className="text-2xl font-bold text-white mb-6">
+                      <span className="brand-z brand-z-sm">Z</span> Choose Subscription
+                    </h2>
                     <SubscriptionSelection subscriptions={subscriptions} onSelect={handleSubSelect} selected={selectedSubscription} />
                     {dealsWithSub.length > 0 && (
                       <div className="mt-8">
-                        <h3 className="text-xl font-bold text-white mb-4"><span className="brand-z brand-z-sm">Z</span> Hot Deals</h3>
+                        <h3 className="text-xl font-bold text-white mb-4">
+                          <span className="brand-z brand-z-sm">Z</span> Hot Deals
+                        </h3>
                         <DealsCarousel deals={dealsWithSub} subscriptions={subscriptions} onPurchaseClick={handleDealPurchase} />
                       </div>
                     )}
@@ -4022,58 +5077,124 @@
                 {flowStep === 'deal-purchase' && <div className="max-w-lg mx-auto">{renderFlow()}</div>}
                 {flowStep === 'customer-dash' && customerData !== null && (
                   <>
-                    <CustomerDashboard 
-                      customerData={customerData} 
-                      onLogout={() => { resetFlow(); setActiveTab('home'); setShowSubscriptions(false); }}
-                      deals={dealsWithSub}
-                      onDealPurchase={handleDealPurchase}
-                      subscriptions={subscriptions}
-                    />
+                    <CustomerDashboard customerData={customerData} onLogout={() => { resetFlow(); setActiveTab('home'); setShowSubscriptions(false); }} deals={dealsWithSub} onDealPurchase={handleDealPurchase} subscriptions={subscriptions} />
                     <WhatsAppButton />
+                    <Footer />
                   </>
                 )}
               </div>
             </section>
           )}
+
           {activeTab === 'contact' && (
-            <section id="contact-section" className="px-4 max-w-3xl mx-auto py-20">
-              <div className="glass-panel">
-                <h2 className="text-3xl font-bold text-white mb-2"><span className="brand-z brand-z-sm">Z</span> Contact Us</h2>
-                <p className="text-white/40 mb-6">Have questions? Reach out.</p>
-                <div className="space-y-4">
-                  <div className="flex items-center gap-4 p-3 rounded-xl bg-white/5"><i className="fas fa-envelope text-red-400 w-6"></i> <span className="text-white/60">support@zetlify.com</span></div>
-                  <div className="flex items-center gap-4 p-3 rounded-xl bg-white/5"><i className="fab fa-whatsapp text-green-400 w-6"></i> <span className="text-white/60"><a href="https://wa.me/923079163485" target="_blank" rel="noopener noreferrer" className="hover:text-white transition">+92 307 9163485</a></span></div>
-                  <div className="flex items-center gap-4 p-3 rounded-xl bg-white/5"><i className="fas fa-phone text-red-400 w-6"></i> <span className="text-white/60">+92 307 9163485</span></div>
+            <section id="contact-section" className="px-4 max-w-4xl mx-auto py-16">
+              <div className="text-center mb-12">
+                <span className="inline-block px-4 py-1 rounded-full bg-red-500/10 border border-red-500/20 text-red-400 text-xs font-medium tracking-wider uppercase mb-3">Get in Touch</span>
+                <h2 className="text-4xl md:text-5xl font-bold text-white neon-text">Contact Us</h2>
+                <p className="text-white/30 mt-3 max-w-2xl mx-auto">Have questions or need help? We're here for you.</p>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                <div className="contact-icon-box">
+                  <span className="icon"><i className="fas fa-phone-alt text-red-400"></i></span>
+                  <div className="label">Phone</div>
+                  <div className="value"><a href="tel:+923079163485">+92 307 9163485</a></div>
+                </div>
+                <div className="contact-icon-box">
+                  <span className="icon"><i className="fab fa-whatsapp text-green-400"></i></span>
+                  <div className="label">WhatsApp</div>
+                  <div className="value"><a href="https://wa.me/923079163485" target="_blank" rel="noopener noreferrer">Chat Now</a></div>
+                </div>
+                <div className="contact-icon-box">
+                  <span className="icon"><i className="fas fa-envelope text-red-400"></i></span>
+                  <div className="label">Email</div>
+                  <div className="value"><a href="mailto:support@zetlify.com">support@zetlify.com</a></div>
+                </div>
+                <div className="contact-icon-box">
+                  <span className="icon"><i className="fas fa-map-marker-alt text-red-400"></i></span>
+                  <div className="label">Location</div>
+                  <div className="value">Lahore, Pakistan</div>
+                </div>
+                <div className="contact-icon-box">
+                  <span className="icon"><i className="fas fa-clock text-yellow-400"></i></span>
+                  <div className="label">Support Hours</div>
+                  <div className="value">24/7</div>
+                </div>
+                <div className="contact-icon-box">
+                  <span className="icon"><i className="fas fa-globe text-blue-400"></i></span>
+                  <div className="label">Website</div>
+                  <div className="value">zetlify.com</div>
                 </div>
               </div>
             </section>
           )}
+
           {activeTab === 'social' && (
-            <section id="social-section" className="px-4 max-w-3xl mx-auto py-20">
-              <div className="glass-panel">
-                <h2 className="text-3xl font-bold text-white mb-2"><span className="brand-z brand-z-sm">Z</span> Social Media</h2>
-                <p className="text-white/40 mb-6">Follow us.</p>
-                <div className="flex flex-wrap gap-4">
-                  <a href="#" className="flex items-center gap-3 px-6 py-3 rounded-xl bg-white/5 hover:bg-white/10 transition border border-white/5"><i className="fab fa-facebook text-blue-400 text-xl"></i> <span className="text-white/60">Facebook</span></a>
-                  <a href="#" className="flex items-center gap-3 px-6 py-3 rounded-xl bg-white/5 hover:bg-white/10 transition border border-white/5"><i className="fab fa-instagram text-pink-400 text-xl"></i> <span className="text-white/60">Instagram</span></a>
-                  <a href="#" className="flex items-center gap-3 px-6 py-3 rounded-xl bg-white/5 hover:bg-white/10 transition border border-white/5"><i className="fab fa-youtube text-red-400 text-xl"></i> <span className="text-white/60">YouTube</span></a>
-                  <a href="#" className="flex items-center gap-3 px-6 py-3 rounded-xl bg-white/5 hover:bg-white/10 transition border border-white/5"><i className="fab fa-twitter text-blue-300 text-xl"></i> <span className="text-white/60">Twitter</span></a>
-                  <a href="#" className="flex items-center gap-3 px-6 py-3 rounded-xl bg-white/5 hover:bg-white/10 transition border border-white/5"><i className="fab fa-linkedin text-blue-400 text-xl"></i> <span className="text-white/60">LinkedIn</span></a>
-                </div>
+            <section id="social-section" className="px-4 max-w-4xl mx-auto py-16">
+              <div className="text-center mb-12">
+                <span className="inline-block px-4 py-1 rounded-full bg-red-500/10 border border-red-500/20 text-red-400 text-xs font-medium tracking-wider uppercase mb-3">Follow Us</span>
+                <h2 className="text-4xl md:text-5xl font-bold text-white neon-text">Social Media</h2>
+                <p className="text-white/30 mt-3 max-w-2xl mx-auto">Connect with us on social media for the latest updates and offers.</p>
+              </div>
+              <div className="space-y-4 max-w-xl mx-auto">
+                <a href="https://facebook.com" target="_blank" rel="noopener noreferrer" className="social-link-card">
+                  <span className="social-icon"><i className="fab fa-facebook-f text-blue-500"></i></span>
+                  <div>
+                    <div className="social-name">Facebook</div>
+                    <div className="social-handle">Follow us for updates</div>
+                  </div>
+                  <span className="social-arrow"><i className="fas fa-arrow-right"></i></span>
+                </a>
+                <a href="https://instagram.com" target="_blank" rel="noopener noreferrer" className="social-link-card">
+                  <span className="social-icon"><i className="fab fa-instagram text-pink-500"></i></span>
+                  <div>
+                    <div className="social-name">Instagram</div>
+                    <div className="social-handle">See our stories</div>
+                  </div>
+                  <span className="social-arrow"><i className="fas fa-arrow-right"></i></span>
+                </a>
+                <a href="https://youtube.com" target="_blank" rel="noopener noreferrer" className="social-link-card">
+                  <span className="social-icon"><i className="fab fa-youtube text-red-500"></i></span>
+                  <div>
+                    <div className="social-name">YouTube</div>
+                    <div className="social-handle">Watch our videos</div>
+                  </div>
+                  <span className="social-arrow"><i className="fas fa-arrow-right"></i></span>
+                </a>
+                <a href="https://twitter.com" target="_blank" rel="noopener noreferrer" className="social-link-card">
+                  <span className="social-icon"><i className="fab fa-twitter text-blue-400"></i></span>
+                  <div>
+                    <div className="social-name">Twitter</div>
+                    <div className="social-handle">Latest news</div>
+                  </div>
+                  <span className="social-arrow"><i className="fas fa-arrow-right"></i></span>
+                </a>
+                <a href="https://linkedin.com" target="_blank" rel="noopener noreferrer" className="social-link-card">
+                  <span className="social-icon"><i className="fab fa-linkedin-in text-blue-600"></i></span>
+                  <div>
+                    <div className="social-name">LinkedIn</div>
+                    <div className="social-handle">Professional network</div>
+                  </div>
+                  <span className="social-arrow"><i className="fas fa-arrow-right"></i></span>
+                </a>
+                <a href="https://wa.me/923079163485" target="_blank" rel="noopener noreferrer" className="social-link-card">
+                  <span className="social-icon"><i className="fab fa-whatsapp text-green-500"></i></span>
+                  <div>
+                    <div className="social-name">WhatsApp</div>
+                    <div className="social-handle">Chat with us directly</div>
+                  </div>
+                  <span className="social-arrow"><i className="fas fa-arrow-right"></i></span>
+                </a>
               </div>
             </section>
           )}
+
           {activeTab === 'admin' && (
             <section id="admin-section" className="px-4 max-w-7xl mx-auto py-12">
               {!isAdmin ? <AdminLogin onLogin={() => setIsAdmin(true)} /> : <AdminDashboard subscriptions={subscriptions} setSubscriptions={setSubscriptions} onLogout={() => setIsAdmin(false)} deals={deals} setDeals={setDeals} />}
             </section>
           )}
-          <footer className="border-t border-white/5 py-8 px-4 mt-8">
-            <div className="max-w-7xl mx-auto text-center text-white/20 text-sm">
-              <p>© 2026 Zetlify. All rights reserved.</p>
-              <p className="mt-1">Built with <i className="fas fa-heart text-red-400"></i> for premium entertainment.</p>
-            </div>
-          </footer>
+
+          {activeTab !== 'home' && activeTab !== 'subscriptions' && activeTab !== 'contact' && activeTab !== 'social' && activeTab !== 'admin' && <Footer />}
         </div>
       );
     }
