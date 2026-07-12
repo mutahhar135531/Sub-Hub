@@ -5,7 +5,7 @@ const { MongoClient } = require('mongodb');
 
 const app = express();
 
-// ─── CORS ──────────────────────────────────────────────────────
+// ─── CORS CONFIGURATION ──────────────────────────────────────
 app.use(cors({
   origin: '*',
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
@@ -13,9 +13,9 @@ app.use(cors({
   credentials: true
 }));
 
-app.use(express.json({ limit: '10mb' })); // allow larger payloads for images
+app.use(express.json());
 
-// ─── CACHE CONTROL ────────────────────────────────────────────
+// ─── STRICT CACHE CONTROL ──────────────────────────────────────
 app.use((req, res, next) => {
   res.header('Cache-Control', 'no-cache, no-store, must-revalidate');
   res.header('Pragma', 'no-cache');
@@ -24,7 +24,7 @@ app.use((req, res, next) => {
   next();
 });
 
-// ─── MongoDB ──────────────────────────────────────────────────
+// ─── MongoDB connection ──────────────────────────────────────
 const MONGODB_URI = 'mongodb+srv://elitecinezo_db_user:g485P3ELoeP8REkD@cluster0.tsw1i0i.mongodb.net/subscription_hub?retryWrites=true&w=majority';
 const DB_NAME = 'subscription_hub';
 
@@ -35,7 +35,7 @@ let usersCollection;
 let dealsCollection;
 let promotionsCollection;
 
-// ─── SUBSCRIPTION COSTS ──────────────────────────────────────
+// ─── SUBSCRIPTION COSTS (Monthly) ──────────────────────────
 const SUBSCRIPTION_COSTS = {
   netflix: 1250,
   amazon: 250,
@@ -64,7 +64,7 @@ async function connectDB() {
   console.log('✅ Connected to MongoDB');
 }
 
-// ─── Seed Data (safe – does NOT overwrite accounts) ──────────
+// ─── Seed / Upsert subscriptions ────────────────────────────
 async function seedData() {
   try {
     const subscriptionDefs = [
@@ -73,10 +73,6 @@ async function seedData() {
         name: 'Netflix',
         type: 'netflix',
         costPerMonth: 1250,
-        sellingPrice: 0,
-        description: 'Watch unlimited movies & TV shows',
-        importantNote: 'Shared account – 5 screens available',
-        logo: '',
         accounts: [
           {
             id: 'a1',
@@ -109,10 +105,6 @@ async function seedData() {
         name: 'Amazon Prime',
         type: 'amazon',
         costPerMonth: 250,
-        sellingPrice: 0,
-        description: 'Prime Video, Music & Free Delivery',
-        importantNote: '6 slots available',
-        logo: '',
         accounts: [
           {
             id: 'a3',
@@ -132,10 +124,6 @@ async function seedData() {
         name: 'YouTube Premium',
         type: 'youtube',
         costPerMonth: 150,
-        sellingPrice: 0,
-        description: 'Ad-free & offline',
-        importantNote: '',
-        logo: '',
         accounts: []
       },
       {
@@ -143,10 +131,6 @@ async function seedData() {
         name: 'Spotify Premium',
         type: 'spotify',
         costPerMonth: 0,
-        sellingPrice: 0,
-        description: 'Music & podcasts',
-        importantNote: '',
-        logo: '',
         accounts: [
           {
             id: 'a4',
@@ -163,10 +147,6 @@ async function seedData() {
         name: 'ChatGPT Plus',
         type: 'chatgpt',
         costPerMonth: 1000,
-        sellingPrice: 0,
-        description: 'GPT-4 access',
-        importantNote: '',
-        logo: '',
         accounts: [
           {
             id: 'a5',
@@ -183,10 +163,6 @@ async function seedData() {
         name: 'Canva Pro',
         type: 'canva',
         costPerMonth: 20.83,
-        sellingPrice: 0,
-        description: 'Design & creative',
-        importantNote: 'Yearly plan only',
-        logo: '',
         accounts: [
           {
             id: 'a6',
@@ -203,10 +179,6 @@ async function seedData() {
         name: 'Capcut Pro',
         type: 'capcut',
         costPerMonth: 200,
-        sellingPrice: 0,
-        description: 'Video editing',
-        importantNote: '',
-        logo: '',
         accounts: []
       },
       {
@@ -214,10 +186,6 @@ async function seedData() {
         name: 'HBO Max',
         type: 'hbomax',
         costPerMonth: 300,
-        sellingPrice: 0,
-        description: 'Movies & series',
-        importantNote: '',
-        logo: '',
         accounts: []
       },
       {
@@ -225,10 +193,6 @@ async function seedData() {
         name: 'Crunchyroll',
         type: 'crunchyroll',
         costPerMonth: 200,
-        sellingPrice: 0,
-        description: 'Anime & manga',
-        importantNote: '',
-        logo: '',
         accounts: []
       },
       {
@@ -236,41 +200,23 @@ async function seedData() {
         name: 'Chaupal',
         type: 'chaupal',
         costPerMonth: 150,
-        sellingPrice: 0,
-        description: 'Regional entertainment',
-        importantNote: '',
-        logo: '',
         accounts: []
       }
     ];
 
-    // Insert or update – but NEVER overwrite 'accounts'
     for (const def of subscriptionDefs) {
       const existing = await subscriptionsCollection.findOne({ id: def.id });
       if (!existing) {
         await subscriptionsCollection.insertOne(def);
         console.log(`✅ Inserted subscription: ${def.name}`);
       } else {
-        // Only update non‑destructive fields
-        const updateFields = {
-          name: def.name,
-          type: def.type,
-          costPerMonth: def.costPerMonth,
-          sellingPrice: def.sellingPrice,
-          description: def.description,
-          importantNote: def.importantNote,
-          logo: def.logo
-        };
-        // Remove undefined fields
-        Object.keys(updateFields).forEach(key => updateFields[key] === undefined && delete updateFields[key]);
         await subscriptionsCollection.updateOne(
           { id: def.id },
-          { $set: updateFields }
+          { $set: { costPerMonth: def.costPerMonth, accounts: def.accounts } }
         );
       }
     }
 
-    // Deals seeding
     const dealCount = await dealsCollection.countDocuments();
     if (dealCount === 0) {
       const defaultDeals = [
@@ -309,7 +255,6 @@ async function seedData() {
       console.log('✅ Default deals seeded');
     }
 
-    // Admin user
     const userCount = await usersCollection.countDocuments();
     if (userCount === 0) {
       await usersCollection.insertOne({
@@ -350,7 +295,7 @@ app.get('/api/subscriptions/:id', async (req, res) => {
 
 app.post('/api/subscriptions', async (req, res) => {
   try {
-    const { id, name, type, accounts, costPerMonth, sellingPrice, slots, askFor, description, importantNote, logo } = req.body;
+    const { id, name, type, accounts, costPerMonth, sellingPrice, slots, askFor, description } = req.body;
     const existing = await subscriptionsCollection.findOne({ id });
     if (existing) {
       return res.status(400).json({ error: 'Subscription id already exists' });
@@ -365,8 +310,6 @@ app.post('/api/subscriptions', async (req, res) => {
       slots: slots || 0,
       askFor: askFor || ['name', 'number'],
       description: description || '',
-      importantNote: importantNote || '',
-      logo: logo || '',
       createdAt: new Date()
     };
     await subscriptionsCollection.insertOne(newSub);
@@ -378,18 +321,16 @@ app.post('/api/subscriptions', async (req, res) => {
 
 app.put('/api/subscriptions/:id', async (req, res) => {
   try {
-    const { name, type, accounts, costPerMonth, sellingPrice, slots, askFor, description, importantNote, logo } = req.body;
+    const { name, type, accounts, costPerMonth, sellingPrice, slots, askFor, description } = req.body;
     const update = {};
     if (name !== undefined) update.name = name;
     if (type !== undefined) update.type = type;
-    if (accounts !== undefined) update.accounts = accounts; // careful: updating accounts is allowed here
+    if (accounts !== undefined) update.accounts = accounts;
     if (costPerMonth !== undefined) update.costPerMonth = costPerMonth;
     if (sellingPrice !== undefined) update.sellingPrice = sellingPrice;
     if (slots !== undefined) update.slots = slots;
     if (askFor !== undefined) update.askFor = askFor;
     if (description !== undefined) update.description = description;
-    if (importantNote !== undefined) update.importantNote = importantNote;
-    if (logo !== undefined) update.logo = logo;
     const result = await subscriptionsCollection.updateOne(
       { id: req.params.id },
       { $set: update }
@@ -416,7 +357,7 @@ app.delete('/api/subscriptions/:id', async (req, res) => {
   }
 });
 
-// ---- Users (unchanged) ----
+// ---- Users ----
 app.post('/api/users/signup', async (req, res) => {
   try {
     const { username, password, whatsapp } = req.body;
@@ -536,7 +477,7 @@ app.post('/api/users/:username/deductCredits', async (req, res) => {
   }
 });
 
-// ---- Deals (unchanged) ----
+// ---- Deals ----
 app.get('/api/deals', async (req, res) => {
   try {
     const deals = await dealsCollection.find({}).toArray();
@@ -618,7 +559,7 @@ app.delete('/api/deals/:id', async (req, res) => {
   }
 });
 
-// ---- OTP (unchanged) ----
+// ---- OTP ----
 app.post('/api/otp/generate', async (req, res) => {
   try {
     const { userIdentifier, description } = req.body;
@@ -676,7 +617,7 @@ app.get('/api/otp/list', async (req, res) => {
   }
 });
 
-// ---- Promotions (unchanged) ----
+// ---- Promotions ----
 app.get('/api/promotions', async (req, res) => {
   try {
     const promos = await promotionsCollection.find({}).toArray();
@@ -743,7 +684,7 @@ app.delete('/api/promotions/:id', async (req, res) => {
   }
 });
 
-// ---- Income (unchanged) ----
+// ---- INCOME CALCULATION ----
 app.get('/api/income', async (req, res) => {
   try {
     const { period } = req.query;
@@ -812,6 +753,7 @@ app.get('/api/income', async (req, res) => {
       });
     });
 
+    // Calculate last 30/60/90 days from same data
     const now30 = new Date(now); now30.setDate(now30.getDate() - 30);
     const now60 = new Date(now); now60.setDate(now60.getDate() - 60);
     const now90 = new Date(now); now90.setDate(now90.getDate() - 90);
@@ -848,6 +790,7 @@ app.get('/api/health', (req, res) => {
 });
 
 // ─── Start server ──────────────────────────────────────────
+
 const PORT = process.env.PORT || 5000;
 
 connectDB()
