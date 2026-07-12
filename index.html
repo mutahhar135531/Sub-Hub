@@ -24,37 +24,23 @@
       scroll-behavior: smooth;
       overflow-x: hidden;
     }
-    ::-webkit-scrollbar {
-      width: 6px;
-    }
-    ::-webkit-scrollbar-track {
-      background: #1a1a1a;
-    }
-    ::-webkit-scrollbar-thumb {
-      background: #ef4444;
-      border-radius: 8px;
-    }
-    .neon-glow {
-      box-shadow: 0 0 20px rgba(239, 68, 68, 0.25), 0 0 60px rgba(239, 68, 68, 0.08);
-    }
-    .neon-border {
-      border: 1px solid rgba(239, 68, 68, 0.35);
-      box-shadow: 0 0 15px rgba(239, 68, 68, 0.10);
-    }
-    .neon-text {
-      text-shadow: 0 0 12px rgba(239, 68, 68, 0.5), 0 0 30px rgba(239, 68, 68, 0.15);
-    }
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: #1a1a1a; }
+    ::-webkit-scrollbar-thumb { background: #ef4444; border-radius: 8px; }
+    .neon-glow { box-shadow: 0 0 20px rgba(239,68,68,0.25), 0 0 60px rgba(239,68,68,0.08); }
+    .neon-border { border: 1px solid rgba(239,68,68,0.35); box-shadow: 0 0 15px rgba(239,68,68,0.10); }
+    .neon-text { text-shadow: 0 0 12px rgba(239,68,68,0.5), 0 0 30px rgba(239,68,68,0.15); }
     .neon-card {
-      background: rgba(20, 20, 20, 0.92);
+      background: rgba(20,20,20,0.92);
       backdrop-filter: blur(12px);
-      border: 1px solid rgba(239, 68, 68, 0.20);
+      border: 1px solid rgba(239,68,68,0.20);
       border-radius: 20px;
-      box-shadow: 0 8px 40px rgba(0, 0, 0, 0.6), 0 0 40px rgba(239, 68, 68, 0.05);
+      box-shadow: 0 8px 40px rgba(0,0,0,0.6), 0 0 40px rgba(239,68,68,0.05);
       transition: all .3s ease;
     }
     .neon-card:hover {
-      border-color: rgba(239, 68, 68, 0.50);
-      box-shadow: 0 8px 50px rgba(239, 68, 68, 0.12), 0 0 60px rgba(239, 68, 68, 0.05);
+      border-color: rgba(239,68,68,0.50);
+      box-shadow: 0 8px 50px rgba(239,68,68,0.12), 0 0 60px rgba(239,68,68,0.05);
       transform: translateY(-2px);
     }
     .btn-neon {
@@ -66,88 +52,72 @@
       font-weight: 600;
       letter-spacing: .3px;
       transition: all .3s ease;
-      box-shadow: 0 0 25px rgba(239, 68, 68, 0.25);
+      box-shadow: 0 0 25px rgba(239,68,68,0.25);
       cursor: pointer;
     }
     .btn-neon:hover {
       transform: scale(1.03);
-      box-shadow: 0 0 45px rgba(239, 68, 68, 0.40);
+      box-shadow: 0 0 45px rgba(239,68,68,0.40);
       background: linear-gradient(135deg, #f87171, #ef4444);
     }
     .btn-neon-outline {
       background: transparent;
       color: #fca5a5;
-      border: 1.5px solid rgba(239, 68, 68, 0.40);
+      border: 1.5px solid rgba(239,68,68,0.40);
       padding: 10px 28px;
       border-radius: 40px;
       font-weight: 600;
       transition: all .3s ease;
       cursor: pointer;
     }
-    .btn-neon-outline:hover {
-      background: rgba(239, 68, 68, 0.12);
-      border-color: #ef4444;
-      box-shadow: 0 0 30px rgba(239, 68, 68, 0.12);
-    }
+    .btn-neon-outline:hover { background: rgba(239,68,68,0.12); border-color: #ef4444; box-shadow: 0 0 30px rgba(239,68,68,0.12); }
     .btn-danger {
-      background: rgba(239, 68, 68, 0.15);
+      background: rgba(239,68,68,0.15);
       color: #f87171;
-      border: 1px solid rgba(239, 68, 68, 0.25);
+      border: 1px solid rgba(239,68,68,0.25);
       padding: 6px 16px;
       border-radius: 30px;
       font-size: .8rem;
       transition: all .3s ease;
       cursor: pointer;
     }
-    .btn-danger:hover {
-      background: rgba(239, 68, 68, 0.25);
-      border-color: #f87171;
-    }
+    .btn-danger:hover { background: rgba(239,68,68,0.25); border-color: #f87171; }
     .btn-warning {
-      background: rgba(251, 191, 36, 0.15);
+      background: rgba(251,191,36,0.15);
       color: #fbbf24;
-      border: 1px solid rgba(251, 191, 36, 0.25);
+      border: 1px solid rgba(251,191,36,0.25);
       padding: 6px 16px;
       border-radius: 30px;
       font-size: .8rem;
       transition: all .3s ease;
       cursor: pointer;
     }
-    .btn-warning:hover {
-      background: rgba(251, 191, 36, 0.25);
-      border-color: #fbbf24;
-    }
+    .btn-warning:hover { background: rgba(251,191,36,0.25); border-color: #fbbf24; }
     .btn-red {
-      background: rgba(239, 68, 68, 0.15);
+      background: rgba(239,68,68,0.15);
       color: #fca5a5;
-      border: 1px solid rgba(239, 68, 68, 0.25);
+      border: 1px solid rgba(239,68,68,0.25);
       padding: 4px 12px;
       border-radius: 20px;
       font-size: .75rem;
       transition: all .3s ease;
       cursor: pointer;
     }
-    .btn-red:hover {
-      background: rgba(239, 68, 68, 0.25);
-      border-color: #ef4444;
-    }
+    .btn-red:hover { background: rgba(239,68,68,0.25); border-color: #ef4444; }
     .btn-success {
-      background: rgba(52, 211, 153, 0.15);
+      background: rgba(52,211,153,0.15);
       color: #34d399;
-      border: 1px solid rgba(52, 211, 153, 0.25);
+      border: 1px solid rgba(52,211,153,0.25);
       padding: 6px 16px;
       border-radius: 30px;
       font-size: .8rem;
       transition: all .3s ease;
       cursor: pointer;
     }
-    .btn-success:hover {
-      background: rgba(52, 211, 153, 0.25);
-      border-color: #34d399;
-    }
+    .btn-success:hover { background: rgba(52,211,153,0.25); border-color: #34d399; }
     .input-neon {
-      background: rgba(255, 255, 255, 0.04);
-      border: 1px solid rgba(239, 68, 68, 0.25);
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(239,68,68,0.25);
       border-radius: 14px;
       padding: 12px 18px;
       color: #e0e0e0;
@@ -156,14 +126,8 @@
       outline: none;
       font-size: .95rem;
     }
-    .input-neon:focus {
-      border-color: #ef4444;
-      box-shadow: 0 0 30px rgba(239, 68, 68, 0.08), inset 0 0 30px rgba(239, 68, 68, 0.03);
-      background: rgba(255, 255, 255, 0.06);
-    }
-    .input-neon::placeholder {
-      color: rgba(255, 255, 255, 0.25);
-    }
+    .input-neon:focus { border-color: #ef4444; box-shadow: 0 0 30px rgba(239,68,68,0.08), inset 0 0 30px rgba(239,68,68,0.03); background: rgba(255,255,255,0.06); }
+    .input-neon::placeholder { color: rgba(255,255,255,0.25); }
     select.input-neon {
       appearance: none;
       background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23ef4444' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
@@ -172,77 +136,54 @@
       padding-right: 42px;
       cursor: pointer;
     }
-    select.input-neon option {
-      background: #1a1a1a;
-      color: #e0e0e0;
-    }
+    select.input-neon option { background: #1a1a1a; color: #e0e0e0; }
     .navbar-glass {
-      background: rgba(10, 10, 10, 0.92);
+      background: rgba(10,10,10,0.92);
       backdrop-filter: blur(18px);
-      border-bottom: 1px solid rgba(239, 68, 68, 0.12);
+      border-bottom: 1px solid rgba(239,68,68,0.12);
     }
     .nav-link {
-      color: rgba(255, 255, 255, 0.65);
+      color: rgba(255,255,255,0.65);
       transition: all .25s ease;
       font-weight: 500;
       font-size: .92rem;
       padding: 6px 14px;
       border-radius: 30px;
     }
-    .nav-link:hover {
-      color: #fca5a5;
-      background: rgba(239, 68, 68, 0.08);
-    }
-    .nav-link.active {
-      color: #fca5a5;
-      background: rgba(239, 68, 68, 0.12);
-    }
+    .nav-link:hover { color: #fca5a5; background: rgba(239,68,68,0.08); }
+    .nav-link.active { color: #fca5a5; background: rgba(239,68,68,0.12); }
     .mobile-menu {
-      background: rgba(10, 10, 10, 0.98);
+      background: rgba(10,10,10,0.98);
       backdrop-filter: blur(20px);
-      border-bottom: 1px solid rgba(239, 68, 68, 0.12);
+      border-bottom: 1px solid rgba(239,68,68,0.12);
     }
     .sub-card {
       cursor: pointer;
       transition: all .3s ease;
-      background: rgba(20, 20, 20, 0.85);
+      background: rgba(20,20,20,0.85);
       backdrop-filter: blur(8px);
-      border: 1px solid rgba(239, 68, 68, 0.12);
+      border: 1px solid rgba(239,68,68,0.12);
       border-radius: 20px;
       padding: 24px 20px;
       text-align: center;
     }
-    .sub-card:hover {
-      border-color: rgba(239, 68, 68, 0.40);
-      transform: translateY(-6px);
-      box-shadow: 0 12px 50px rgba(239, 68, 68, 0.08);
-    }
-    .sub-card.selected {
-      border-color: #ef4444;
-      box-shadow: 0 0 50px rgba(239, 68, 68, 0.12), inset 0 0 30px rgba(239, 68, 68, 0.03);
-    }
-    .sub-icon {
-      font-size: 2.8rem;
-      margin-bottom: 10px;
-      display: block;
-    }
+    .sub-card:hover { border-color: rgba(239,68,68,0.40); transform: translateY(-6px); box-shadow: 0 12px 50px rgba(239,68,68,0.08); }
+    .sub-card.selected { border-color: #ef4444; box-shadow: 0 0 50px rgba(239,68,68,0.12), inset 0 0 30px rgba(239,68,68,0.03); }
+    .sub-icon { font-size: 2.8rem; margin-bottom: 10px; display: block; }
     .otp-input {
       width: 52px;
       height: 60px;
       text-align: center;
       font-size: 1.6rem;
       font-weight: 600;
-      background: rgba(255, 255, 255, 0.04);
-      border: 2px solid rgba(239, 68, 68, 0.25);
+      background: rgba(255,255,255,0.04);
+      border: 2px solid rgba(239,68,68,0.25);
       border-radius: 14px;
       color: #e0e0e0;
       transition: all .3s ease;
       outline: none;
     }
-    .otp-input:focus {
-      border-color: #ef4444;
-      box-shadow: 0 0 30px rgba(239, 68, 68, 0.10);
-    }
+    .otp-input:focus { border-color: #ef4444; box-shadow: 0 0 30px rgba(239,68,68,0.10); }
     .toast-container {
       position: fixed;
       bottom: 30px;
@@ -255,58 +196,36 @@
       width: 100%;
     }
     .toast {
-      background: rgba(20, 20, 20, 0.95);
+      background: rgba(20,20,20,0.95);
       backdrop-filter: blur(16px);
-      border: 1px solid rgba(239, 68, 68, 0.25);
+      border: 1px solid rgba(239,68,68,0.25);
       border-radius: 16px;
       padding: 16px 22px;
       color: #e0e0e0;
-      box-shadow: 0 8px 40px rgba(0, 0, 0, 0.5);
+      box-shadow: 0 8px 40px rgba(0,0,0,0.5);
       animation: slideIn .4s ease;
       display: flex;
       align-items: center;
       gap: 12px;
     }
-    .toast.success {
-      border-left: 4px solid #34d399;
-    }
-    .toast.error {
-      border-left: 4px solid #f87171;
-    }
-    .toast.warning {
-      border-left: 4px solid #fbbf24;
-    }
+    .toast.success { border-left: 4px solid #34d399; }
+    .toast.error { border-left: 4px solid #f87171; }
+    .toast.warning { border-left: 4px solid #fbbf24; }
     @keyframes slideIn {
-      from {
-        opacity: 0;
-        transform: translateX(60px);
-      }
-      to {
-        opacity: 1;
-        transform: translateX(0);
-      }
+      from { opacity: 0; transform: translateX(60px); }
+      to { opacity: 1; transform: translateX(0); }
     }
-    .admin-table {
-      width: 100%;
-      border-collapse: collapse;
-      font-size: .9rem;
-    }
+    .admin-table { width: 100%; border-collapse: collapse; font-size: .9rem; }
     .admin-table th {
       text-align: left;
       padding: 14px 16px;
       color: #fca5a5;
       font-weight: 600;
-      border-bottom: 1px solid rgba(239, 68, 68, 0.15);
-      background: rgba(239, 68, 68, 0.04);
+      border-bottom: 1px solid rgba(239,68,68,0.15);
+      background: rgba(239,68,68,0.04);
     }
-    .admin-table td {
-      padding: 12px 16px;
-      border-bottom: 1px solid rgba(239, 68, 68, 0.06);
-      color: #d4d4d0;
-    }
-    .admin-table tr:hover td {
-      background: rgba(239, 68, 68, 0.04);
-    }
+    .admin-table td { padding: 12px 16px; border-bottom: 1px solid rgba(239,68,68,0.06); color: #d4d4d0; }
+    .admin-table tr:hover td { background: rgba(239,68,68,0.04); }
     .badge {
       display: inline-block;
       padding: 4px 14px;
@@ -315,30 +234,15 @@
       font-weight: 600;
       letter-spacing: .3px;
     }
-    .badge-green {
-      background: rgba(52, 211, 153, 0.15);
-      color: #34d399;
-    }
-    .badge-red {
-      background: rgba(248, 113, 113, 0.15);
-      color: #f87171;
-    }
-    .badge-yellow {
-      background: rgba(251, 191, 36, 0.15);
-      color: #fbbf24;
-    }
-    .badge-red-light {
-      background: rgba(239, 68, 68, 0.15);
-      color: #fca5a5;
-    }
-    .badge-gray {
-      background: rgba(255, 255, 255, 0.05);
-      color: #9ca3af;
-    }
+    .badge-green { background: rgba(52,211,153,0.15); color: #34d399; }
+    .badge-red { background: rgba(248,113,113,0.15); color: #f87171; }
+    .badge-yellow { background: rgba(251,191,36,0.15); color: #fbbf24; }
+    .badge-red-light { background: rgba(239,68,68,0.15); color: #fca5a5; }
+    .badge-gray { background: rgba(255,255,255,0.05); color: #9ca3af; }
     .deal-card {
-      background: rgba(20, 20, 20, 0.90);
+      background: rgba(20,20,20,0.90);
       backdrop-filter: blur(12px);
-      border: 2px solid rgba(239, 68, 68, 0.25);
+      border: 2px solid rgba(239,68,68,0.25);
       border-radius: 16px;
       padding: 14px 14px;
       transition: all .3s ease;
@@ -349,11 +253,7 @@
       height: 100%;
       min-height: 160px;
     }
-    .deal-card:hover {
-      border-color: #ef4444;
-      box-shadow: 0 0 30px rgba(239, 68, 68, 0.12);
-      transform: translateY(-2px);
-    }
+    .deal-card:hover { border-color: #ef4444; box-shadow: 0 0 30px rgba(239,68,68,0.12); transform: translateY(-2px); }
     .deal-card .discount-badge {
       position: absolute;
       top: 8px;
@@ -364,32 +264,15 @@
       padding: 2px 10px;
       border-radius: 40px;
       font-size: .6rem;
-      box-shadow: 0 0 16px rgba(239, 68, 68, 0.3);
+      box-shadow: 0 0 16px rgba(239,68,68,0.3);
     }
-    .deal-price-original {
-      color: rgba(255, 255, 255, 0.3);
-      font-size: .8rem;
-      text-decoration: line-through;
-    }
-    .deal-price-discount {
-      color: #34d399;
-      font-size: 1.4rem;
-      font-weight: 800;
-      text-shadow: 0 0 20px rgba(52, 211, 153, 0.12);
-    }
-    .deal-price-currency {
-      font-size: .8rem;
-      font-weight: 600;
-    }
-    .deal-sub-badges {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 3px;
-      margin-top: 4px;
-    }
+    .deal-price-original { color: rgba(255,255,255,0.3); font-size: .8rem; text-decoration: line-through; }
+    .deal-price-discount { color: #34d399; font-size: 1.4rem; font-weight: 800; text-shadow: 0 0 20px rgba(52,211,153,0.12); }
+    .deal-price-currency { font-size: .8rem; font-weight: 600; }
+    .deal-sub-badges { display: flex; flex-wrap: wrap; gap: 3px; margin-top: 4px; }
     .deal-sub-badge {
-      background: rgba(239, 68, 68, 0.12);
-      border: 1px solid rgba(239, 68, 68, 0.15);
+      background: rgba(239,68,68,0.12);
+      border: 1px solid rgba(239,68,68,0.15);
       padding: 1px 6px;
       border-radius: 12px;
       font-size: .55rem;
@@ -398,17 +281,9 @@
       align-items: center;
       gap: 3px;
     }
-    .deal-sub-badge i {
-      font-size: .5rem;
-    }
-    .deal-card .deal-title {
-      font-size: .9rem;
-      font-weight: 700;
-    }
-    .deal-card .deal-desc {
-      font-size: .65rem;
-      color: rgba(255, 255, 255, 0.4);
-    }
+    .deal-sub-badge i { font-size: .5rem; }
+    .deal-card .deal-title { font-size: .9rem; font-weight: 700; }
+    .deal-card .deal-desc { font-size: .65rem; color: rgba(255,255,255,0.4); }
     .deal-card .btn-neon-sm {
       font-size: .75rem;
       padding: 6px 12px;
@@ -420,10 +295,7 @@
       transition: all .3s ease;
       cursor: pointer;
     }
-    .deal-card .btn-neon-sm:hover {
-      transform: scale(1.02);
-      box-shadow: 0 0 20px rgba(239, 68, 68, 0.3);
-    }
+    .deal-card .btn-neon-sm:hover { transform: scale(1.02); box-shadow: 0 0 20px rgba(239,68,68,0.3); }
     .brand-z {
       display: inline-flex;
       align-items: center;
@@ -435,31 +307,23 @@
       background: linear-gradient(135deg, #ef4444, #f97316);
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
-      text-shadow: 0 0 20px rgba(239, 68, 68, 0.5), 0 0 60px rgba(239, 68, 68, 0.2);
+      text-shadow: 0 0 20px rgba(239,68,68,0.5), 0 0 60px rgba(239,68,68,0.2);
       transform: rotate(-4deg) scale(1.1);
       letter-spacing: -2px;
       line-height: 1;
-      filter: drop-shadow(0 0 10px rgba(239, 68, 68, 0.3));
+      filter: drop-shadow(0 0 10px rgba(239,68,68,0.3));
       transition: transform 0.3s ease;
     }
-    .brand-z:hover {
-      transform: rotate(-2deg) scale(1.2);
-    }
-    .brand-z-sm {
-      font-size: 1.8rem;
-      margin-right: 4px;
-    }
-    .brand-z-lg {
-      font-size: 3rem;
-      margin-right: 8px;
-    }
+    .brand-z:hover { transform: rotate(-2deg) scale(1.2); }
+    .brand-z-sm { font-size: 1.8rem; margin-right: 4px; }
+    .brand-z-lg { font-size: 3rem; margin-right: 8px; }
     .netflix-logo {
       display: inline-block;
       font-family: 'Arial', sans-serif;
       font-weight: 900;
       font-size: 1.1rem;
       color: #e50914;
-      text-shadow: 0 0 10px rgba(229, 9, 20, 0.4);
+      text-shadow: 0 0 10px rgba(229,9,20,0.4);
       letter-spacing: -1px;
     }
     .netflix-logo svg {
@@ -468,7 +332,7 @@
       width: 1.4rem;
       height: 1.4rem;
       margin-right: 4px;
-      filter: drop-shadow(0 0 6px rgba(229, 9, 20, 0.5));
+      filter: drop-shadow(0 0 6px rgba(229,9,20,0.5));
     }
     .carousel-container {
       position: relative;
@@ -485,9 +349,7 @@
       width: max-content;
       transition: none;
     }
-    .carousel-slide {
-      flex: 0 0 auto;
-    }
+    .carousel-slide { flex: 0 0 auto; }
     .carousel-dots {
       display: flex;
       justify-content: center;
@@ -498,28 +360,26 @@
       width: 8px;
       height: 8px;
       border-radius: 50%;
-      background: rgba(255, 255, 255, 0.12);
+      background: rgba(255,255,255,0.12);
       border: none;
       cursor: pointer;
       transition: all .3s ease;
     }
     .carousel-dot.active {
       background: #ef4444;
-      box-shadow: 0 0 16px rgba(239, 68, 68, 0.4);
+      box-shadow: 0 0 16px rgba(239,68,68,0.4);
       width: 24px;
       border-radius: 20px;
     }
-    .carousel-dot:hover {
-      background: rgba(239, 68, 68, 0.5);
-    }
+    .carousel-dot:hover { background: rgba(239,68,68,0.5); }
     .carousel-btn {
       position: absolute;
       top: 50%;
       transform: translateY(-50%);
       z-index: 10;
-      background: rgba(10, 10, 10, 0.8);
+      background: rgba(10,10,10,0.8);
       backdrop-filter: blur(6px);
-      border: 1px solid rgba(239, 68, 68, 0.2);
+      border: 1px solid rgba(239,68,68,0.2);
       color: white;
       width: 36px;
       height: 36px;
@@ -531,29 +391,11 @@
       justify-content: center;
       font-size: .9rem;
     }
-    .carousel-btn:hover {
-      background: rgba(239, 68, 68, 0.25);
-      border-color: #ef4444;
-      box-shadow: 0 0 20px rgba(239, 68, 68, 0.15);
-    }
-    .carousel-btn.prev {
-      left: 4px;
-    }
-    .carousel-btn.next {
-      right: 4px;
-    }
-    @media (max-width:640px) {
-      .carousel-btn {
-        display: none;
-      }
-      .carousel-btn.prev,
-      .carousel-btn.next {
-        display: none;
-      }
-    }
-    .carousel-container.paused .carousel-track {
-      animation-play-state: paused;
-    }
+    .carousel-btn:hover { background: rgba(239,68,68,0.25); border-color: #ef4444; box-shadow: 0 0 20px rgba(239,68,68,0.15); }
+    .carousel-btn.prev { left: 4px; }
+    .carousel-btn.next { right: 4px; }
+    @media (max-width:640px) { .carousel-btn { display: none; } .carousel-btn.prev, .carousel-btn.next { display: none; } }
+    .carousel-container.paused .carousel-track { animation-play-state: paused; }
 
     .whatsapp-float {
       position: fixed;
@@ -569,19 +411,16 @@
       align-items: center;
       justify-content: center;
       font-size: 2.4rem;
-      box-shadow: 0 4px 20px rgba(37, 211, 102, 0.4);
+      box-shadow: 0 4px 20px rgba(37,211,102,0.4);
       transition: transform 0.3s ease, box-shadow 0.3s ease;
       text-decoration: none;
       animation: pulse 2s infinite;
     }
-    .whatsapp-float:hover {
-      transform: scale(1.1);
-      box-shadow: 0 6px 30px rgba(37, 211, 102, 0.6);
-    }
+    .whatsapp-float:hover { transform: scale(1.1); box-shadow: 0 6px 30px rgba(37,211,102,0.6); }
     @keyframes pulse {
-      0% { box-shadow: 0 0 0 0 rgba(37, 211, 102, 0.5); }
-      70% { box-shadow: 0 0 0 15px rgba(37, 211, 102, 0); }
-      100% { box-shadow: 0 0 0 0 rgba(37, 211, 102, 0); }
+      0% { box-shadow: 0 0 0 0 rgba(37,211,102,0.5); }
+      70% { box-shadow: 0 0 0 15px rgba(37,211,102,0); }
+      100% { box-shadow: 0 0 0 0 rgba(37,211,102,0); }
     }
 
     .hero-bg {
@@ -600,9 +439,9 @@
       position: absolute;
       inset: 0;
       background:
-        radial-gradient(ellipse at 20% 50%, rgba(239, 68, 68, 0.08) 0%, transparent 60%),
-        radial-gradient(ellipse at 80% 50%, rgba(239, 68, 68, 0.05) 0%, transparent 60%),
-        radial-gradient(ellipse at 50% 100%, rgba(239, 68, 68, 0.03) 0%, transparent 50%);
+        radial-gradient(ellipse at 20% 50%, rgba(239,68,68,0.08) 0%, transparent 60%),
+        radial-gradient(ellipse at 80% 50%, rgba(239,68,68,0.05) 0%, transparent 60%),
+        radial-gradient(ellipse at 50% 100%, rgba(239,68,68,0.03) 0%, transparent 50%);
       pointer-events: none;
     }
     .hero-bg .glow-orb {
@@ -611,25 +450,9 @@
       filter: blur(80px);
       pointer-events: none;
     }
-    .hero-bg .glow-orb.orb1 {
-      width: 400px;
-      height: 400px;
-      top: -100px;
-      right: -100px;
-      background: rgba(239, 68, 68, 0.10);
-    }
-    .hero-bg .glow-orb.orb2 {
-      width: 300px;
-      height: 300px;
-      bottom: -50px;
-      left: -50px;
-      background: rgba(239, 68, 68, 0.07);
-    }
-    @media (max-width: 768px) {
-      .hero-bg {
-        background-attachment: scroll;
-      }
-    }
+    .hero-bg .glow-orb.orb1 { width: 400px; height: 400px; top: -100px; right: -100px; background: rgba(239,68,68,0.10); }
+    .hero-bg .glow-orb.orb2 { width: 300px; height: 300px; bottom: -50px; left: -50px; background: rgba(239,68,68,0.07); }
+    @media (max-width: 768px) { .hero-bg { background-attachment: scroll; } }
 
     .trending-section {
       position: relative;
@@ -641,8 +464,7 @@
       content: '';
       position: absolute;
       inset: 0;
-      background:
-        radial-gradient(ellipse at 50% 0%, rgba(239, 68, 68, 0.06) 0%, transparent 60%);
+      background: radial-gradient(ellipse at 50% 0%, rgba(239,68,68,0.06) 0%, transparent 60%);
       pointer-events: none;
     }
     .trending-bg-text {
@@ -660,7 +482,7 @@
     .trending-bg-text h2 {
       font-size: clamp(4rem, 15vw, 12rem);
       font-weight: 900;
-      color: rgba(255, 255, 255, 0.02);
+      color: rgba(255,255,255,0.02);
       letter-spacing: 4px;
       text-transform: uppercase;
       white-space: nowrap;
@@ -669,12 +491,12 @@
     }
 
     .sub-trend-card {
-      background: rgba(20, 20, 20, 0.85);
+      background: rgba(20,20,20,0.85);
       backdrop-filter: blur(12px);
-      border: 1px solid rgba(239, 68, 68, 0.12);
+      border: 1px solid rgba(239,68,68,0.12);
       border-radius: 20px;
       padding: 20px 16px;
-      transition: all .4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+      transition: all .4s cubic-bezier(0.25,0.46,0.45,0.94);
       position: relative;
       overflow: hidden;
       height: 100%;
@@ -688,7 +510,7 @@
       content: '';
       position: absolute;
       inset: 0;
-      background: linear-gradient(135deg, rgba(239, 68, 68, 0.03), transparent);
+      background: linear-gradient(135deg, rgba(239,68,68,0.03), transparent);
       pointer-events: none;
     }
     .sub-trend-card::after {
@@ -698,56 +520,23 @@
       left: -50%;
       width: 200%;
       height: 200%;
-      background: radial-gradient(circle at 30% 20%, rgba(239, 68, 68, 0.03), transparent 60%);
+      background: radial-gradient(circle at 30% 20%, rgba(239,68,68,0.03), transparent 60%);
       pointer-events: none;
       transition: all .6s ease;
     }
-    .sub-trend-card:hover {
-      border-color: rgba(239, 68, 68, 0.40);
-      transform: translateY(-6px);
-      box-shadow: 0 12px 50px rgba(239, 68, 68, 0.08);
-    }
-    .sub-trend-card:hover::after {
-      transform: scale(1.1);
-    }
-    .sub-trend-card .card-icon {
-      font-size: 2.5rem;
-      margin-bottom: 8px;
-      position: relative;
-      z-index: 1;
-    }
-    .sub-trend-card .card-icon svg {
-      width: 2.8rem;
-      height: 2.8rem;
-    }
-    .sub-trend-card .card-name {
-      font-size: 1rem;
-      font-weight: 700;
-      color: #fff;
-      margin-bottom: 2px;
-      position: relative;
-      z-index: 1;
-    }
-    .sub-trend-card .card-desc {
-      font-size: .65rem;
-      color: rgba(255, 255, 255, 0.35);
-      margin-bottom: 6px;
-      position: relative;
-      z-index: 1;
-    }
-    .sub-trend-card .card-price {
-      font-size: .8rem;
-      font-weight: 600;
-      color: #34d399;
-      position: relative;
-      z-index: 1;
-    }
+    .sub-trend-card:hover { border-color: rgba(239,68,68,0.40); transform: translateY(-6px); box-shadow: 0 12px 50px rgba(239,68,68,0.08); }
+    .sub-trend-card:hover::after { transform: scale(1.1); }
+    .sub-trend-card .card-icon { font-size: 2.5rem; margin-bottom: 8px; position: relative; z-index: 1; }
+    .sub-trend-card .card-icon svg { width: 2.8rem; height: 2.8rem; }
+    .sub-trend-card .card-name { font-size: 1rem; font-weight: 700; color: #fff; margin-bottom: 2px; position: relative; z-index: 1; }
+    .sub-trend-card .card-desc { font-size: .65rem; color: rgba(255,255,255,0.35); margin-bottom: 6px; position: relative; z-index: 1; }
+    .sub-trend-card .card-price { font-size: .8rem; font-weight: 600; color: #34d399; position: relative; z-index: 1; }
     .sub-trend-card .card-badge {
       position: absolute;
       top: 8px;
       right: 8px;
-      background: rgba(239, 68, 68, 0.15);
-      border: 1px solid rgba(239, 68, 68, 0.20);
+      background: rgba(239,68,68,0.15);
+      border: 1px solid rgba(239,68,68,0.20);
       padding: 2px 8px;
       border-radius: 30px;
       font-size: .45rem;
@@ -763,63 +552,33 @@
       left: 10px;
       font-size: .6rem;
       font-weight: 900;
-      color: rgba(255, 255, 255, 0.06);
+      color: rgba(255,255,255,0.06);
       font-family: 'Georgia', serif;
       letter-spacing: -1px;
       z-index: 1;
     }
-    .sub-trend-card .card-detail {
-      font-size: .55rem;
-      color: rgba(255, 255, 255, 0.25);
-      margin-top: 2px;
-      position: relative;
-      z-index: 1;
-    }
+    .sub-trend-card .card-detail { font-size: .55rem; color: rgba(255,255,255,0.25); margin-top: 2px; position: relative; z-index: 1; }
 
     .contact-icon-box {
-      background: rgba(20, 20, 20, 0.85);
+      background: rgba(20,20,20,0.85);
       backdrop-filter: blur(12px);
-      border: 1px solid rgba(239, 68, 68, 0.10);
+      border: 1px solid rgba(239,68,68,0.10);
       border-radius: 16px;
       padding: 28px 24px;
       transition: all .3s ease;
       text-align: center;
     }
-    .contact-icon-box:hover {
-      border-color: rgba(239, 68, 68, 0.30);
-      transform: translateY(-4px);
-      box-shadow: 0 8px 40px rgba(239, 68, 68, 0.06);
-    }
-    .contact-icon-box .icon {
-      font-size: 2.2rem;
-      margin-bottom: 12px;
-      display: block;
-    }
-    .contact-icon-box .label {
-      font-size: .7rem;
-      color: rgba(255, 255, 255, 0.30);
-      text-transform: uppercase;
-      letter-spacing: 1px;
-      margin-bottom: 4px;
-    }
-    .contact-icon-box .value {
-      font-size: 1rem;
-      color: #e0e0e0;
-      font-weight: 500;
-    }
-    .contact-icon-box .value a {
-      color: #fca5a5;
-      text-decoration: none;
-      transition: color .3s ease;
-    }
-    .contact-icon-box .value a:hover {
-      color: #fff;
-    }
+    .contact-icon-box:hover { border-color: rgba(239,68,68,0.30); transform: translateY(-4px); box-shadow: 0 8px 40px rgba(239,68,68,0.06); }
+    .contact-icon-box .icon { font-size: 2.2rem; margin-bottom: 12px; display: block; }
+    .contact-icon-box .label { font-size: .7rem; color: rgba(255,255,255,0.30); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px; }
+    .contact-icon-box .value { font-size: 1rem; color: #e0e0e0; font-weight: 500; }
+    .contact-icon-box .value a { color: #fca5a5; text-decoration: none; transition: color .3s ease; }
+    .contact-icon-box .value a:hover { color: #fff; }
 
     .social-link-card {
-      background: rgba(20, 20, 20, 0.85);
+      background: rgba(20,20,20,0.85);
       backdrop-filter: blur(12px);
-      border: 1px solid rgba(239, 68, 68, 0.10);
+      border: 1px solid rgba(239,68,68,0.10);
       border-radius: 16px;
       padding: 24px 28px;
       transition: all .3s ease;
@@ -829,75 +588,24 @@
       text-decoration: none;
       color: #e0e0e0;
     }
-    .social-link-card:hover {
-      border-color: rgba(239, 68, 68, 0.30);
-      transform: translateX(6px);
-      box-shadow: 0 8px 40px rgba(239, 68, 68, 0.06);
-    }
-    .social-link-card .social-icon {
-      font-size: 2rem;
-      width: 48px;
-      text-align: center;
-      flex-shrink: 0;
-    }
-    .social-link-card .social-name {
-      font-size: 1rem;
-      font-weight: 600;
-    }
-    .social-link-card .social-handle {
-      font-size: .8rem;
-      color: rgba(255, 255, 255, 0.30);
-    }
-    .social-link-card .social-arrow {
-      margin-left: auto;
-      color: rgba(255, 255, 255, 0.15);
-      transition: all .3s ease;
-    }
-    .social-link-card:hover .social-arrow {
-      color: #fca5a5;
-      transform: translateX(4px);
-    }
+    .social-link-card:hover { border-color: rgba(239,68,68,0.30); transform: translateX(6px); box-shadow: 0 8px 40px rgba(239,68,68,0.06); }
+    .social-link-card .social-icon { font-size: 2rem; width: 48px; text-align: center; flex-shrink: 0; }
+    .social-link-card .social-name { font-size: 1rem; font-weight: 600; }
+    .social-link-card .social-handle { font-size: .8rem; color: rgba(255,255,255,0.30); }
+    .social-link-card .social-arrow { margin-left: auto; color: rgba(255,255,255,0.15); transition: all .3s ease; }
+    .social-link-card:hover .social-arrow { color: #fca5a5; transform: translateX(4px); }
 
     .footer {
-      background: rgba(10, 10, 10, 0.98);
-      border-top: 1px solid rgba(239, 68, 68, 0.06);
+      background: rgba(10,10,10,0.98);
+      border-top: 1px solid rgba(239,68,68,0.06);
       padding: 60px 0 30px;
     }
-    .footer .footer-brand {
-      font-size: 1.4rem;
-      font-weight: 800;
-    }
-    .footer .footer-brand span {
-      background: linear-gradient(135deg, #ef4444, #dc2626);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-    }
-    .footer .footer-desc {
-      color: rgba(255, 255, 255, 0.30);
-      font-size: .85rem;
-      line-height: 1.7;
-      max-width: 300px;
-    }
-    .footer .footer-heading {
-      color: #fff;
-      font-size: .85rem;
-      font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: 1px;
-      margin-bottom: 16px;
-    }
-    .footer .footer-link {
-      color: rgba(255, 255, 255, 0.30);
-      text-decoration: none;
-      font-size: .85rem;
-      transition: all .3s ease;
-      display: inline-block;
-      padding: 3px 0;
-    }
-    .footer .footer-link:hover {
-      color: #fca5a5;
-      transform: translateX(4px);
-    }
+    .footer .footer-brand { font-size: 1.4rem; font-weight: 800; }
+    .footer .footer-brand span { background: linear-gradient(135deg, #ef4444, #dc2626); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+    .footer .footer-desc { color: rgba(255,255,255,0.30); font-size: .85rem; line-height: 1.7; max-width: 300px; }
+    .footer .footer-heading { color: #fff; font-size: .85rem; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 16px; }
+    .footer .footer-link { color: rgba(255,255,255,0.30); text-decoration: none; font-size: .85rem; transition: all .3s ease; display: inline-block; padding: 3px 0; }
+    .footer .footer-link:hover { color: #fca5a5; transform: translateX(4px); }
     .footer .footer-social a {
       display: inline-flex;
       align-items: center;
@@ -905,27 +613,15 @@
       width: 38px;
       height: 38px;
       border-radius: 50%;
-      background: rgba(255, 255, 255, 0.04);
-      border: 1px solid rgba(255, 255, 255, 0.06);
-      color: rgba(255, 255, 255, 0.30);
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.06);
+      color: rgba(255,255,255,0.30);
       transition: all .3s ease;
       font-size: 1rem;
       text-decoration: none;
     }
-    .footer .footer-social a:hover {
-      background: rgba(239, 68, 68, 0.12);
-      border-color: rgba(239, 68, 68, 0.25);
-      color: #fca5a5;
-      transform: translateY(-2px);
-    }
-    .footer .footer-bottom {
-      border-top: 1px solid rgba(255, 255, 255, 0.04);
-      padding-top: 20px;
-      margin-top: 30px;
-      color: rgba(255, 255, 255, 0.15);
-      font-size: .75rem;
-      text-align: center;
-    }
+    .footer .footer-social a:hover { background: rgba(239,68,68,0.12); border-color: rgba(239,68,68,0.25); color: #fca5a5; transform: translateY(-2px); }
+    .footer .footer-bottom { border-top: 1px solid rgba(255,255,255,0.04); padding-top: 20px; margin-top: 30px; color: rgba(255,255,255,0.15); font-size: .75rem; text-align: center; }
 
     @media (max-width:640px) {
       .sub-icon { font-size: 2.2rem; }
@@ -941,39 +637,25 @@
       .trending-section { padding: 40px 0; }
       .sub-trend-card { padding: 16px 12px; min-height: 150px; }
     }
-    @media (max-width:768px) {
-      .hero-bg { min-height: 80vh; }
-    }
+    @media (max-width:768px) { .hero-bg { min-height: 80vh; } }
 
-    .fade-up {
-      opacity: 0;
-      transform: translateY(30px);
-      transition: all .6s ease;
-    }
-    .fade-up.visible {
-      opacity: 1;
-      transform: translateY(0);
-    }
-    ::selection {
-      background: rgba(239, 68, 68, 0.30);
-      color: #fff;
-    }
+    .fade-up { opacity: 0; transform: translateY(30px); transition: all .6s ease; }
+    .fade-up.visible { opacity: 1; transform: translateY(0); }
+    ::selection { background: rgba(239,68,68,0.30); color: #fff; }
     .spinner {
       width: 24px;
       height: 24px;
-      border: 3px solid rgba(239, 68, 68, 0.15);
+      border: 3px solid rgba(239,68,68,0.15);
       border-top-color: #ef4444;
       border-radius: 50%;
       animation: spin .8s linear infinite;
       display: inline-block;
     }
-    @keyframes spin {
-      to { transform: rotate(360deg); }
-    }
+    @keyframes spin { to { transform: rotate(360deg); } }
     .glass-panel {
-      background: rgba(20, 20, 20, 0.85);
+      background: rgba(20,20,20,0.85);
       backdrop-filter: blur(14px);
-      border: 1px solid rgba(239, 68, 68, 0.10);
+      border: 1px solid rgba(239,68,68,0.10);
       border-radius: 24px;
       padding: 28px 30px;
     }
@@ -984,22 +666,15 @@
       transition: all .3s ease;
       cursor: pointer;
       background: transparent;
-      color: rgba(255, 255, 255, 0.50);
+      color: rgba(255,255,255,0.50);
       border: 1px solid transparent;
     }
-    .tab-btn.active {
-      background: rgba(239, 68, 68, 0.12);
-      color: #fca5a5;
-      border-color: rgba(239, 68, 68, 0.20);
-    }
-    .tab-btn:hover {
-      color: #e0e0e0;
-      background: rgba(239, 68, 68, 0.06);
-    }
+    .tab-btn.active { background: rgba(239,68,68,0.12); color: #fca5a5; border-color: rgba(239,68,68,0.20); }
+    .tab-btn:hover { color: #e0e0e0; background: rgba(239,68,68,0.06); }
     .modal-overlay {
       position: fixed;
       inset: 0;
-      background: rgba(0, 0, 0, 0.7);
+      background: rgba(0,0,0,0.7);
       backdrop-filter: blur(8px);
       z-index: 1000;
       display: flex;
@@ -1007,15 +682,10 @@
       justify-content: center;
       padding: 20px;
     }
-    .modal-content {
-      max-width: 500px;
-      width: 100%;
-      max-height: 90vh;
-      overflow-y: auto;
-    }
+    .modal-content { max-width: 500px; width: 100%; max-height: 90vh; overflow-y: auto; }
     .copy-btn {
-      background: rgba(239, 68, 68, 0.10);
-      border: 1px solid rgba(239, 68, 68, 0.15);
+      background: rgba(239,68,68,0.10);
+      border: 1px solid rgba(239,68,68,0.15);
       color: #fca5a5;
       padding: 2px 10px;
       border-radius: 12px;
@@ -1024,74 +694,38 @@
       transition: all .2s ease;
       margin-left: 8px;
     }
-    .copy-btn:hover {
-      background: rgba(239, 68, 68, 0.20);
-      border-color: #ef4444;
-    }
+    .copy-btn:hover { background: rgba(239,68,68,0.20); border-color: #ef4444; }
     .detail-row {
       display: flex;
       justify-content: space-between;
       align-items: center;
       padding: 8px 0;
-      border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+      border-bottom: 1px solid rgba(255,255,255,0.04);
     }
-    .detail-row .label {
-      color: rgba(255, 255, 255, 0.30);
-      font-size: .8rem;
-    }
-    .detail-row .value {
-      color: #e0e0e0;
-      font-weight: 500;
-      font-size: .9rem;
-      display: flex;
-      align-items: center;
-      gap: 6px;
-    }
-    .logo-primary {
-      font-size: 1.6rem;
-      font-weight: 800;
-      letter-spacing: -0.5px;
-      background: linear-gradient(135deg, #ef4444, #dc2626);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-    }
-    .logo-secondary {
-      font-weight: 700;
-      color: #fca5a5;
-    }
-    .logo-icon {
-      color: #ef4444;
-    }
-    .loading-spinner {
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      min-height: 200px;
-    }
+    .detail-row .label { color: rgba(255,255,255,0.30); font-size: .8rem; }
+    .detail-row .value { color: #e0e0e0; font-weight: 500; font-size: .9rem; display: flex; align-items: center; gap: 6px; }
+    .logo-primary { font-size: 1.6rem; font-weight: 800; letter-spacing: -0.5px; background: linear-gradient(135deg, #ef4444, #dc2626); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+    .logo-secondary { font-weight: 700; color: #fca5a5; }
+    .logo-icon { color: #ef4444; }
+    .loading-spinner { display: flex; justify-content: center; align-items: center; min-height: 200px; }
 
-    .trending-wrapper {
-      position: relative;
-      overflow: hidden;
-    }
+    .trending-wrapper { position: relative; overflow: hidden; }
     .trending-wrapper .bg-fixed {
       position: absolute;
       inset: 0;
       background:
-        radial-gradient(ellipse at 30% 40%, rgba(239, 68, 68, 0.06) 0%, transparent 50%),
-        radial-gradient(ellipse at 70% 60%, rgba(239, 68, 68, 0.04) 0%, transparent 50%),
-        radial-gradient(ellipse at 50% 100%, rgba(239, 68, 68, 0.03) 0%, transparent 40%);
+        radial-gradient(ellipse at 30% 40%, rgba(239,68,68,0.06) 0%, transparent 50%),
+        radial-gradient(ellipse at 70% 60%, rgba(239,68,68,0.04) 0%, transparent 50%),
+        radial-gradient(ellipse at 50% 100%, rgba(239,68,68,0.03) 0%, transparent 40%);
       pointer-events: none;
       z-index: 0;
     }
-    .trending-wrapper .content {
-      position: relative;
-      z-index: 1;
-    }
+    .trending-wrapper .content { position: relative; z-index: 1; }
 
     .sub-carousel-card {
-      background: rgba(20, 20, 20, 0.90);
+      background: rgba(20,20,20,0.90);
       backdrop-filter: blur(12px);
-      border: 2px solid rgba(239, 68, 68, 0.20);
+      border: 2px solid rgba(239,68,68,0.20);
       border-radius: 16px;
       padding: 18px 14px;
       transition: all .3s ease;
@@ -1100,14 +734,15 @@
       display: flex;
       flex-direction: column;
       align-items: center;
-      justify-content: center;
+      justify-content: flex-start;
       height: 100%;
-      min-height: 190px;
+      min-height: 220px;
       text-align: center;
+      cursor: pointer;
     }
     .sub-carousel-card:hover {
       border-color: #ef4444;
-      box-shadow: 0 0 30px rgba(239, 68, 68, 0.12);
+      box-shadow: 0 0 30px rgba(239,68,68,0.12);
       transform: translateY(-2px);
     }
     .sub-carousel-card .brand-corner {
@@ -1116,39 +751,93 @@
       left: 8px;
       font-size: .8rem;
       font-weight: 900;
-      color: rgba(255, 255, 255, 0.08);
+      color: rgba(255,255,255,0.08);
       font-family: 'Georgia', serif;
       letter-spacing: -1px;
       z-index: 1;
     }
     .sub-carousel-card .card-icon {
-      font-size: 2.4rem;
+      font-size: 2.6rem;
       margin-bottom: 6px;
       position: relative;
       z-index: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .sub-carousel-card .card-icon svg {
+      width: 2.6rem;
+      height: 2.6rem;
     }
     .sub-carousel-card .card-name {
-      font-size: .95rem;
+      font-size: 1rem;
       font-weight: 700;
       color: #fff;
       margin-bottom: 2px;
     }
     .sub-carousel-card .card-desc {
-      font-size: .6rem;
-      color: rgba(255, 255, 255, 0.4);
+      font-size: .65rem;
+      color: rgba(255,255,255,0.4);
       line-height: 1.3;
+      margin-bottom: 2px;
+    }
+    .sub-carousel-card .card-detail {
+      font-size: .55rem;
+      color: rgba(255,255,255,0.25);
+      margin-top: 2px;
     }
     .sub-carousel-card .card-price {
       font-size: .8rem;
       font-weight: 600;
       color: #34d399;
-      margin-top: 3px;
+      margin-top: 4px;
     }
-    .sub-carousel-card .card-detail {
-      font-size: .55rem;
-      color: rgba(255, 255, 255, 0.25);
-      margin-top: 2px;
+
+    /* Expanded Card Modal */
+    .card-modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.85);
+      backdrop-filter: blur(20px);
+      z-index: 9999;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      animation: fadeIn .3s ease;
     }
+    .card-modal-content {
+      max-width: 480px;
+      width: 100%;
+      background: rgba(20,20,20,0.95);
+      border: 2px solid rgba(239,68,68,0.30);
+      border-radius: 24px;
+      padding: 40px 32px 32px;
+      text-align: center;
+      position: relative;
+      box-shadow: 0 0 80px rgba(239,68,68,0.15);
+      animation: scaleIn .3s ease;
+    }
+    .card-modal-content .close-btn {
+      position: absolute;
+      top: 12px;
+      right: 16px;
+      background: none;
+      border: none;
+      color: rgba(255,255,255,0.3);
+      font-size: 1.8rem;
+      cursor: pointer;
+      transition: all .3s ease;
+    }
+    .card-modal-content .close-btn:hover { color: #fff; transform: rotate(90deg); }
+    .card-modal-content .modal-icon { font-size: 4rem; margin-bottom: 12px; }
+    .card-modal-content .modal-icon svg { width: 4rem; height: 4rem; }
+    .card-modal-content .modal-name { font-size: 1.8rem; font-weight: 700; color: #fff; margin-bottom: 6px; }
+    .card-modal-content .modal-desc { font-size: 1rem; color: rgba(255,255,255,0.5); margin-bottom: 4px; }
+    .card-modal-content .modal-detail { font-size: .85rem; color: rgba(255,255,255,0.3); margin-bottom: 8px; }
+    .card-modal-content .modal-price { font-size: 1.6rem; font-weight: 700; color: #34d399; }
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+    @keyframes scaleIn { from { transform: scale(0.9); opacity: 0; } to { transform: scale(1); opacity: 1; } }
   </style>
 </head>
 <body>
@@ -1847,18 +1536,117 @@
       const lastMoveX = useRef(0);
       const momentumId = useRef(null);
 
+      // Expanded subscription data with logos
       const subscriptions = [
-        { name: 'Netflix', icon: 'fa-netflix', color: '#e50914', desc: 'Movies & TV Shows', price: 'From RS 350', detail: '4K HDR • 5 Screens' },
-        { name: 'Amazon Prime', icon: 'fa-amazon', color: '#ff9900', desc: 'Video, Music & Delivery', price: 'From RS 150', detail: 'Prime Video • Music • Delivery' },
-        { name: 'YouTube Premium', icon: 'fa-youtube', color: '#ff0000', desc: 'Ad-free & Offline', price: 'From RS 250', detail: 'Ad-free • Background play' },
-        { name: 'Spotify Premium', icon: 'fa-spotify', color: '#1db954', desc: 'Music & Podcasts', price: 'From RS 180', detail: 'Ad-free • Offline • High quality' },
-        { name: 'Canva Pro', icon: 'fa-paint-brush', color: '#00c4cc', desc: 'Design & Creative', price: 'From RS 200', detail: 'Pro templates • AI tools' },
-        { name: 'Capcut Pro', icon: 'fa-video', color: '#00d4ff', desc: 'Video Editing', price: 'From RS 220', detail: 'Pro effects • No watermark' },
-        { name: 'ChatGPT Plus', icon: 'fa-robot', color: '#10a37f', desc: 'AI Assistant', price: 'From RS 300', detail: 'GPT-4 • Faster responses' },
-        { name: 'HBO Max', icon: 'fa-tv', color: '#5822b4', desc: 'Movies & Series', price: 'From RS 280', detail: '4K HDR • Dolby Atmos' },
-        { name: 'Crunchyroll', icon: 'fa-play', color: '#f47521', desc: 'Anime & Manga', price: 'From RS 160', detail: 'Simulcast • HD streaming' },
-        { name: 'Chaupal', icon: 'fa-film', color: '#e74c3c', desc: 'Regional Entertainment', price: 'From RS 120', detail: 'Regional content • Originals' },
+        { 
+          name: 'Netflix', 
+          icon: 'netflix',
+          color: '#e50914', 
+          desc: 'Movies & TV Shows', 
+          price: 'From RS 350', 
+          detail: '4K HDR • 5 Screens',
+          logo: (
+            <svg viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg" style={{ color: '#e50914' }}>
+              <path d="M5.5 2.5v19.5l5-2.5V5l-5 2.5zM12 2.5v19.5l5-2.5V5L12 2.5z" />
+              <path d="M18.5 2.5v19.5l5-2.5V5l-5 2.5z" />
+            </svg>
+          )
+        },
+        { 
+          name: 'Amazon Prime', 
+          icon: 'amazon',
+          color: '#ff9900', 
+          desc: 'Video, Music & Delivery', 
+          price: 'From RS 150', 
+          detail: 'Prime Video • Music • Delivery',
+          logo: <i className="fab fa-amazon text-3xl" style={{ color: '#ff9900' }}></i>
+        },
+        { 
+          name: 'YouTube Premium', 
+          icon: 'youtube',
+          color: '#ff0000', 
+          desc: 'Ad-free & Offline', 
+          price: 'From RS 250', 
+          detail: 'Ad-free • Background play',
+          logo: <i className="fab fa-youtube text-3xl" style={{ color: '#ff0000' }}></i>
+        },
+        { 
+          name: 'Spotify Premium', 
+          icon: 'spotify',
+          color: '#1db954', 
+          desc: 'Music & Podcasts', 
+          price: 'From RS 180', 
+          detail: 'Ad-free • Offline • High quality',
+          logo: <i className="fab fa-spotify text-3xl" style={{ color: '#1db954' }}></i>
+        },
+        { 
+          name: 'Canva Pro', 
+          icon: 'canva',
+          color: '#00c4cc', 
+          desc: 'Design & Creative', 
+          price: 'From RS 200', 
+          detail: 'Pro templates • AI tools',
+          logo: (
+            <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ width: '2.6rem', height: '2.6rem' }}>
+              <rect x="2" y="2" width="20" height="20" rx="4" fill="#00C4CC"/>
+              <path d="M12 6L8 18h2l1-3h2l1 3h2L12 6zm-1 7l1-3 1 3h-2z" fill="white"/>
+            </svg>
+          )
+        },
+        { 
+          name: 'Capcut Pro', 
+          icon: 'capcut',
+          color: '#00d4ff', 
+          desc: 'Video Editing', 
+          price: 'From RS 220', 
+          detail: 'Pro effects • No watermark',
+          logo: <i className="fas fa-video text-3xl" style={{ color: '#00d4ff' }}></i>
+        },
+        { 
+          name: 'ChatGPT Plus', 
+          icon: 'chatgpt',
+          color: '#10a37f', 
+          desc: 'AI Assistant', 
+          price: 'From RS 300', 
+          detail: 'GPT-4 • Faster responses',
+          logo: (
+            <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ width: '2.6rem', height: '2.6rem' }}>
+              <circle cx="12" cy="12" r="10" fill="#10a37f"/>
+              <path d="M8 12l2 2 6-6" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+          )
+        },
+        { 
+          name: 'HBO Max', 
+          icon: 'hbomax',
+          color: '#5822b4', 
+          desc: 'Movies & Series', 
+          price: 'From RS 280', 
+          detail: '4K HDR • Dolby Atmos',
+          logo: <i className="fas fa-tv text-3xl" style={{ color: '#5822b4' }}></i>
+        },
+        { 
+          name: 'Crunchyroll', 
+          icon: 'crunchyroll',
+          color: '#f47521', 
+          desc: 'Anime & Manga', 
+          price: 'From RS 160', 
+          detail: 'Simulcast • HD streaming',
+          logo: <i className="fas fa-play text-3xl" style={{ color: '#f47521' }}></i>
+        },
+        { 
+          name: 'Chaupal', 
+          icon: 'chaupal',
+          color: '#e74c3c', 
+          desc: 'Regional Entertainment', 
+          price: 'From RS 120', 
+          detail: 'Regional content • Originals',
+          logo: <i className="fas fa-film text-3xl" style={{ color: '#e74c3c' }}></i>
+        },
       ];
+
+      // ─── Card Modal State ────────────────────────────────
+      const [selectedCard, setSelectedCard] = useState(null);
 
       const totalItems = subscriptions.length;
       const repeatedItems = useMemo(() => {
@@ -2047,47 +1835,74 @@
         setTimeout(() => setIsPaused(false), 3000);
       };
 
+      const handleCardClick = (sub) => {
+        setSelectedCard(sub);
+      };
+
+      const closeCardModal = () => {
+        setSelectedCard(null);
+      };
+
       return (
-        <div className="max-w-7xl mx-auto px-4 py-4 relative">
-          <div className="flex items-center gap-3 mb-4">
-            <span className="brand-z brand-z-sm">Z</span>
-            <h2 className="text-xl font-bold text-white">What We Provide</h2>
-            <span className="text-white/30 text-xs ml-2">Premium services</span>
-          </div>
-          <div className={`carousel-container ${isPaused ? 'paused' : ''}`} ref={containerRef} onMouseEnter={handlePause} onMouseLeave={handleResume} onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd} onMouseDown={onMouseDown} style={{ touchAction: 'none' }}>
-            <div className="carousel-track" ref={trackRef} style={{ transform: `translateX(-${offset}px)`, transition: isDragging ? 'none' : 'none', gap: `${gap}px` }}>
-              {repeatedItems.map((sub, idx) => (
-                <div key={idx} className="carousel-slide" style={{ width: slideWidth }}>
-                  <div className="sub-carousel-card relative">
-                    <div className="brand-corner">Z</div>
-                    <div className="card-icon">
-                      <i className={`fab ${sub.icon}`} style={{ color: sub.color }}></i>
-                    </div>
-                    <div className="card-name">{sub.name}</div>
-                    <div className="card-desc">{sub.desc}</div>
-                    <div className="card-detail">{sub.detail}</div>
-                    <div className="card-price">{sub.price}</div>
-                  </div>
-                </div>
-              ))}
+        <>
+          <div className="max-w-7xl mx-auto px-4 py-4 relative">
+            <div className="flex items-center gap-3 mb-4">
+              <span className="brand-z brand-z-sm">Z</span>
+              <h2 className="text-xl font-bold text-white">What We Provide</h2>
+              <span className="text-white/30 text-xs ml-2">Premium services</span>
             </div>
-            {totalItems > itemsPerView && (
-              <>
-                <button className="carousel-btn prev" onClick={goToPrev}><i className="fas fa-chevron-left"></i></button>
-                <button className="carousel-btn next" onClick={goToNext}><i className="fas fa-chevron-right"></i></button>
-                <div className="carousel-dots">
-                  {Array.from({ length: Math.ceil(totalItems / itemsPerView) }).map((_, idx) => (
-                    <button key={idx} className={`carousel-dot ${idx === Math.floor(offset / slideWidth) ? 'active' : ''}`} onClick={() => {
-                      setIsPaused(true);
-                      setOffset(idx * slideWidth);
-                      setTimeout(() => setIsPaused(false), 3000);
-                    }} />
-                  ))}
-                </div>
-              </>
-            )}
+            <div className={`carousel-container ${isPaused ? 'paused' : ''}`} ref={containerRef} onMouseEnter={handlePause} onMouseLeave={handleResume} onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd} onMouseDown={onMouseDown} style={{ touchAction: 'none' }}>
+              <div className="carousel-track" ref={trackRef} style={{ transform: `translateX(-${offset}px)`, transition: isDragging ? 'none' : 'none', gap: `${gap}px` }}>
+                {repeatedItems.map((sub, idx) => (
+                  <div key={idx} className="carousel-slide" style={{ width: slideWidth }}>
+                    <div className="sub-carousel-card relative" onClick={() => handleCardClick(sub)}>
+                      <div className="brand-corner">Z</div>
+                      <div className="card-icon">
+                        {sub.logo}
+                      </div>
+                      <div className="card-name">{sub.name}</div>
+                      <div className="card-desc">{sub.desc}</div>
+                      <div className="card-detail">{sub.detail}</div>
+                      <div className="card-price">{sub.price}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              {totalItems > itemsPerView && (
+                <>
+                  <button className="carousel-btn prev" onClick={goToPrev}><i className="fas fa-chevron-left"></i></button>
+                  <button className="carousel-btn next" onClick={goToNext}><i className="fas fa-chevron-right"></i></button>
+                  <div className="carousel-dots">
+                    {Array.from({ length: Math.ceil(totalItems / itemsPerView) }).map((_, idx) => (
+                      <button key={idx} className={`carousel-dot ${idx === Math.floor(offset / slideWidth) ? 'active' : ''}`} onClick={() => {
+                        setIsPaused(true);
+                        setOffset(idx * slideWidth);
+                        setTimeout(() => setIsPaused(false), 3000);
+                      }} />
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
           </div>
-        </div>
+
+          {/* ─── CARD EXPANDED MODAL ─────────────────────────── */}
+          {selectedCard && (
+            <div className="card-modal-overlay" onClick={closeCardModal}>
+              <div className="card-modal-content" onClick={(e) => e.stopPropagation()}>
+                <button className="close-btn" onClick={closeCardModal}>✕</button>
+                <div className="modal-icon">
+                  {selectedCard.logo}
+                </div>
+                <div className="modal-name" style={{ color: selectedCard.color }}>{selectedCard.name}</div>
+                <div className="modal-desc">{selectedCard.desc}</div>
+                <div className="modal-detail">{selectedCard.detail}</div>
+                <div className="modal-price">{selectedCard.price}</div>
+                <div className="mt-4 text-white/20 text-xs">Click outside to close</div>
+              </div>
+            </div>
+          )}
+        </>
       );
     }
 
