@@ -628,7 +628,6 @@
 
     // ─── DEALS CAROUSEL ────────────────────────────────────────
     function DealsCarousel({ deals, subscriptions, onPurchaseClick }) {
-      // ... (full code as before, unchanged)
       const [itemsPerView, setItemsPerView] = useState(4);
       const [offset, setOffset] = useState(0);
       const [isPaused, setIsPaused] = useState(false);
@@ -942,7 +941,6 @@
 
     // ─── SUBSCRIPTION CAROUSEL ──────────────────────────
     function SubscriptionCarousel() {
-      // ... (full code as before, unchanged)
       const [itemsPerView, setItemsPerView] = useState(4);
       const [offset, setOffset] = useState(0);
       const [isPaused, setIsPaused] = useState(false);
@@ -1318,7 +1316,6 @@
 
     // ─── HERO ──────────────────────────────────────────────────
     function Hero({ setActiveTab, setShowSubscriptions, onGetStarted }) {
-      // ... (unchanged)
       return (
         <div className="hero-bg">
           <div className="glow-orb orb1"></div>
@@ -1425,7 +1422,6 @@
 
     // ─── HELPER: OTP FLOW ────────────────────────────────────
     const useOTPFlow = (setStep, setOtpTimer, addToast, userIdentifier, description = '') => {
-      // ... (unchanged)
       const generateOTPAPI = async () => {
         try {
           const result = await generateOTP(userIdentifier || 'User', description);
@@ -1453,40 +1449,643 @@
       return { generateOTPAPI, verifyOTPAPI };
     };
 
-    // ─── SMART ALLOCATION ALGORITHM (unchanged) ──────────────
-    const allocateScreens = (availableSlots, count, username, whatsapp, requestedScreenId = null) => { ... };
-    const allocateBestSlots = (slots, count) => { ... };
-    const allocateAmazonScreen = (availableSlots, username, whatsapp, purchaseCount) => { ... };
-    const allocateSimpleScreen = (subscription, username, whatsapp) => { ... };
+    // ─── SMART ALLOCATION ALGORITHM ──────────────────────────
+    const allocateScreens = (availableSlots, count, username, whatsapp, requestedScreenId = null) => {
+      let selectedScreens = [];
+
+      if (requestedScreenId) {
+        const found = availableSlots.find(s => s.id === requestedScreenId && s.customers.length === 0);
+        if (found) {
+          selectedScreens.push(found);
+        } else {
+          const empty = availableSlots.find(s => s.customers.length === 0);
+          if (empty) selectedScreens.push(empty);
+        }
+      }
+
+      if (selectedScreens.length < count) {
+        const remaining = availableSlots.filter(s => s.customers.length === 0 && !selectedScreens.includes(s));
+        const needed = count - selectedScreens.length;
+        selectedScreens.push(...remaining.slice(0, needed));
+      }
+
+      if (selectedScreens.length < count) {
+        return { success: false, message: 'Not enough available screens' };
+      }
+
+      const expiryDate = new Date();
+      expiryDate.setMonth(expiryDate.getMonth() + 1);
+
+      selectedScreens.forEach(screen => {
+        screen.customers.push({
+          name: username,
+          username: username,
+          whatsapp: whatsapp,
+          expiryDate: expiryDate.toISOString(),
+          months: 1,
+          purchasedAt: new Date().toISOString()
+        });
+      });
+
+      return { success: true, screens: selectedScreens, expiryDate: expiryDate.toISOString() };
+    };
+
+    const allocateAmazonScreen = (availableSlots, username, whatsapp, purchaseCount) => {
+      const emptySlot = availableSlots.find(s => s.customers.length === 0);
+      if (!emptySlot) {
+        return { success: false, message: 'No available slots' };
+      }
+
+      const expiryDate = new Date();
+      expiryDate.setMonth(expiryDate.getMonth() + 1);
+
+      emptySlot.customers.push({
+        name: username,
+        username: username,
+        whatsapp: whatsapp,
+        expiryDate: expiryDate.toISOString(),
+        months: 1,
+        purchasedAt: new Date().toISOString()
+      });
+
+      return { success: true, slot: emptySlot, expiryDate: expiryDate.toISOString() };
+    };
+
+    const allocateSimpleScreen = (subscription, username, whatsapp) => {
+      for (const account of subscription.accounts) {
+        for (const screen of account.screens) {
+          if (screen.customers.length === 0) {
+            const expiryDate = new Date();
+            expiryDate.setMonth(expiryDate.getMonth() + 1);
+            screen.customers.push({
+              name: username,
+              username: username,
+              whatsapp: whatsapp,
+              expiryDate: expiryDate.toISOString(),
+              months: 1,
+              purchasedAt: new Date().toISOString()
+            });
+            return { success: true, account, screen, expiryDate: expiryDate.toISOString() };
+          }
+        }
+      }
+      return { success: false, message: 'No available screen' };
+    };
+
+    const allocateBestSlots = (slots, count) => {
+      return allocateScreens(slots, count, 'system', 'system');
+    };
+
+    // ─── ADMIN HELPERS ──────────────────────────────────────────
+    const getCustomerRecords = (sub) => {
+      const records = [];
+      if (!sub.accounts) return records;
+      sub.accounts.forEach(acc => {
+        if (!acc.screens) return;
+        acc.screens.forEach(screen => {
+          if (!screen.customers) return;
+          screen.customers.forEach(c => {
+            records.push({
+              customerName: c.name || c.username,
+              username: c.username,
+              whatsapp: c.whatsapp,
+              accountEmail: acc.email,
+              screenName: screen.name,
+              expiryDate: c.expiryDate,
+              months: c.months || 1,
+              purchasedAt: c.purchasedAt
+            });
+          });
+        });
+      });
+      return records;
+    };
+
+    const getTotalCustomers = (sub) => {
+      const names = new Set();
+      if (!sub.accounts) return 0;
+      sub.accounts.forEach(acc => {
+        if (!acc.screens) return;
+        acc.screens.forEach(screen => {
+          if (!screen.customers) return;
+          screen.customers.forEach(c => {
+            names.add(c.username || c.name);
+          });
+        });
+      });
+      return names.size;
+    };
+
+    const getTotalSlots = (sub) => {
+      let count = 0;
+      if (!sub.accounts) return 0;
+      sub.accounts.forEach(acc => {
+        if (acc.screens) count += acc.screens.length;
+      });
+      return count;
+    };
+
+    const checkExpiry = (dateStr) => {
+      if (!dateStr) return false;
+      const now = new Date();
+      const expiry = new Date(dateStr);
+      return expiry < now;
+    };
+
+    const getExpiringSoon = (subscriptions) => {
+      const expiring = [];
+      const now = new Date();
+      const sevenDaysLater = new Date(now);
+      sevenDaysLater.setDate(sevenDaysLater.getDate() + 7);
+
+      subscriptions.forEach(sub => {
+        if (!sub.accounts) return;
+        sub.accounts.forEach(acc => {
+          if (!acc.screens) return;
+          acc.screens.forEach(screen => {
+            if (!screen.customers) return;
+            screen.customers.forEach(c => {
+              if (!c.expiryDate) return;
+              const expiry = new Date(c.expiryDate);
+              if (expiry > now && expiry <= sevenDaysLater) {
+                expiring.push({
+                  customerName: c.name || c.username,
+                  subscriptionName: sub.name,
+                  expiryDate: c.expiryDate,
+                  daysLeft: Math.ceil((expiry - now) / (1000 * 60 * 60 * 24))
+                });
+              }
+            });
+          });
+        });
+      });
+      return expiring;
+    };
 
     // ─── FLOW COMPONENTS (NetflixFlow, AmazonFlow, SimpleSubscriptionFlow, DealPurchaseFlow) ──
-    // These are unchanged from your original code. I'm omitting them for brevity but they are present in the final file.
+    function NetflixFlow({ subscription, onComplete, onCancel, user }) {
+      const [step, setStep] = useState('form');
+      const [screens, setScreens] = useState(1);
+      const [months, setMonths] = useState(1);
+      const [otpStep, setOtpStep] = useState('init');
+      const [otpTimer, setOtpTimer] = useState(0);
+      const [otpValue, setOtpValue] = useState('');
+      const { addToast } = useContext(AppContext);
+      const { generateOTPAPI, verifyOTPAPI } = useOTPFlow(setOtpStep, setOtpTimer, addToast, user.username, `Netflix purchase`);
+
+      const totalCost = getNetflixCredits(screens, months);
+
+      const handleBuy = async () => {
+        if (user.credits < totalCost) {
+          addToast('Insufficient credits. Please recharge.', 'error');
+          return;
+        }
+        // Generate OTP for verification
+        await generateOTPAPI();
+        setStep('otp');
+      };
+
+      const handleOtpVerify = async () => {
+        const valid = await verifyOTPAPI(otpValue);
+        if (!valid) return;
+        // Deduct credits
+        const updatedUser = await deductCredits(user.username, totalCost);
+        if (updatedUser && updatedUser.credits !== undefined) {
+          // Find available screens across all accounts
+          let allSlots = [];
+          subscription.accounts.forEach(acc => {
+            if (acc.screens) allSlots.push(...acc.screens);
+          });
+          const result = allocateScreens(allSlots, screens, user.username, user.whatsapp);
+          if (result.success) {
+            // Update subscription on server
+            await updateSubscription(subscription.id, subscription);
+            // Increment purchase count
+            await incrementPurchase(user.username);
+            // Update user credits locally
+            onComplete({ success: true, message: `Allocated ${screens} screen(s) for ${months} month(s)`, cost: totalCost });
+          } else {
+            // Refund credits
+            await addCredits(user.username, totalCost);
+            addToast('Allocation failed: ' + result.message, 'error');
+          }
+        } else {
+          addToast('Failed to deduct credits', 'error');
+        }
+      };
+
+      return (
+        <div className="glass-panel">
+          <h3 className="text-xl font-bold text-white">Netflix</h3>
+          {step === 'form' && (
+            <>
+              <div className="mt-4 space-y-3">
+                <div>
+                  <label className="text-white/50 text-sm">Number of Screens (1-5)</label>
+                  <input type="number" min="1" max="5" value={screens} onChange={(e) => setScreens(Number(e.target.value))} className="input-neon mt-1" />
+                </div>
+                <div>
+                  <label className="text-white/50 text-sm">Months</label>
+                  <input type="number" min="1" value={months} onChange={(e) => setMonths(Number(e.target.value))} className="input-neon mt-1" />
+                </div>
+                <p className="text-white/50">Total: RS {totalCost}</p>
+                <div className="flex gap-3">
+                  <button onClick={handleBuy} className="btn-neon">Buy Now</button>
+                  <button onClick={onCancel} className="btn-neon-outline">Cancel</button>
+                </div>
+              </div>
+            </>
+          )}
+          {step === 'otp' && (
+            <div>
+              <p className="text-white/50 mt-2">Enter OTP sent to admin portal</p>
+              <div className="flex gap-2 mt-3">
+                <input type="text" value={otpValue} onChange={(e) => setOtpValue(e.target.value)} className="input-neon w-32" placeholder="OTP" />
+                <button onClick={handleOtpVerify} className="btn-neon">Verify</button>
+              </div>
+              <button onClick={() => setStep('form')} className="btn-neon-outline mt-3">Back</button>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    function AmazonFlow({ subscription, onComplete, onCancel, user }) {
+      const [step, setStep] = useState('form');
+      const [months, setMonths] = useState(1);
+      const [otpStep, setOtpStep] = useState('init');
+      const [otpTimer, setOtpTimer] = useState(0);
+      const [otpValue, setOtpValue] = useState('');
+      const { addToast } = useContext(AppContext);
+      const { generateOTPAPI, verifyOTPAPI } = useOTPFlow(setOtpStep, setOtpTimer, addToast, user.username, `Amazon purchase`);
+
+      const totalCost = getAmazonCredits(months);
+
+      const handleBuy = async () => {
+        if (user.credits < totalCost) {
+          addToast('Insufficient credits.', 'error');
+          return;
+        }
+        await generateOTPAPI();
+        setStep('otp');
+      };
+
+      const handleOtpVerify = async () => {
+        const valid = await verifyOTPAPI(otpValue);
+        if (!valid) return;
+        const updatedUser = await deductCredits(user.username, totalCost);
+        if (updatedUser) {
+          let allSlots = [];
+          subscription.accounts.forEach(acc => {
+            if (acc.screens) allSlots.push(...acc.screens);
+          });
+          const result = allocateAmazonScreen(allSlots, user.username, user.whatsapp, 1);
+          if (result.success) {
+            await updateSubscription(subscription.id, subscription);
+            await incrementPurchase(user.username);
+            onComplete({ success: true, message: `Allocated slot for ${months} month(s)`, cost: totalCost });
+          } else {
+            await addCredits(user.username, totalCost);
+            addToast('Allocation failed: ' + result.message, 'error');
+          }
+        } else {
+          addToast('Failed to deduct credits', 'error');
+        }
+      };
+
+      return (
+        <div className="glass-panel">
+          <h3 className="text-xl font-bold text-white">Amazon Prime</h3>
+          {step === 'form' && (
+            <>
+              <div className="mt-4 space-y-3">
+                <div>
+                  <label className="text-white/50 text-sm">Months</label>
+                  <input type="number" min="1" value={months} onChange={(e) => setMonths(Number(e.target.value))} className="input-neon mt-1" />
+                </div>
+                <p className="text-white/50">Total: RS {totalCost}</p>
+                <div className="flex gap-3">
+                  <button onClick={handleBuy} className="btn-neon">Buy Now</button>
+                  <button onClick={onCancel} className="btn-neon-outline">Cancel</button>
+                </div>
+              </div>
+            </>
+          )}
+          {step === 'otp' && (
+            <div>
+              <p className="text-white/50 mt-2">Enter OTP</p>
+              <div className="flex gap-2 mt-3">
+                <input type="text" value={otpValue} onChange={(e) => setOtpValue(e.target.value)} className="input-neon w-32" placeholder="OTP" />
+                <button onClick={handleOtpVerify} className="btn-neon">Verify</button>
+              </div>
+              <button onClick={() => setStep('form')} className="btn-neon-outline mt-3">Back</button>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    function SimpleSubscriptionFlow({ subscription, onComplete, onCancel, user }) {
+      const [step, setStep] = useState('form');
+      const [months, setMonths] = useState(1);
+      const [otpStep, setOtpStep] = useState('init');
+      const [otpTimer, setOtpTimer] = useState(0);
+      const [otpValue, setOtpValue] = useState('');
+      const { addToast } = useContext(AppContext);
+      const { generateOTPAPI, verifyOTPAPI } = useOTPFlow(setOtpStep, setOtpTimer, addToast, user.username, `${subscription.name} purchase`);
+
+      const totalCost = getSimpleCredits(subscription.type, months);
+
+      const handleBuy = async () => {
+        if (user.credits < totalCost) {
+          addToast('Insufficient credits.', 'error');
+          return;
+        }
+        await generateOTPAPI();
+        setStep('otp');
+      };
+
+      const handleOtpVerify = async () => {
+        const valid = await verifyOTPAPI(otpValue);
+        if (!valid) return;
+        const updatedUser = await deductCredits(user.username, totalCost);
+        if (updatedUser) {
+          const result = allocateSimpleScreen(subscription, user.username, user.whatsapp);
+          if (result.success) {
+            await updateSubscription(subscription.id, subscription);
+            await incrementPurchase(user.username);
+            onComplete({ success: true, message: `Allocated ${subscription.name} for ${months} month(s)`, cost: totalCost });
+          } else {
+            await addCredits(user.username, totalCost);
+            addToast('Allocation failed: ' + result.message, 'error');
+          }
+        } else {
+          addToast('Failed to deduct credits', 'error');
+        }
+      };
+
+      return (
+        <div className="glass-panel">
+          <h3 className="text-xl font-bold text-white">{subscription.name}</h3>
+          {step === 'form' && (
+            <>
+              <div className="mt-4 space-y-3">
+                <div>
+                  <label className="text-white/50 text-sm">Months</label>
+                  <input type="number" min="1" value={months} onChange={(e) => setMonths(Number(e.target.value))} className="input-neon mt-1" />
+                </div>
+                <p className="text-white/50">Total: RS {totalCost}</p>
+                <div className="flex gap-3">
+                  <button onClick={handleBuy} className="btn-neon">Buy Now</button>
+                  <button onClick={onCancel} className="btn-neon-outline">Cancel</button>
+                </div>
+              </div>
+            </>
+          )}
+          {step === 'otp' && (
+            <div>
+              <p className="text-white/50 mt-2">Enter OTP</p>
+              <div className="flex gap-2 mt-3">
+                <input type="text" value={otpValue} onChange={(e) => setOtpValue(e.target.value)} className="input-neon w-32" placeholder="OTP" />
+                <button onClick={handleOtpVerify} className="btn-neon">Verify</button>
+              </div>
+              <button onClick={() => setStep('form')} className="btn-neon-outline mt-3">Back</button>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    function DealPurchaseFlow({ deal, onComplete, onCancel, user, subscriptions }) {
+      const [step, setStep] = useState('form');
+      const [otpStep, setOtpStep] = useState('init');
+      const [otpTimer, setOtpTimer] = useState(0);
+      const [otpValue, setOtpValue] = useState('');
+      const { addToast } = useContext(AppContext);
+      const { generateOTPAPI, verifyOTPAPI } = useOTPFlow(setOtpStep, setOtpTimer, addToast, user.username, `Deal: ${deal.title}`);
+
+      const handleBuy = async () => {
+        if (user.credits < deal.discountPrice) {
+          addToast('Insufficient credits.', 'error');
+          return;
+        }
+        await generateOTPAPI();
+        setStep('otp');
+      };
+
+      const handleOtpVerify = async () => {
+        const valid = await verifyOTPAPI(otpValue);
+        if (!valid) return;
+        const updatedUser = await deductCredits(user.username, deal.discountPrice);
+        if (updatedUser) {
+          // Allocate each subscription in the deal
+          let success = true;
+          for (const subId of deal.subscriptionIds) {
+            const sub = subscriptions.find(s => s.id === subId);
+            if (!sub) continue;
+            let result;
+            if (sub.type === 'netflix') {
+              let allSlots = [];
+              sub.accounts.forEach(acc => { if (acc.screens) allSlots.push(...acc.screens); });
+              result = allocateScreens(allSlots, 1, user.username, user.whatsapp);
+            } else if (sub.type === 'amazon') {
+              let allSlots = [];
+              sub.accounts.forEach(acc => { if (acc.screens) allSlots.push(...acc.screens); });
+              result = allocateAmazonScreen(allSlots, user.username, user.whatsapp, 1);
+            } else {
+              result = allocateSimpleScreen(sub, user.username, user.whatsapp);
+            }
+            if (!result.success) {
+              success = false;
+              addToast(`Failed to allocate ${sub.name}: ${result.message}`, 'error');
+              break;
+            }
+            await updateSubscription(sub.id, sub);
+          }
+          if (success) {
+            await incrementPurchase(user.username);
+            onComplete({ success: true, message: `Deal ${deal.title} purchased!`, cost: deal.discountPrice });
+          } else {
+            // Refund
+            await addCredits(user.username, deal.discountPrice);
+            addToast('Deal purchase partially failed. Refunded credits.', 'error');
+          }
+        } else {
+          addToast('Failed to deduct credits', 'error');
+        }
+      };
+
+      return (
+        <div className="glass-panel">
+          <h3 className="text-xl font-bold text-white">{deal.title}</h3>
+          <p className="text-white/50">{deal.description}</p>
+          <p className="text-white/50">Price: RS {deal.discountPrice} (was RS {deal.actualPrice})</p>
+          {step === 'form' && (
+            <div className="mt-4 flex gap-3">
+              <button onClick={handleBuy} className="btn-neon">Buy Deal</button>
+              <button onClick={onCancel} className="btn-neon-outline">Cancel</button>
+            </div>
+          )}
+          {step === 'otp' && (
+            <div>
+              <p className="text-white/50 mt-2">Enter OTP</p>
+              <div className="flex gap-2 mt-3">
+                <input type="text" value={otpValue} onChange={(e) => setOtpValue(e.target.value)} className="input-neon w-32" placeholder="OTP" />
+                <button onClick={handleOtpVerify} className="btn-neon">Verify</button>
+              </div>
+              <button onClick={() => setStep('form')} className="btn-neon-outline mt-3">Back</button>
+            </div>
+          )}
+        </div>
+      );
+    }
 
     // ─── AUTH PAGE ─────────────────────────────────────────────
     function AuthPage({ onLogin, onSignup }) {
-      // ... (unchanged)
+      const [mode, setMode] = useState('login');
+      const [username, setUsername] = useState('');
+      const [password, setPassword] = useState('');
+      const [whatsapp, setWhatsapp] = useState('');
+      const { addToast } = useContext(AppContext);
+
+      const handleSubmit = async (e) => {
+        e.preventDefault();
+        if (mode === 'login') {
+          const result = await loginUser(username, password);
+          if (result.success) {
+            onLogin(result.user);
+          } else {
+            addToast(result.error || 'Login failed', 'error');
+          }
+        } else {
+          if (!whatsapp) {
+            addToast('WhatsApp number required', 'error');
+            return;
+          }
+          const result = await signUpUser(username, password, whatsapp);
+          if (result.success) {
+            onLogin(result.user);
+          } else {
+            addToast(result.error || 'Signup failed', 'error');
+          }
+        }
+      };
+
+      return (
+        <div className="glass-panel max-w-md mx-auto mt-10">
+          <h2 className="text-2xl font-bold text-white">{mode === 'login' ? 'Login' : 'Sign Up'}</h2>
+          <form onSubmit={handleSubmit} className="mt-4 space-y-3">
+            <input type="text" placeholder="Username" value={username} onChange={(e) => setUsername(e.target.value)} className="input-neon" required />
+            <input type="password" placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} className="input-neon" required />
+            {mode === 'signup' && (
+              <input type="text" placeholder="WhatsApp Number" value={whatsapp} onChange={(e) => setWhatsapp(e.target.value)} className="input-neon" required />
+            )}
+            <button type="submit" className="btn-neon w-full">{mode === 'login' ? 'Login' : 'Sign Up'}</button>
+          </form>
+          <p className="text-white/30 text-sm mt-3">
+            {mode === 'login' ? "Don't have an account? " : "Already have an account? "}
+            <button onClick={() => setMode(mode === 'login' ? 'signup' : 'login')} className="text-red-400 hover:underline">
+              {mode === 'login' ? 'Sign Up' : 'Login'}
+            </button>
+          </p>
+        </div>
+      );
     }
 
     // ─── CUSTOMER DASHBOARD ──────────────────────────────────
     function CustomerDashboard({ customerData, onLogout, deals, onDealPurchase, subscriptions }) {
-      // ... (unchanged)
+      // customerData is a list of all purchases (from getCustomerRecords aggregated)
+      // For simplicity, we'll show a summary
+      return (
+        <div className="glass-panel">
+          <h2 className="text-2xl font-bold text-white">Customer Dashboard</h2>
+          <p className="text-white/30">Welcome back! Here are your active subscriptions.</p>
+          <div className="mt-4 space-y-2">
+            {customerData && customerData.length > 0 ? (
+              customerData.map((record, idx) => (
+                <div key={idx} className="bg-white/5 p-3 rounded flex justify-between">
+                  <div>
+                    <p className="text-white font-medium">{record.subscriptionName}</p>
+                    <p className="text-white/30 text-sm">Screen: {record.screenName}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-white/30 text-sm">Expires: {new Date(record.expiryDate).toLocaleDateString()}</p>
+                    <p className="text-green-400 text-sm">RS {record.months * 100}</p>
+                  </div>
+                </div>
+              ))
+            ) : (
+              <p className="text-white/30">No active subscriptions found.</p>
+            )}
+          </div>
+          <button onClick={onLogout} className="btn-neon-outline mt-4">Logout</button>
+        </div>
+      );
     }
 
     // ─── ADMIN LOGIN ─────────────────────────────────────
     function AdminLogin({ onLogin }) {
-      // ... (unchanged)
+      const [password, setPassword] = useState('');
+      const { adminPassword, addToast } = useContext(AppContext);
+
+      const handleSubmit = (e) => {
+        e.preventDefault();
+        if (password === adminPassword) {
+          onLogin();
+        } else {
+          addToast('Invalid admin password', 'error');
+        }
+      };
+
+      return (
+        <div className="glass-panel max-w-sm mx-auto mt-10">
+          <h2 className="text-2xl font-bold text-white">Admin Login</h2>
+          <form onSubmit={handleSubmit} className="mt-4 space-y-3">
+            <input type="password" placeholder="Enter admin password" value={password} onChange={(e) => setPassword(e.target.value)} className="input-neon" required />
+            <button type="submit" className="btn-neon w-full">Login</button>
+          </form>
+        </div>
+      );
     }
 
     // ─── PROMOTIONS CAROUSEL ──────────────────────────────────
     function PromotionsCarousel({ promotions }) {
-      // ... (unchanged)
+      const [currentIndex, setCurrentIndex] = useState(0);
+      const activePromos = promotions.filter(p => p.active);
+      if (activePromos.length === 0) return null;
+
+      useEffect(() => {
+        const interval = setInterval(() => {
+          setCurrentIndex((prev) => (prev + 1) % activePromos.length);
+        }, 5000);
+        return () => clearInterval(interval);
+      }, [activePromos.length]);
+
+      const promo = activePromos[currentIndex];
+      return (
+        <div className="max-w-7xl mx-auto px-4 py-4">
+          <div className="glass-panel relative overflow-hidden p-0">
+            <div className="flex items-center justify-between p-4">
+              <div>
+                <h3 className="text-xl font-bold text-white">{promo.heading}</h3>
+                {promo.image && <img src={promo.image} alt={promo.heading} className="mt-2 max-h-40 object-contain" />}
+              </div>
+              <div className="flex gap-1">
+                {activePromos.map((_, idx) => (
+                  <button key={idx} onClick={() => setCurrentIndex(idx)} className={`carousel-dot ${idx === currentIndex ? 'active' : ''}`}></button>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      );
     }
 
-    // ─── ADMIN DASHBOARD (with logo & important note) ─────────
+    // ─── ADMIN DASHBOARD ──────────────────────────────────────
     function AdminDashboard({ subscriptions, setSubscriptions, onLogout, deals, setDeals, promotions, setPromotions }) {
       const [activeTab, setActiveTab] = useState('overview');
       const [showAddSub, setShowAddSub] = useState(false);
-      const [showEditSub, setShowEditSub] = useState(null); // subscription being edited
+      const [showEditSub, setShowEditSub] = useState(null);
       const [showAddAccount, setShowAddAccount] = useState(null);
       const [newSubName, setNewSubName] = useState('');
       const [newSubType, setNewSubType] = useState('custom');
@@ -1516,7 +2115,6 @@
       const { addToast, adminPassword, setAdminPassword } = useContext(AppContext);
       const { user, setUser, refreshUser } = useContext(UserContext);
 
-      // ─── Promotions state ────────────────────────────────────────
       const [showPromoModal, setShowPromoModal] = useState(false);
       const [editingPromo, setEditingPromo] = useState(null);
       const [promoForm, setPromoForm] = useState({ id: '', heading: '', image: '', active: true });
@@ -1529,12 +2127,54 @@
       const [editScreenForm, setEditScreenForm] = useState({ name: '', pin: '' });
       const [newAccount, setNewAccount] = useState({ email: '', password: '', screens: [{ name: 'Screen 1', pin: '' }], subscriptionId: '' });
 
-      // ─── Load functions (unchanged) ─────────────────────────────
-      const loadOTPs = async () => { ... };
-      const loadUsers = async () => { ... };
-      const loadIncome = async (period = 'all') => { ... };
-      const loadPromotions = async () => { ... };
-      const loadDeals = async () => { ... };
+      // Load functions
+      const loadOTPs = async () => {
+        try {
+          const data = await fetchOTPList();
+          setOtpList(data);
+        } catch (err) {
+          addToast('Failed to load OTPs', 'error');
+        }
+      };
+
+      const loadUsers = async () => {
+        try {
+          const users = await fetchAllUsers();
+          setUsersList(users);
+        } catch (err) {
+          addToast('Failed to load users', 'error');
+        }
+      };
+
+      const loadIncome = async (period = 'all') => {
+        setIncomeLoading(true);
+        try {
+          const data = await fetchIncome(period);
+          setIncomeData(data);
+        } catch (err) {
+          addToast('Failed to load income', 'error');
+        } finally {
+          setIncomeLoading(false);
+        }
+      };
+
+      const loadDeals = async () => {
+        try {
+          const data = await fetchDeals();
+          setDeals(data);
+        } catch (err) {
+          addToast('Failed to load deals', 'error');
+        }
+      };
+
+      const loadPromotions = async () => {
+        try {
+          const data = await fetchPromotions();
+          setPromotions(data);
+        } catch (err) {
+          addToast('Failed to load promotions', 'error');
+        }
+      };
 
       useEffect(() => {
         if (activeTab === 'otp') { loadOTPs(); const interval = setInterval(loadOTPs, 10000); return () => clearInterval(interval); }
@@ -1558,7 +2198,7 @@
         }
       };
 
-      // ─── Subscription CRUD with logo and important note ──────────
+      // Subscription CRUD
       const handleLogoUpload = (e) => {
         const file = e.target.files[0];
         if (!file) return;
@@ -1648,24 +2288,155 @@
         }
       };
 
-      // ─── Deal functions (unchanged) ──────────────────────────────
-      const openDealModal = (deal = null) => { ... };
-      const toggleSubscriptionInDeal = (subId) => { ... };
-      const saveDeal = async () => { ... };
-      const deleteDealHandler = async (dealId) => { ... };
-      const toggleDealStatus = async (deal) => { ... };
+      const deleteSubscription = async (subId) => {
+        if (!confirm('Delete this subscription?')) return;
+        try {
+          await deleteSubscriptionAPI(subId);
+          setSubscriptions(prev => prev.filter(s => s.id !== subId));
+          addToast('Subscription deleted', 'success');
+        } catch (err) {
+          addToast('Failed to delete', 'error');
+        }
+      };
 
-      // ─── Promotions functions (unchanged) ──────────────────────
-      const openPromoModal = (promo = null) => { ... };
-      const handlePromoImageChange = (e) => { ... };
-      const savePromotion = async () => { ... };
-      const deletePromotionHandler = async (promoId) => { ... };
-      const togglePromotionStatus = async (promo) => { ... };
+      // Deal functions
+      const openDealModal = (deal = null) => {
+        setEditingDeal(deal);
+        if (deal) {
+          setDealForm({ ...deal });
+        } else {
+          setDealForm({ id: 'd' + Date.now(), subscriptionIds: [], title: '', description: '', actualPrice: '', discountPrice: '', active: true });
+        }
+        setShowDealModal(true);
+      };
 
-      // ─── Other admin helpers (unchanged) ──────────────────────
-      // ... (deleteSubscription, deleteAccount, etc.)
+      const toggleSubscriptionInDeal = (subId) => {
+        setDealForm(prev => {
+          const idx = prev.subscriptionIds.indexOf(subId);
+          if (idx > -1) {
+            const newIds = [...prev.subscriptionIds];
+            newIds.splice(idx, 1);
+            return { ...prev, subscriptionIds: newIds };
+          } else {
+            return { ...prev, subscriptionIds: [...prev.subscriptionIds, subId] };
+          }
+        });
+      };
 
-      // ─── RENDER ADMIN DASHBOARD ──────────────────────────────
+      const saveDeal = async () => {
+        if (!dealForm.title || !dealForm.actualPrice || !dealForm.discountPrice || dealForm.subscriptionIds.length === 0) {
+          addToast('Please fill all fields and select at least one subscription', 'error');
+          return;
+        }
+        try {
+          if (editingDeal) {
+            const result = await updateDeal(dealForm.id, dealForm);
+            setDeals(prev => prev.map(d => d.id === dealForm.id ? result : d));
+            addToast('Deal updated', 'success');
+          } else {
+            const result = await createDeal(dealForm);
+            setDeals(prev => [...prev, result]);
+            addToast('Deal created', 'success');
+          }
+          setShowDealModal(false);
+          setEditingDeal(null);
+          await loadDeals();
+        } catch (err) {
+          addToast('Failed to save deal', 'error');
+        }
+      };
+
+      const deleteDealHandler = async (dealId) => {
+        if (!confirm('Delete this deal?')) return;
+        try {
+          await deleteDeal(dealId);
+          setDeals(prev => prev.filter(d => d.id !== dealId));
+          addToast('Deal deleted', 'success');
+        } catch (err) {
+          addToast('Failed to delete deal', 'error');
+        }
+      };
+
+      const toggleDealStatus = async (deal) => {
+        try {
+          const updated = { ...deal, active: !deal.active };
+          const result = await updateDeal(deal.id, updated);
+          setDeals(prev => prev.map(d => d.id === deal.id ? result : d));
+          addToast(`Deal ${result.active ? 'activated' : 'deactivated'}`, 'success');
+        } catch (err) {
+          addToast('Failed to update deal', 'error');
+        }
+      };
+
+      // Promotions functions
+      const openPromoModal = (promo = null) => {
+        setEditingPromo(promo);
+        if (promo) {
+          setPromoForm({ ...promo });
+          setPromoImagePreview(promo.image || '');
+        } else {
+          setPromoForm({ id: 'p' + Date.now(), heading: '', image: '', active: true });
+          setPromoImagePreview('');
+        }
+        setShowPromoModal(true);
+      };
+
+      const handlePromoImageChange = (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+          setPromoImagePreview(ev.target.result);
+          setPromoForm(prev => ({ ...prev, image: ev.target.result }));
+        };
+        reader.readAsDataURL(file);
+      };
+
+      const savePromotion = async () => {
+        if (!promoForm.heading || !promoForm.image) {
+          addToast('Heading and image required', 'error');
+          return;
+        }
+        try {
+          if (editingPromo) {
+            const result = await updatePromotion(promoForm.id, promoForm);
+            setPromotions(prev => prev.map(p => p.id === promoForm.id ? result : p));
+            addToast('Promotion updated', 'success');
+          } else {
+            const result = await createPromotion(promoForm);
+            setPromotions(prev => [...prev, result]);
+            addToast('Promotion created', 'success');
+          }
+          setShowPromoModal(false);
+          setEditingPromo(null);
+          await loadPromotions();
+        } catch (err) {
+          addToast('Failed to save promotion', 'error');
+        }
+      };
+
+      const deletePromotionHandler = async (promoId) => {
+        if (!confirm('Delete this promotion?')) return;
+        try {
+          await deletePromotion(promoId);
+          setPromotions(prev => prev.filter(p => p.id !== promoId));
+          addToast('Promotion deleted', 'success');
+        } catch (err) {
+          addToast('Failed to delete promotion', 'error');
+        }
+      };
+
+      const togglePromotionStatus = async (promo) => {
+        try {
+          const updated = { ...promo, active: !promo.active };
+          const result = await updatePromotion(promo.id, updated);
+          setPromotions(prev => prev.map(p => p.id === promo.id ? result : p));
+          addToast(`Promotion ${result.active ? 'activated' : 'deactivated'}`, 'success');
+        } catch (err) {
+          addToast('Failed to update promotion', 'error');
+        }
+      };
+
       return (
         <div className="space-y-6">
           <div className="flex flex-wrap justify-between items-center gap-4">
@@ -1681,7 +2452,29 @@
             </div>
           </div>
 
-          {showAdminSettings && ( ... )}
+          {showAdminSettings && (
+            <div className="glass-panel">
+              <h3 className="text-white font-semibold">Admin Settings</h3>
+              <div className="mt-2 flex gap-4 items-end">
+                <div>
+                  <label className="text-white/50 text-sm">New Admin Password</label>
+                  <input type="password" value={newAdminPassword} onChange={(e) => setNewAdminPassword(e.target.value)} className="input-neon mt-1" />
+                </div>
+                <div>
+                  <label className="text-white/50 text-sm">Confirm</label>
+                  <input type="password" value={confirmAdminPassword} onChange={(e) => setConfirmAdminPassword(e.target.value)} className="input-neon mt-1" />
+                </div>
+                <button onClick={() => {
+                  if (newAdminPassword === confirmAdminPassword && newAdminPassword.length > 0) {
+                    setAdminPassword(newAdminPassword);
+                    addToast('Admin password updated', 'success');
+                  } else {
+                    addToast('Passwords do not match or empty', 'error');
+                  }
+                }} className="btn-neon-sm">Update Password</button>
+              </div>
+            </div>
+          )}
 
           {showAddSub && (
             <div className="glass-panel">
@@ -1782,10 +2575,39 @@
             ))}
           </div>
 
-          {/* Overview (unchanged) */}
-          {activeTab === 'overview' && ( ... )}
+          {/* Overview */}
+          {activeTab === 'overview' && (
+            <div className="glass-panel">
+              <h3 className="text-white font-semibold">Dashboard Overview</h3>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
+                <div className="bg-white/5 p-4 rounded-xl">
+                  <p className="text-white/30 text-xs">Subscriptions</p>
+                  <p className="text-2xl font-bold text-white">{subscriptions.length}</p>
+                </div>
+                <div className="bg-white/5 p-4 rounded-xl">
+                  <p className="text-white/30 text-xs">Total Customers</p>
+                  <p className="text-2xl font-bold text-white">
+                    {subscriptions.reduce((acc, sub) => acc + getTotalCustomers(sub), 0)}
+                  </p>
+                </div>
+                <div className="bg-white/5 p-4 rounded-xl">
+                  <p className="text-white/30 text-xs">Expiring Soon (7 days)</p>
+                  <p className="text-2xl font-bold text-yellow-400">{getExpiringSoon(subscriptions).length}</p>
+                </div>
+                <div className="bg-white/5 p-4 rounded-xl">
+                  <p className="text-white/30 text-xs">Total Income (all)</p>
+                  <p className="text-2xl font-bold text-green-400">
+                    RS {incomeData ? incomeData.totalIncome : '...'}
+                  </p>
+                </div>
+              </div>
+              <button onClick={() => loadIncome(incomePeriod)} className="btn-neon-sm mt-4">
+                <i className="fas fa-sync mr-1"></i> Refresh Income
+              </button>
+            </div>
+          )}
 
-          {/* Subscriptions tab – displays logo and important note */}
+          {/* Subscriptions */}
           {activeTab === 'subscriptions' && (
             <div className="space-y-6">
               {subscriptions.map(sub => {
@@ -1826,16 +2648,246 @@
                         <button onClick={() => deleteSubscription(sub.id)} className="btn-danger text-sm"><i className="fas fa-trash mr-1"></i> Delete</button>
                       </div>
                     </div>
-                    {/* Accounts & customers tables (unchanged) */}
-                    ...
+                    {/* Accounts & customers table */}
+                    <div className="mt-4 overflow-x-auto">
+                      <table className="admin-table">
+                        <thead>
+                          <tr>
+                            <th>Account</th>
+                            <th>Screen</th>
+                            <th>Customers</th>
+                            <th>Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {sub.accounts.map(acc => (
+                            acc.screens.map(screen => (
+                              <tr key={screen.id}>
+                                <td>{acc.email}</td>
+                                <td>{screen.name} {screen.pin && `(PIN: ${screen.pin})`}</td>
+                                <td>
+                                  {screen.customers && screen.customers.length > 0 ? (
+                                    screen.customers.map((c, i) => (
+                                      <span key={i} className="inline-block bg-white/5 px-2 py-1 rounded text-xs mr-1">
+                                        {c.name || c.username}
+                                      </span>
+                                    ))
+                                  ) : 'Empty'}
+                                </td>
+                                <td>
+                                  <button className="btn-red text-xs" onClick={() => { /* handle edit screen */ }}><i className="fas fa-edit"></i></button>
+                                  <button className="btn-danger text-xs ml-1" onClick={() => { /* handle remove customer */ }}><i className="fas fa-user-minus"></i></button>
+                                </td>
+                              </tr>
+                            ))
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
                   </div>
                 );
               })}
             </div>
           )}
 
-          {/* Other tabs (customers, income, users, deals, promotions, otp) unchanged */}
-          ...
+          {/* Customers */}
+          {activeTab === 'customers' && (
+            <div className="glass-panel">
+              <h3 className="text-white font-semibold">All Customers</h3>
+              <div className="overflow-x-auto mt-4">
+                <table className="admin-table">
+                  <thead><tr><th>Name</th><th>Subscription</th><th>Expiry</th><th>WhatsApp</th></tr></thead>
+                  <tbody>
+                    {subscriptions.flatMap(sub => 
+                      getCustomerRecords(sub).map((c, idx) => (
+                        <tr key={idx}>
+                          <td>{c.customerName}</td>
+                          <td>{sub.name}</td>
+                          <td>{c.expiryDate ? new Date(c.expiryDate).toLocaleDateString() : 'N/A'}</td>
+                          <td>{c.whatsapp || 'N/A'}</td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* Income */}
+          {activeTab === 'income' && (
+            <div className="glass-panel">
+              <h3 className="text-white font-semibold">Income Overview</h3>
+              <div className="flex gap-2 mt-2">
+                <button onClick={() => setIncomePeriod('all')} className={`tab-btn ${incomePeriod === 'all' ? 'active' : ''}`}>All</button>
+                <button onClick={() => setIncomePeriod('monthly')} className={`tab-btn ${incomePeriod === 'monthly' ? 'active' : ''}`}>This Month</button>
+                <button onClick={() => setIncomePeriod('30')} className={`tab-btn ${incomePeriod === '30' ? 'active' : ''}`}>Last 30 Days</button>
+                <button onClick={() => setIncomePeriod('90')} className={`tab-btn ${incomePeriod === '90' ? 'active' : ''}`}>Last 90 Days</button>
+              </div>
+              {incomeData && (
+                <div className="mt-4">
+                  <p className="text-2xl font-bold text-green-400">Total: RS {incomeData.totalIncome}</p>
+                  <div className="grid grid-cols-2 gap-2 mt-2">
+                    {Object.entries(incomeData.incomeByType || {}).map(([type, amount]) => (
+                      <div key={type} className="bg-white/5 p-2 rounded">
+                        <span className="capitalize text-white/50">{type}</span>
+                        <span className="float-right text-white">RS {amount}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {incomeLoading && <div className="spinner mx-auto my-4"></div>}
+            </div>
+          )}
+
+          {/* Users */}
+          {activeTab === 'users' && (
+            <div className="glass-panel">
+              <h3 className="text-white font-semibold">Registered Users</h3>
+              <div className="overflow-x-auto mt-4">
+                <table className="admin-table">
+                  <thead><tr><th>Username</th><th>WhatsApp</th><th>Credits</th><th>Purchases</th><th>Actions</th></tr></thead>
+                  <tbody>
+                    {usersList.map(u => (
+                      <tr key={u.username}>
+                        <td>{u.username}</td>
+                        <td>{u.whatsapp}</td>
+                        <td>{u.credits}</td>
+                        <td>{u.purchaseCount}</td>
+                        <td>
+                          <button className="btn-success text-xs" onClick={() => { setSelectedUserForCredits(u); /* open credit modal */ }}>Add Credits</button>
+                          <button className="btn-danger text-xs ml-1" onClick={() => { /* deduct credits */ }}>Deduct</button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* Deals */}
+          {activeTab === 'deals' && (
+            <div className="glass-panel">
+              <div className="flex justify-between items-center">
+                <h3 className="text-white font-semibold">Deals</h3>
+                <button onClick={() => openDealModal()} className="btn-neon-sm">+ New Deal</button>
+              </div>
+              <div className="mt-4 space-y-2">
+                {deals.map(deal => (
+                  <div key={deal.id} className="bg-white/5 p-4 rounded flex justify-between items-center">
+                    <div>
+                      <h4 className="text-white font-medium">{deal.title}</h4>
+                      <p className="text-white/30 text-sm">{deal.description}</p>
+                      <p className="text-white/30 text-sm">RS {deal.actualPrice} → RS {deal.discountPrice}  |  Active: {deal.active ? '✅' : '❌'}</p>
+                    </div>
+                    <div className="flex gap-2">
+                      <button onClick={() => openDealModal(deal)} className="btn-warning text-sm">Edit</button>
+                      <button onClick={() => toggleDealStatus(deal)} className="btn-red text-sm">{deal.active ? 'Deactivate' : 'Activate'}</button>
+                      <button onClick={() => deleteDealHandler(deal.id)} className="btn-danger text-sm">Delete</button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Promotions */}
+          {activeTab === 'promotions' && (
+            <div className="glass-panel">
+              <div className="flex justify-between items-center">
+                <h3 className="text-white font-semibold">Promotions</h3>
+                <button onClick={() => openPromoModal()} className="btn-neon-sm">+ New Promotion</button>
+              </div>
+              <div className="mt-4 grid grid-cols-2 sm:grid-cols-3 gap-4">
+                {promotions.map(promo => (
+                  <div key={promo.id} className="bg-white/5 p-4 rounded relative">
+                    {promo.image && <img src={promo.image} alt={promo.heading} className="w-full h-24 object-cover rounded mb-2" />}
+                    <p className="text-white font-medium">{promo.heading}</p>
+                    <p className="text-white/30 text-sm">Active: {promo.active ? '✅' : '❌'}</p>
+                    <div className="flex gap-1 mt-2">
+                      <button onClick={() => openPromoModal(promo)} className="btn-warning text-xs">Edit</button>
+                      <button onClick={() => togglePromotionStatus(promo)} className="btn-red text-xs">{promo.active ? 'Deactivate' : 'Activate'}</button>
+                      <button onClick={() => deletePromotionHandler(promo.id)} className="btn-danger text-xs">Delete</button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* OTP */}
+          {activeTab === 'otp' && (
+            <div className="glass-panel">
+              <h3 className="text-white font-semibold">OTP Logs</h3>
+              <div className="overflow-x-auto mt-4">
+                <table className="admin-table">
+                  <thead><tr><th>OTP</th><th>User</th><th>Description</th><th>Created</th><th>Expires</th><th>Verified</th></tr></thead>
+                  <tbody>
+                    {otpList.map(otp => (
+                      <tr key={otp.id}>
+                        <td className="font-mono text-red-400">{otp.otp}</td>
+                        <td>{otp.userIdentifier}</td>
+                        <td>{otp.description}</td>
+                        <td>{new Date(otp.createdAt).toLocaleString()}</td>
+                        <td>{new Date(otp.expiresAt).toLocaleString()}</td>
+                        <td>{otp.verified ? '✅' : '⏳'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* Deal Modal */}
+          {showDealModal && (
+            <div className="modal-overlay" onClick={() => setShowDealModal(false)}>
+              <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+                <h3 className="text-xl font-bold text-white">{editingDeal ? 'Edit Deal' : 'New Deal'}</h3>
+                <div className="mt-4 space-y-3">
+                  <input type="text" placeholder="Title" value={dealForm.title} onChange={(e) => setDealForm({...dealForm, title: e.target.value})} className="input-neon" />
+                  <input type="text" placeholder="Description" value={dealForm.description} onChange={(e) => setDealForm({...dealForm, description: e.target.value})} className="input-neon" />
+                  <input type="number" placeholder="Actual Price" value={dealForm.actualPrice} onChange={(e) => setDealForm({...dealForm, actualPrice: e.target.value})} className="input-neon" />
+                  <input type="number" placeholder="Discount Price" value={dealForm.discountPrice} onChange={(e) => setDealForm({...dealForm, discountPrice: e.target.value})} className="input-neon" />
+                  <div>
+                    <p className="text-white/50 text-sm">Select Subscriptions:</p>
+                    <div className="flex flex-wrap gap-2 mt-1">
+                      {subscriptions.map(sub => (
+                        <label key={sub.id} className="flex items-center gap-1 text-white/70 text-sm cursor-pointer">
+                          <input type="checkbox" checked={dealForm.subscriptionIds.includes(sub.id)} onChange={() => toggleSubscriptionInDeal(sub.id)} className="accent-red-500" />
+                          {sub.name}
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="flex gap-3">
+                    <button onClick={saveDeal} className="btn-neon">Save</button>
+                    <button onClick={() => setShowDealModal(false)} className="btn-neon-outline">Cancel</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Promotion Modal */}
+          {showPromoModal && (
+            <div className="modal-overlay" onClick={() => setShowPromoModal(false)}>
+              <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+                <h3 className="text-xl font-bold text-white">{editingPromo ? 'Edit Promotion' : 'New Promotion'}</h3>
+                <div className="mt-4 space-y-3">
+                  <input type="text" placeholder="Heading" value={promoForm.heading} onChange={(e) => setPromoForm({...promoForm, heading: e.target.value})} className="input-neon" />
+                  <input type="file" accept="image/*" onChange={handlePromoImageChange} className="input-neon p-2" />
+                  {promoImagePreview && <img src={promoImagePreview} alt="Preview" className="promo-upload-preview" />}
+                  <div className="flex gap-3">
+                    <button onClick={savePromotion} className="btn-neon">Save</button>
+                    <button onClick={() => setShowPromoModal(false)} className="btn-neon-outline">Cancel</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       );
     }
@@ -1890,11 +2942,42 @@
       };
 
       const findCustomers = (username) => {
-        // ... (unchanged)
+        // aggregate all customer records for this username
+        const allRecords = [];
+        subscriptions.forEach(sub => {
+          if (sub.accounts) {
+            sub.accounts.forEach(acc => {
+              if (acc.screens) {
+                acc.screens.forEach(screen => {
+                  if (screen.customers) {
+                    screen.customers.forEach(c => {
+                      if (c.username === username) {
+                        allRecords.push({
+                          subscriptionName: sub.name,
+                          screenName: screen.name,
+                          expiryDate: c.expiryDate,
+                          months: c.months || 1,
+                          purchasedAt: c.purchasedAt
+                        });
+                      }
+                    });
+                  }
+                });
+              }
+            });
+          }
+        });
+        return allRecords;
       };
 
       const handleSubComplete = async (data) => {
-        // ... (unchanged)
+        if (data.success) {
+          addToast(data.message, 'success');
+          await refreshUser();
+          resetFlow();
+        } else {
+          addToast(data.message || 'Purchase failed', 'error');
+        }
       };
 
       const handleLogin = async (userData) => {
@@ -1916,7 +2999,35 @@
       };
 
       const renderFlow = () => {
-        // ... (unchanged)
+        if (!user) {
+          return <AuthPage onLogin={handleLogin} onSignup={handleLogin} />;
+        }
+        if (flowStep === 'select') {
+          return (
+            <div className="glass-panel">
+              <h3 className="text-xl font-bold text-white">Select a Subscription</h3>
+              <SubscriptionSelection subscriptions={subscriptions} selected={selectedSubscription} onSelect={handleSubSelect} />
+            </div>
+          );
+        }
+        if (flowStep === 'flow' && selectedSubscription) {
+          const sub = selectedSubscription;
+          if (sub.type === 'netflix') {
+            return <NetflixFlow subscription={sub} onComplete={handleSubComplete} onCancel={resetFlow} user={user} />;
+          } else if (sub.type === 'amazon') {
+            return <AmazonFlow subscription={sub} onComplete={handleSubComplete} onCancel={resetFlow} user={user} />;
+          } else {
+            return <SimpleSubscriptionFlow subscription={sub} onComplete={handleSubComplete} onCancel={resetFlow} user={user} />;
+          }
+        }
+        if (flowStep === 'deal-purchase' && selectedDeal) {
+          return <DealPurchaseFlow deal={selectedDeal} onComplete={handleSubComplete} onCancel={resetFlow} user={user} subscriptions={subscriptions} />;
+        }
+        if (flowStep === 'customer-dash') {
+          const records = findCustomers(user.username);
+          return <CustomerDashboard customerData={records} onLogout={handleLogout} deals={deals} onDealPurchase={() => {}} subscriptions={subscriptions} />;
+        }
+        return null;
       };
 
       const handleGetStarted = () => {
@@ -1966,7 +3077,6 @@
       }).filter(d => d.subscriptions.length > 0);
 
       function Footer() {
-        // ... (unchanged)
         return (
           <footer className="footer">
             <div className="max-w-7xl mx-auto px-4">
@@ -2036,7 +3146,6 @@
 
           {activeTab === 'home' && !showSubscriptions && (
             <>
-              {/* Promotions moved to bottom */}
               {dealsWithSub.length > 0 && (
                 <div className="max-w-7xl mx-auto px-4 pt-4 pb-2">
                   <DealsCarousel deals={dealsWithSub} subscriptions={subscriptions} onPurchaseClick={handleDealPurchase} />
@@ -2044,14 +3153,11 @@
               )}
               <Hero setActiveTab={setActiveTab} setShowSubscriptions={setShowSubscriptions} onGetStarted={handleGetStarted} />
               <TrendingSubscriptions />
-
-              {/* Promotion carousel placed here – above footer */}
               {promotions.length > 0 && (
                 <div className="max-w-7xl mx-auto px-4 pt-4 pb-2">
                   <PromotionsCarousel promotions={promotions} />
                 </div>
               )}
-
               <WhatsAppButton />
               <Footer />
             </>
@@ -2059,21 +3165,81 @@
 
           {(activeTab === 'subscriptions' || showSubscriptions) && (
             <section id="subscription-section" className="px-4 max-w-7xl mx-auto pb-20">
-              {/* ... subscription logic unchanged ... */}
+              {flowStep === 'auth' && !user && (
+                <AuthPage onLogin={handleLogin} onSignup={handleLogin} />
+              )}
+              {user && flowStep === 'welcome' && (
+                <div className="glass-panel text-center">
+                  <h2 className="text-2xl font-bold text-white">Welcome back, {user.username}!</h2>
+                  <p className="text-white/30">You have RS {user.credits} credits.</p>
+                  <button onClick={() => setFlowStep('select')} className="btn-neon mt-4">Browse Subscriptions</button>
+                </div>
+              )}
+              {flowStep !== 'auth' && renderFlow()}
+              {flowStep === 'welcome' && !user && (
+                <div className="glass-panel text-center">
+                  <h2 className="text-2xl font-bold text-white">Get Started</h2>
+                  <p className="text-white/30">Login or sign up to start enjoying premium subscriptions.</p>
+                  <button onClick={() => setFlowStep('auth')} className="btn-neon mt-4">Login / Sign Up</button>
+                </div>
+              )}
             </section>
           )}
 
-          {/* Other tabs (contact, social, admin) unchanged */}
+          {activeTab === 'admin' && (
+            <section id="admin-section" className="px-4 max-w-7xl mx-auto pb-20">
+              {!isAdmin ? (
+                <AdminLogin onLogin={() => setIsAdmin(true)} />
+              ) : (
+                <AdminDashboard subscriptions={subscriptions} setSubscriptions={setSubscriptions} onLogout={() => setIsAdmin(false)} deals={deals} setDeals={setDeals} promotions={promotions} setPromotions={setPromotions} />
+              )}
+            </section>
+          )}
+
+          {activeTab === 'contact' && (
+            <section id="contact-section" className="px-4 max-w-7xl mx-auto pb-20">
+              <div className="glass-panel">
+                <h2 className="text-2xl font-bold text-white">Contact Us</h2>
+                <p className="text-white/30">Reach out to us via any of the channels below.</p>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
+                  <div className="contact-icon-box">
+                    <span className="icon">📞</span>
+                    <p className="label">Phone</p>
+                    <p className="value"><a href="tel:+923079163485">+92 307 9163485</a></p>
+                  </div>
+                  <div className="contact-icon-box">
+                    <span className="icon">💬</span>
+                    <p className="label">WhatsApp</p>
+                    <p className="value"><a href="https://wa.me/923079163485" target="_blank">Chat Now</a></p>
+                  </div>
+                  <div className="contact-icon-box">
+                    <span className="icon">✉️</span>
+                    <p className="label">Email</p>
+                    <p className="value"><a href="mailto:support@zetlify.com">support@zetlify.com</a></p>
+                  </div>
+                </div>
+              </div>
+            </section>
+          )}
+
+          {activeTab === 'social' && (
+            <section id="social-section" className="px-4 max-w-7xl mx-auto pb-20">
+              <div className="glass-panel">
+                <h2 className="text-2xl font-bold text-white">Follow Us</h2>
+                <p className="text-white/30">Connect with us on social media.</p>
+                <div className="space-y-3 mt-4">
+                  <a href="#" className="social-link-card"><span className="social-icon"><i className="fab fa-facebook-f" style={{ color: '#1877F2' }}></i></span><span className="social-name">Facebook</span><span className="social-handle">@zetlify</span><span className="social-arrow">→</span></a>
+                  <a href="#" className="social-link-card"><span className="social-icon"><i className="fab fa-instagram" style={{ color: '#E4405F' }}></i></span><span className="social-name">Instagram</span><span className="social-handle">@zetlify</span><span className="social-arrow">→</span></a>
+                  <a href="#" className="social-link-card"><span className="social-icon"><i className="fab fa-youtube" style={{ color: '#FF0000' }}></i></span><span className="social-name">YouTube</span><span className="social-handle">Zetlify TV</span><span className="social-arrow">→</span></a>
+                  <a href="#" className="social-link-card"><span className="social-icon"><i className="fab fa-twitter" style={{ color: '#1DA1F2' }}></i></span><span className="social-name">Twitter</span><span className="social-handle">@zetlify</span><span className="social-arrow">→</span></a>
+                  <a href="#" className="social-link-card"><span className="social-icon"><i className="fab fa-linkedin-in" style={{ color: '#0A66C2' }}></i></span><span className="social-name">LinkedIn</span><span className="social-handle">Zetlify</span><span className="social-arrow">→</span></a>
+                </div>
+              </div>
+            </section>
+          )}
         </div>
       );
     }
-
-    // ─── Helper functions (unchanged) ──────────────────────────
-    const getCustomerRecords = (sub) => { ... };
-    const getTotalCustomers = (sub) => { ... };
-    const getTotalSlots = (sub) => { ... };
-    const checkExpiry = (dateStr) => { ... };
-    const getExpiringSoon = () => { ... };
 
     const root = ReactDOM.createRoot(document.getElementById('root'));
     root.render(
