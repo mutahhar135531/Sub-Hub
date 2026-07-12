@@ -4,7 +4,16 @@ const cors = require('cors');
 const { MongoClient } = require('mongodb');
 
 const app = express();
-app.use(cors());
+
+// ─── CORS CONFIGURATION ──────────────────────────────────────
+// Allow all origins with proper credentials
+app.use(cors({
+  origin: '*',
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'Cache-Control'],
+  credentials: true
+}));
+
 app.use(express.json());
 
 // ─── STRICT CACHE CONTROL ──────────────────────────────────────
@@ -12,6 +21,7 @@ app.use((req, res, next) => {
   res.header('Cache-Control', 'no-cache, no-store, must-revalidate');
   res.header('Pragma', 'no-cache');
   res.header('Expires', '0');
+  res.header('Access-Control-Allow-Origin', '*');
   next();
 });
 
@@ -40,135 +50,153 @@ async function connectDB() {
 
 // ─── Initial seed data ──────────────────────────────────────
 async function seedData() {
-  const subCount = await subscriptionsCollection.countDocuments();
-  if (subCount === 0) {
-    const initialSubscriptions = [
-      {
-        id: '1',
-        name: 'Netflix',
-        type: 'netflix',
-        accounts: [
-          {
-            id: 'a1',
-            email: 'netflix1@example.com',
-            password: 'Mvpcm$263@986',
-            screens: [
-              { id: 's1', name: 'Screen 1', pin: '3273', customers: [] },
-              { id: 's2', name: 'Screen 2', pin: '2222', customers: [] },
-              { id: 's3', name: 'Screen 3', pin: '3333', customers: [] },
-              { id: 's4', name: 'Screen 4', pin: '4444', customers: [] },
-              { id: 's5', name: 'Screen 5', pin: '5555', customers: [] }
-            ]
-          },
-          {
-            id: 'a2',
-            email: 'netflix2@example.com',
-            password: 'pass2',
-            screens: [
-              { id: 's6', name: 'Screen 1', pin: '6666', customers: [] },
-              { id: 's7', name: 'Screen 2', pin: '7777', customers: [] },
-              { id: 's8', name: 'Screen 3', pin: '8888', customers: [] },
-              { id: 's9', name: 'Screen 4', pin: '9999', customers: [] },
-              { id: 's10', name: 'Screen 5', pin: '1010', customers: [] }
-            ]
-          }
-        ]
-      },
-      {
-        id: '2',
-        name: 'Amazon Prime',
-        type: 'amazon',
-        accounts: [
-          {
-            id: 'a3',
-            email: 'amazon1@example.com',
-            password: 'pass3',
-            screens: Array.from({ length: 6 }, (_, i) => ({
-              id: `s_${i+1}`,
-              name: `Slot ${i+1}`,
-              pin: '',
-              customers: []
-            }))
-          }
-        ]
-      },
-      {
-        id: '3',
-        name: 'YouTube Premium',
-        type: 'youtube',
-        accounts: []
-      },
-      {
-        id: '4',
-        name: 'Spotify Premium',
-        type: 'spotify',
-        accounts: [
-          {
-            id: 'a4',
-            email: 'spotify1@example.com',
-            password: 'pass4',
-            screens: [
-              { id: 's1', name: 'Premium 1', pin: '', customers: [] }
-            ]
-          }
-        ]
-      },
-      {
-        id: '5',
-        name: 'ChatGPT',
-        type: 'chatgpt',
-        accounts: [
-          {
-            id: 'a5',
-            email: 'chatgpt1@example.com',
-            password: 'pass5',
-            screens: [
-              { id: 's1', name: 'Pro 1', pin: '', customers: [] }
-            ]
-          }
-        ]
-      }
-    ];
-    await subscriptionsCollection.insertMany(initialSubscriptions);
-    console.log('✅ Initial subscriptions seeded');
-  }
+  try {
+    const subCount = await subscriptionsCollection.countDocuments();
+    if (subCount === 0) {
+      const initialSubscriptions = [
+        {
+          id: '1',
+          name: 'Netflix',
+          type: 'netflix',
+          accounts: [
+            {
+              id: 'a1',
+              email: 'netflix1@example.com',
+              password: 'Mvpcm$263@986',
+              screens: [
+                { id: 's1', name: 'Screen 1', pin: '3273', customers: [] },
+                { id: 's2', name: 'Screen 2', pin: '2222', customers: [] },
+                { id: 's3', name: 'Screen 3', pin: '3333', customers: [] },
+                { id: 's4', name: 'Screen 4', pin: '4444', customers: [] },
+                { id: 's5', name: 'Screen 5', pin: '5555', customers: [] }
+              ]
+            },
+            {
+              id: 'a2',
+              email: 'netflix2@example.com',
+              password: 'pass2',
+              screens: [
+                { id: 's6', name: 'Screen 1', pin: '6666', customers: [] },
+                { id: 's7', name: 'Screen 2', pin: '7777', customers: [] },
+                { id: 's8', name: 'Screen 3', pin: '8888', customers: [] },
+                { id: 's9', name: 'Screen 4', pin: '9999', customers: [] },
+                { id: 's10', name: 'Screen 5', pin: '1010', customers: [] }
+              ]
+            }
+          ]
+        },
+        {
+          id: '2',
+          name: 'Amazon Prime',
+          type: 'amazon',
+          accounts: [
+            {
+              id: 'a3',
+              email: 'amazon1@example.com',
+              password: 'pass3',
+              screens: Array.from({ length: 6 }, (_, i) => ({
+                id: `s_${i+1}`,
+                name: `Slot ${i+1}`,
+                pin: '',
+                customers: []
+              }))
+            }
+          ]
+        },
+        {
+          id: '3',
+          name: 'YouTube Premium',
+          type: 'youtube',
+          accounts: []
+        },
+        {
+          id: '4',
+          name: 'Spotify Premium',
+          type: 'spotify',
+          accounts: [
+            {
+              id: 'a4',
+              email: 'spotify1@example.com',
+              password: 'pass4',
+              screens: [
+                { id: 's1', name: 'Premium 1', pin: '', customers: [] }
+              ]
+            }
+          ]
+        },
+        {
+          id: '5',
+          name: 'ChatGPT',
+          type: 'chatgpt',
+          accounts: [
+            {
+              id: 'a5',
+              email: 'chatgpt1@example.com',
+              password: 'pass5',
+              screens: [
+                { id: 's1', name: 'Pro 1', pin: '', customers: [] }
+              ]
+            }
+          ]
+        }
+      ];
+      await subscriptionsCollection.insertMany(initialSubscriptions);
+      console.log('✅ Initial subscriptions seeded');
+    }
 
-  const dealCount = await dealsCollection.countDocuments();
-  if (dealCount === 0) {
-    const defaultDeals = [
-      {
-        id: 'd1',
-        subscriptionIds: ['1'],
-        title: 'Netflix Premium',
-        description: 'Watch unlimited movies & TV shows',
-        actualPrice: 500,
-        discountPrice: 350,
-        active: true,
+    const dealCount = await dealsCollection.countDocuments();
+    if (dealCount === 0) {
+      const defaultDeals = [
+        {
+          id: 'd1',
+          subscriptionIds: ['1'],
+          title: 'Netflix Premium',
+          description: 'Watch unlimited movies & TV shows',
+          actualPrice: 500,
+          discountPrice: 350,
+          active: true,
+          createdAt: new Date()
+        },
+        {
+          id: 'd2',
+          subscriptionIds: ['2'],
+          title: 'Amazon Prime',
+          description: 'Prime Video, Music & Free Delivery',
+          actualPrice: 200,
+          discountPrice: 150,
+          active: true,
+          createdAt: new Date()
+        },
+        {
+          id: 'd3',
+          subscriptionIds: ['1', '2'],
+          title: 'Netflix + Amazon Combo',
+          description: 'Get both Netflix and Amazon Prime together',
+          actualPrice: 700,
+          discountPrice: 450,
+          active: true,
+          createdAt: new Date()
+        }
+      ];
+      await dealsCollection.insertMany(defaultDeals);
+      console.log('✅ Default deals seeded');
+    }
+
+    // Check if users collection is empty, create default admin user
+    const userCount = await usersCollection.countDocuments();
+    if (userCount === 0) {
+      await usersCollection.insertOne({
+        username: 'admin',
+        password: 'admin123',
+        whatsapp: '+923079163485',
+        purchaseCount: 0,
+        credits: 1000,
         createdAt: new Date()
-      },
-      {
-        id: 'd2',
-        subscriptionIds: ['2'],
-        title: 'Amazon Prime',
-        description: 'Prime Video, Music & Free Delivery',
-        actualPrice: 200,
-        discountPrice: 150,
-        active: true,
-        createdAt: new Date()
-      },
-      {
-        id: 'd3',
-        subscriptionIds: ['1', '2'],
-        title: 'Netflix + Amazon Combo',
-        description: 'Get both Netflix and Amazon Prime together',
-        actualPrice: 700,
-        discountPrice: 450,
-        active: true,
-        createdAt: new Date()
-      }
-    ];
-    await dealsCollection.insertMany(defaultDeals);
-    console.log('✅ Default deals seeded');
+      });
+      console.log('✅ Default admin user created');
+    }
+  } catch (err) {
+    console.error('Error seeding data:', err);
   }
 }
 
@@ -257,7 +285,7 @@ app.post('/api/users/signup', async (req, res) => {
       password,
       whatsapp,
       purchaseCount: 0,
-      credits: 0,
+      credits: 50, // Give new users some starting credits
       createdAt: new Date()
     };
     await usersCollection.insertOne(newUser);
@@ -513,8 +541,9 @@ const PORT = process.env.PORT || 5000;
 connectDB()
   .then(() => seedData())
   .then(() => {
-    app.listen(PORT, () => {
+    app.listen(PORT, '0.0.0.0', () => {
       console.log(`🚀 Server running on port ${PORT}`);
+      console.log(`📡 API URL: http://localhost:${PORT}/api`);
     });
   })
   .catch(err => {
