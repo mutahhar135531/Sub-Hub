@@ -33,6 +33,7 @@ let subscriptionsCollection;
 let otpsCollection;
 let usersCollection;
 let dealsCollection;
+let promotionsCollection; // <-- NEW
 
 // ─── SUBSCRIPTION COSTS (Monthly) ──────────────────────────
 const SUBSCRIPTION_COSTS = {
@@ -59,6 +60,7 @@ async function connectDB() {
   otpsCollection = db.collection('otps');
   usersCollection = db.collection('users');
   dealsCollection = db.collection('deals');
+  promotionsCollection = db.collection('promotions'); // <-- NEW
   console.log('✅ Connected to MongoDB');
 }
 
@@ -210,7 +212,6 @@ async function seedData() {
         await subscriptionsCollection.insertOne(def);
         console.log(`✅ Inserted subscription: ${def.name}`);
       } else {
-        // Optionally update fields if needed
         await subscriptionsCollection.updateOne(
           { id: def.id },
           { $set: { costPerMonth: def.costPerMonth, accounts: def.accounts } }
@@ -298,17 +299,22 @@ app.get('/api/subscriptions/:id', async (req, res) => {
 
 app.post('/api/subscriptions', async (req, res) => {
   try {
-    const { id, name, type, accounts, costPerMonth } = req.body;
+    const { id, name, type, accounts, costPerMonth, sellingPrice, slots, askFor, description } = req.body;
     const existing = await subscriptionsCollection.findOne({ id });
     if (existing) {
       return res.status(400).json({ error: 'Subscription id already exists' });
     }
-    const newSub = { 
-      id, 
-      name, 
-      type, 
+    const newSub = {
+      id,
+      name,
+      type,
       accounts: accounts || [],
-      costPerMonth: costPerMonth || SUBSCRIPTION_COSTS[type] || 0
+      costPerMonth: costPerMonth || SUBSCRIPTION_COSTS[type] || 0,
+      sellingPrice: sellingPrice || 0,
+      slots: slots || 0,
+      askFor: askFor || ['name', 'number'],
+      description: description || '',
+      createdAt: new Date()
     };
     await subscriptionsCollection.insertOne(newSub);
     res.json(newSub);
@@ -319,12 +325,16 @@ app.post('/api/subscriptions', async (req, res) => {
 
 app.put('/api/subscriptions/:id', async (req, res) => {
   try {
-    const { name, type, accounts, costPerMonth } = req.body;
+    const { name, type, accounts, costPerMonth, sellingPrice, slots, askFor, description } = req.body;
     const update = {};
-    if (name) update.name = name;
-    if (type) update.type = type;
-    if (accounts) update.accounts = accounts;
+    if (name !== undefined) update.name = name;
+    if (type !== undefined) update.type = type;
+    if (accounts !== undefined) update.accounts = accounts;
     if (costPerMonth !== undefined) update.costPerMonth = costPerMonth;
+    if (sellingPrice !== undefined) update.sellingPrice = sellingPrice;
+    if (slots !== undefined) update.slots = slots;
+    if (askFor !== undefined) update.askFor = askFor;
+    if (description !== undefined) update.description = description;
     const result = await subscriptionsCollection.updateOne(
       { id: req.params.id },
       { $set: update }
@@ -606,6 +616,73 @@ app.get('/api/otp/list', async (req, res) => {
       .limit(100)
       .toArray();
     res.json(list);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ---- Promotions ----
+app.get('/api/promotions', async (req, res) => {
+  try {
+    const promos = await promotionsCollection.find({}).toArray();
+    res.json(promos);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/promotions', async (req, res) => {
+  try {
+    const { id, heading, image, active } = req.body;
+    if (!id || !heading || !image) {
+      return res.status(400).json({ error: 'Missing required fields' });
+    }
+    const existing = await promotionsCollection.findOne({ id });
+    if (existing) {
+      return res.status(400).json({ error: 'Promotion id already exists' });
+    }
+    const newPromo = {
+      id,
+      heading,
+      image,
+      active: active !== undefined ? active : true,
+      createdAt: new Date()
+    };
+    await promotionsCollection.insertOne(newPromo);
+    res.json(newPromo);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.put('/api/promotions/:id', async (req, res) => {
+  try {
+    const { heading, image, active } = req.body;
+    const update = {};
+    if (heading !== undefined) update.heading = heading;
+    if (image !== undefined) update.image = image;
+    if (active !== undefined) update.active = active;
+    const result = await promotionsCollection.updateOne(
+      { id: req.params.id },
+      { $set: update }
+    );
+    if (result.matchedCount === 0) {
+      return res.status(404).json({ error: 'Promotion not found' });
+    }
+    const updated = await promotionsCollection.findOne({ id: req.params.id });
+    res.json(updated);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.delete('/api/promotions/:id', async (req, res) => {
+  try {
+    const result = await promotionsCollection.deleteOne({ id: req.params.id });
+    if (result.deletedCount === 0) {
+      return res.status(404).json({ error: 'Promotion not found' });
+    }
+    res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
