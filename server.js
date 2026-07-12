@@ -6,7 +6,6 @@ const { MongoClient } = require('mongodb');
 const app = express();
 
 // ─── CORS CONFIGURATION ──────────────────────────────────────
-// Allow all origins with proper credentials
 app.use(cors({
   origin: '*',
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
@@ -35,6 +34,21 @@ let otpsCollection;
 let usersCollection;
 let dealsCollection;
 
+// ─── SUBSCRIPTION COSTS (Monthly) ──────────────────────────
+const SUBSCRIPTION_COSTS = {
+  netflix: 1250,      // per account per month
+  amazon: 250,        // per account per month
+  youtube: 150,       // per member per month (900/6)
+  spotify: 0,         // custom pricing
+  chatgpt: 1000,      // per invite per month
+  canva: 250,         // per year (pro-rated)
+  capcut: 200,        // per month
+  hbomax: 300,        // per month
+  crunchyroll: 200,   // per month
+  chaupal: 150,       // per month
+  custom: 0           // variable
+};
+
 async function connectDB() {
   const client = new MongoClient(MONGODB_URI, {
     serverSelectionTimeoutMS: 5000,
@@ -58,6 +72,7 @@ async function seedData() {
           id: '1',
           name: 'Netflix',
           type: 'netflix',
+          costPerMonth: 1250,
           accounts: [
             {
               id: 'a1',
@@ -89,6 +104,7 @@ async function seedData() {
           id: '2',
           name: 'Amazon Prime',
           type: 'amazon',
+          costPerMonth: 250,
           accounts: [
             {
               id: 'a3',
@@ -107,12 +123,14 @@ async function seedData() {
           id: '3',
           name: 'YouTube Premium',
           type: 'youtube',
+          costPerMonth: 150,
           accounts: []
         },
         {
           id: '4',
           name: 'Spotify Premium',
           type: 'spotify',
+          costPerMonth: 0,
           accounts: [
             {
               id: 'a4',
@@ -128,6 +146,7 @@ async function seedData() {
           id: '5',
           name: 'ChatGPT',
           type: 'chatgpt',
+          costPerMonth: 1000,
           accounts: [
             {
               id: 'a5',
@@ -138,6 +157,50 @@ async function seedData() {
               ]
             }
           ]
+        },
+        {
+          id: '6',
+          name: 'Canva Pro',
+          type: 'canva',
+          costPerMonth: 20.83, // 250/year
+          accounts: [
+            {
+              id: 'a6',
+              email: 'canva1@example.com',
+              password: 'pass6',
+              screens: [
+                { id: 's1', name: 'Canva Pro 1', pin: '', customers: [] }
+              ]
+            }
+          ]
+        },
+        {
+          id: '7',
+          name: 'Capcut Pro',
+          type: 'capcut',
+          costPerMonth: 200,
+          accounts: []
+        },
+        {
+          id: '8',
+          name: 'HBO Max',
+          type: 'hbomax',
+          costPerMonth: 300,
+          accounts: []
+        },
+        {
+          id: '9',
+          name: 'Crunchyroll',
+          type: 'crunchyroll',
+          costPerMonth: 200,
+          accounts: []
+        },
+        {
+          id: '10',
+          name: 'Chaupal',
+          type: 'chaupal',
+          costPerMonth: 150,
+          accounts: []
         }
       ];
       await subscriptionsCollection.insertMany(initialSubscriptions);
@@ -182,7 +245,6 @@ async function seedData() {
       console.log('✅ Default deals seeded');
     }
 
-    // Check if users collection is empty, create default admin user
     const userCount = await usersCollection.countDocuments();
     if (userCount === 0) {
       await usersCollection.insertOne({
@@ -223,12 +285,18 @@ app.get('/api/subscriptions/:id', async (req, res) => {
 
 app.post('/api/subscriptions', async (req, res) => {
   try {
-    const { id, name, type, accounts } = req.body;
+    const { id, name, type, accounts, costPerMonth } = req.body;
     const existing = await subscriptionsCollection.findOne({ id });
     if (existing) {
       return res.status(400).json({ error: 'Subscription id already exists' });
     }
-    const newSub = { id, name, type, accounts: accounts || [] };
+    const newSub = { 
+      id, 
+      name, 
+      type, 
+      accounts: accounts || [],
+      costPerMonth: costPerMonth || SUBSCRIPTION_COSTS[type] || 0
+    };
     await subscriptionsCollection.insertOne(newSub);
     res.json(newSub);
   } catch (err) {
@@ -238,11 +306,12 @@ app.post('/api/subscriptions', async (req, res) => {
 
 app.put('/api/subscriptions/:id', async (req, res) => {
   try {
-    const { name, type, accounts } = req.body;
+    const { name, type, accounts, costPerMonth } = req.body;
     const update = {};
     if (name) update.name = name;
     if (type) update.type = type;
     if (accounts) update.accounts = accounts;
+    if (costPerMonth !== undefined) update.costPerMonth = costPerMonth;
     const result = await subscriptionsCollection.updateOne(
       { id: req.params.id },
       { $set: update }
@@ -285,7 +354,7 @@ app.post('/api/users/signup', async (req, res) => {
       password,
       whatsapp,
       purchaseCount: 0,
-      credits: 50, // Give new users some starting credits
+      credits: 50,
       createdAt: new Date()
     };
     await usersCollection.insertOne(newUser);
@@ -524,6 +593,93 @@ app.get('/api/otp/list', async (req, res) => {
       .limit(100)
       .toArray();
     res.json(list);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ---- INCOME CALCULATION ----
+app.get('/api/income', async (req, res) => {
+  try {
+    const { period } = req.query; // '30', '60', '90', 'monthly'
+    const now = new Date();
+    let startDate = new Date(now);
+    
+    if (period === 'monthly') {
+      startDate.setDate(1);
+      startDate.setHours(0, 0, 0, 0);
+    } else if (period === '30') {
+      startDate.setDate(startDate.getDate() - 30);
+    } else if (period === '60') {
+      startDate.setDate(startDate.getDate() - 60);
+    } else if (period === '90') {
+      startDate.setDate(startDate.getDate() - 90);
+    } else {
+      startDate = new Date(0); // all time
+    }
+
+    // Get all subscriptions with customer data
+    const subs = await subscriptionsCollection.find({}).toArray();
+    let totalIncome = 0;
+    let customers = [];
+    let incomeByType = {};
+
+    subs.forEach(sub => {
+      const costPerMonth = sub.costPerMonth || 0;
+      sub.accounts.forEach(acc => {
+        acc.screens.forEach(screen => {
+          if (screen.customers && screen.customers.length > 0) {
+            screen.customers.forEach(c => {
+              // Check if customer is active and within the period
+              const expiryDate = c.expiryDate ? new Date(c.expiryDate) : null;
+              const purchaseDate = c.purchasedAt ? new Date(c.purchasedAt) : null;
+              
+              // Skip if not active
+              if (expiryDate && expiryDate < now) return;
+              
+              // Skip if purchased after the period
+              if (purchaseDate && purchaseDate < startDate) return;
+              if (!purchaseDate) {
+                // If no purchase date, use expiry - duration
+                const months = c.months || 1;
+                const estPurchase = new Date(expiryDate);
+                estPurchase.setMonth(estPurchase.getMonth() - months);
+                if (estPurchase < startDate) return;
+              }
+
+              const months = c.months || 1;
+              const income = costPerMonth * months;
+              totalIncome += income;
+
+              const subType = sub.type;
+              if (!incomeByType[subType]) incomeByType[subType] = 0;
+              incomeByType[subType] += income;
+
+              customers.push({
+                customerName: c.name || c.username,
+                subscriptionType: sub.type,
+                subscriptionName: sub.name,
+                screenName: screen.name,
+                accountEmail: acc.email,
+                months: months,
+                income: income,
+                expiryDate: c.expiryDate,
+                purchasedAt: c.purchasedAt || purchaseDate
+              });
+            });
+          }
+        });
+      });
+    });
+
+    res.json({
+      totalIncome,
+      incomeByType,
+      customers,
+      period: period || 'all',
+      startDate: startDate.toISOString(),
+      endDate: now.toISOString()
+    });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
