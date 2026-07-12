@@ -1128,6 +1128,64 @@
       position: relative;
       z-index: 1;
     }
+
+    /* ---- Subscription Carousel Card ---- */
+    .sub-carousel-card {
+      background: rgba(20, 20, 20, 0.90);
+      backdrop-filter: blur(12px);
+      border: 2px solid rgba(239, 68, 68, 0.20);
+      border-radius: 16px;
+      padding: 14px 14px;
+      transition: all .3s ease;
+      position: relative;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100%;
+      min-height: 140px;
+      text-align: center;
+    }
+    .sub-carousel-card:hover {
+      border-color: #ef4444;
+      box-shadow: 0 0 30px rgba(239, 68, 68, 0.12);
+      transform: translateY(-2px);
+    }
+    .sub-carousel-card .brand-corner {
+      position: absolute;
+      top: 6px;
+      left: 8px;
+      font-size: .8rem;
+      font-weight: 900;
+      color: rgba(255, 255, 255, 0.08);
+      font-family: 'Georgia', serif;
+      letter-spacing: -1px;
+      z-index: 1;
+    }
+    .sub-carousel-card .card-icon {
+      font-size: 2.2rem;
+      margin-bottom: 4px;
+      position: relative;
+      z-index: 1;
+    }
+    .sub-carousel-card .card-name {
+      font-size: .85rem;
+      font-weight: 700;
+      color: #fff;
+      margin-bottom: 2px;
+    }
+    .sub-carousel-card .card-desc {
+      font-size: .6rem;
+      color: rgba(255, 255, 255, 0.4);
+      line-height: 1.3;
+    }
+    .sub-carousel-card .card-price {
+      font-size: .75rem;
+      font-weight: 600;
+      color: #34d399;
+      margin-top: 2px;
+    }
   </style>
 </head>
 <body>
@@ -1815,6 +1873,287 @@
       );
     }
 
+    // ─── SUBSCRIPTION CAROUSEL (New) ──────────────────────────
+    function SubscriptionCarousel() {
+      const [itemsPerView, setItemsPerView] = useState(4);
+      const [offset, setOffset] = useState(0);
+      const [isPaused, setIsPaused] = useState(false);
+      const [containerWidth, setContainerWidth] = useState(0);
+      const containerRef = useRef(null);
+      const trackRef = useRef(null);
+      const animationRef = useRef(null);
+      const speed = 30;
+
+      const [isDragging, setIsDragging] = useState(false);
+      const [dragStartX, setDragStartX] = useState(0);
+      const [dragOffsetStart, setDragOffsetStart] = useState(0);
+      const [dragVelocity, setDragVelocity] = useState(0);
+      const lastMoveTime = useRef(0);
+      const lastMoveX = useRef(0);
+      const momentumId = useRef(null);
+
+      const subscriptions = [
+        { name: 'Netflix', icon: 'fa-netflix', color: '#e50914', desc: 'Movies & TV Shows', price: 'From RS 350' },
+        { name: 'Amazon Prime', icon: 'fa-amazon', color: '#ff9900', desc: 'Video, Music & Delivery', price: 'From RS 150' },
+        { name: 'YouTube Premium', icon: 'fa-youtube', color: '#ff0000', desc: 'Ad-free & Offline', price: 'From RS 250' },
+        { name: 'Spotify Premium', icon: 'fa-spotify', color: '#1db954', desc: 'Music & Podcasts', price: 'From RS 180' },
+        { name: 'Canva Pro', icon: 'fa-paint-brush', color: '#00c4cc', desc: 'Design & Creative', price: 'From RS 200' },
+        { name: 'Capcut Pro', icon: 'fa-video', color: '#00d4ff', desc: 'Video Editing', price: 'From RS 220' },
+        { name: 'ChatGPT Plus', icon: 'fa-robot', color: '#10a37f', desc: 'AI Assistant', price: 'From RS 300' },
+        { name: 'HBO Max', icon: 'fa-tv', color: '#5822b4', desc: 'Movies & Series', price: 'From RS 280' },
+        { name: 'Crunchyroll', icon: 'fa-play', color: '#f47521', desc: 'Anime & Manga', price: 'From RS 160' },
+        { name: 'Chaupal', icon: 'fa-film', color: '#e74c3c', desc: 'Regional Entertainment', price: 'From RS 120' },
+      ];
+
+      const totalItems = subscriptions.length;
+      const repeatedItems = useMemo(() => {
+        if (totalItems === 0) return [];
+        const reps = 3;
+        const arr = [];
+        for (let i = 0; i < reps; i++) arr.push(...subscriptions);
+        return arr;
+      }, [subscriptions, totalItems]);
+
+      const getItemsPerView = () => {
+        if (typeof window === 'undefined') return 4;
+        const w = window.innerWidth;
+        if (w >= 1200) return 4;
+        if (w >= 992) return 3;
+        if (w >= 640) return 2;
+        return 1;
+      };
+
+      useEffect(() => {
+        const handleResize = () => {
+          setItemsPerView(getItemsPerView());
+        };
+        window.addEventListener('resize', handleResize);
+        handleResize();
+        return () => window.removeEventListener('resize', handleResize);
+      }, []);
+
+      useEffect(() => {
+        if (!containerRef.current) return;
+        const measure = () => {
+          const width = containerRef.current.getBoundingClientRect().width;
+          setContainerWidth(width);
+        };
+        measure();
+        const ro = new ResizeObserver(measure);
+        ro.observe(containerRef.current);
+        return () => ro.disconnect();
+      }, [itemsPerView]);
+
+      const gap = 8;
+      const slideWidth = containerWidth > 0 ? (containerWidth / itemsPerView) - gap : 0;
+      const oneSetWidth = slideWidth * totalItems + gap * (totalItems - 1);
+
+      useEffect(() => {
+        if (isPaused || totalItems === 0 || oneSetWidth === 0 || slideWidth === 0 || isDragging) {
+          if (animationRef.current) {
+            cancelAnimationFrame(animationRef.current);
+            animationRef.current = null;
+          }
+          return;
+        }
+
+        let lastTimestamp = performance.now();
+
+        const animate = (timestamp) => {
+          const delta = (timestamp - lastTimestamp) / 1000;
+          lastTimestamp = timestamp;
+          setOffset(prev => {
+            let newOffset = prev + speed * delta;
+            if (newOffset >= oneSetWidth) {
+              newOffset = newOffset - oneSetWidth;
+            }
+            return newOffset;
+          });
+          animationRef.current = requestAnimationFrame(animate);
+        };
+
+        animationRef.current = requestAnimationFrame(animate);
+        return () => {
+          if (animationRef.current) {
+            cancelAnimationFrame(animationRef.current);
+            animationRef.current = null;
+          }
+        };
+      }, [isPaused, totalItems, oneSetWidth, slideWidth, speed, isDragging]);
+
+      const handleDragStart = (clientX) => {
+        setIsDragging(true);
+        setIsPaused(true);
+        setDragStartX(clientX);
+        setDragOffsetStart(offset);
+        setDragVelocity(0);
+        lastMoveTime.current = Date.now();
+        lastMoveX.current = clientX;
+        if (momentumId.current) {
+          cancelAnimationFrame(momentumId.current);
+          momentumId.current = null;
+        }
+        if (animationRef.current) {
+          cancelAnimationFrame(animationRef.current);
+          animationRef.current = null;
+        }
+      };
+
+      const handleDragMove = (clientX) => {
+        if (!isDragging) return;
+        const diff = clientX - dragStartX;
+        let newOffset = dragOffsetStart - diff;
+        if (newOffset < 0) newOffset = 0;
+        if (newOffset > oneSetWidth) newOffset = oneSetWidth;
+        setOffset(newOffset);
+
+        const now = Date.now();
+        const dt = now - lastMoveTime.current;
+        if (dt > 0) {
+          const dx = clientX - lastMoveX.current;
+          const vel = dx / dt;
+          setDragVelocity(vel);
+        }
+        lastMoveTime.current = now;
+        lastMoveX.current = clientX;
+      };
+
+      const handleDragEnd = () => {
+        if (!isDragging) return;
+        setIsDragging(false);
+        const vel = dragVelocity;
+        if (Math.abs(vel) > 0.2) {
+          let momentumOffset = offset;
+          const momentumStep = () => {
+            const dt = 16;
+            const decay = 0.97;
+            let velDecay = vel * decay;
+            momentumOffset = momentumOffset - velDecay * dt;
+            if (momentumOffset < 0) {
+              momentumOffset = 0;
+              velDecay = 0;
+            } else if (momentumOffset > oneSetWidth) {
+              momentumOffset = oneSetWidth;
+              velDecay = 0;
+            }
+            setOffset(momentumOffset);
+            if (Math.abs(velDecay) > 0.1 && momentumOffset > 0 && momentumOffset < oneSetWidth) {
+              momentumId.current = requestAnimationFrame(momentumStep);
+            } else {
+              setTimeout(() => {
+                setIsPaused(false);
+              }, 2000);
+            }
+          };
+          momentumId.current = requestAnimationFrame(momentumStep);
+        } else {
+          setTimeout(() => {
+            setIsPaused(false);
+          }, 2000);
+        }
+        setDragVelocity(0);
+      };
+
+      const onTouchStart = (e) => {
+        const touch = e.touches[0];
+        handleDragStart(touch.clientX);
+      };
+      const onTouchMove = (e) => {
+        e.preventDefault();
+        const touch = e.touches[0];
+        handleDragMove(touch.clientX);
+      };
+      const onTouchEnd = (e) => {
+        handleDragEnd();
+      };
+
+      const onMouseDown = (e) => {
+        if (e.button !== 0) return;
+        handleDragStart(e.clientX);
+        const onMouseMove = (ev) => handleDragMove(ev.clientX);
+        const onMouseUp = () => {
+          document.removeEventListener('mousemove', onMouseMove);
+          document.removeEventListener('mouseup', onMouseUp);
+          handleDragEnd();
+        };
+        document.addEventListener('mousemove', onMouseMove);
+        document.addEventListener('mouseup', onMouseUp);
+      };
+
+      const handlePause = () => {
+        setIsPaused(true);
+      };
+      const handleResume = () => {
+        if (!isDragging) {
+          setTimeout(() => setIsPaused(false), 3000);
+        }
+      };
+
+      const goToPrev = () => {
+        if (slideWidth === 0) return;
+        setIsPaused(true);
+        setOffset(prev => Math.max(prev - slideWidth, 0));
+        setTimeout(() => setIsPaused(false), 3000);
+      };
+      const goToNext = () => {
+        if (slideWidth === 0) return;
+        setIsPaused(true);
+        setOffset(prev => {
+          let newOffset = prev + slideWidth;
+          if (newOffset >= oneSetWidth) newOffset = newOffset - oneSetWidth;
+          return newOffset;
+        });
+        setTimeout(() => setIsPaused(false), 3000);
+      };
+
+      return (
+        <div className="max-w-7xl mx-auto px-4 py-4 relative">
+          <div className="flex items-center gap-3 mb-4">
+            <span className="brand-z brand-z-sm">Z</span>
+            <h2 className="text-xl font-bold text-white">What We Provide</h2>
+            <span className="text-white/30 text-xs ml-2">Premium services</span>
+          </div>
+
+          <div className={`carousel-container ${isPaused ? 'paused' : ''}`} ref={containerRef} onMouseEnter={handlePause} onMouseLeave={handleResume} onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd} onMouseDown={onMouseDown} style={{ touchAction: 'none' }}>
+            <div className="carousel-track" ref={trackRef} style={{ transform: `translateX(-${offset}px)`, transition: isDragging ? 'none' : 'none', gap: `${gap}px` }}>
+              {repeatedItems.map((sub, idx) => (
+                <div key={idx} className="carousel-slide" style={{ width: slideWidth }}>
+                  <div className="sub-carousel-card relative">
+                    <div className="brand-corner">Z</div>
+                    <div className="card-icon">
+                      <i className={`fab ${sub.icon}`} style={{ color: sub.color }}></i>
+                    </div>
+                    <div className="card-name">{sub.name}</div>
+                    <div className="card-desc">{sub.desc}</div>
+                    <div className="card-price">{sub.price}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+            {totalItems > itemsPerView && (
+              <>
+                <button className="carousel-btn prev" onClick={goToPrev}>
+                  <i className="fas fa-chevron-left"></i>
+                </button>
+                <button className="carousel-btn next" onClick={goToNext}>
+                  <i className="fas fa-chevron-right"></i>
+                </button>
+                <div className="carousel-dots">
+                  {Array.from({ length: Math.ceil(totalItems / itemsPerView) }).map((_, idx) => (
+                    <button key={idx} className={`carousel-dot ${idx === Math.floor(offset / slideWidth) ? 'active' : ''}`} onClick={() => {
+                      setIsPaused(true);
+                      setOffset(idx * slideWidth);
+                      setTimeout(() => setIsPaused(false), 3000);
+                    }} />
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      );
+    }
+
     // ─── WHATSAPP FLOATING BUTTON ─────────────────────────────
     function WhatsAppButton() {
       const whatsappLink = 'https://wa.me/923079163485';
@@ -1892,23 +2231,8 @@
       );
     }
 
-    // ─── TRENDING SUBSCRIPTIONS SECTION ──────────────────────
+    // ─── TRENDING SUBSCRIPTIONS SECTION (now uses SubscriptionCarousel) ──
     function TrendingSubscriptions() {
-      const trendingSubs = [
-        { name: 'Netflix', icon: 'fa-netflix', color: '#e50914', desc: 'Movies & TV Shows', price: 'From RS 350', badge: 'Popular' },
-        { name: 'Amazon Prime', icon: 'fa-amazon', color: '#ff9900', desc: 'Video, Music & Delivery', price: 'From RS 150', badge: 'Top' },
-        { name: 'YouTube Premium', icon: 'fa-youtube', color: '#ff0000', desc: 'Ad-free & Offline', price: 'From RS 250', badge: 'Trending' },
-        { name: 'Spotify Premium', icon: 'fa-spotify', color: '#1db954', desc: 'Music & Podcasts', price: 'From RS 180', badge: 'Popular' },
-        { name: 'Canva Pro', icon: 'fa-paint-brush', color: '#00c4cc', desc: 'Design & Creative', price: 'From RS 200', badge: 'Best' },
-        { name: 'Capcut Pro', icon: 'fa-video', color: '#00d4ff', desc: 'Video Editing', price: 'From RS 220', badge: 'Pro' },
-        { name: 'ChatGPT Plus', icon: 'fa-robot', color: '#10a37f', desc: 'AI Assistant', price: 'From RS 300', badge: 'AI' },
-        { name: 'HBO Max', icon: 'fa-tv', color: '#5822b4', desc: 'Movies & Series', price: 'From RS 280', badge: 'HD' },
-        { name: 'Crunchyroll', icon: 'fa-play', color: '#f47521', desc: 'Anime & Manga', price: 'From RS 160', badge: 'Anime' },
-        { name: 'Chaupal', icon: 'fa-film', color: '#e74c3c', desc: 'Regional Entertainment', price: 'From RS 120', badge: 'Regional' },
-        { name: 'Disney+', icon: 'fa-star', color: '#113cc9', desc: 'Disney & Marvel', price: 'From RS 320', badge: 'Family' },
-        { name: 'Apple Music', icon: 'fa-apple', color: '#fff', desc: 'Music Streaming', price: 'From RS 190', badge: 'Audio' }
-      ];
-
       return (
         <div className="trending-wrapper">
           <div className="bg-fixed"></div>
@@ -1918,32 +2242,7 @@
                 <h2>What We Provide</h2>
               </div>
               <div className="relative z-10 max-w-7xl mx-auto px-4">
-                <div className="text-center mb-12">
-                  <span className="inline-block px-4 py-1 rounded-full bg-red-500/10 border border-red-500/20 text-red-400 text-xs font-medium tracking-wider uppercase mb-3">
-                    Trending Now
-                  </span>
-                  <h3 className="text-3xl md:text-5xl font-bold text-white neon-text">
-                    What We Provide
-                  </h3>
-                  <p className="text-white/30 mt-3 text-sm md:text-base max-w-2xl mx-auto">
-                    Your favorite subscriptions, all in one place. Access premium content from the world's best platforms.
-                  </p>
-                </div>
-
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4 gap-4 md:gap-6">
-                  {trendingSubs.map((sub, idx) => (
-                    <div key={idx} className="sub-trend-card fade-up" style={{ animationDelay: `${idx * 50}ms` }}>
-                      <div className="brand-corner">Z</div>
-                      <div className="card-badge">{sub.badge}</div>
-                      <div className="card-icon">
-                        <i className={`fab ${sub.icon}`} style={{ color: sub.color }}></i>
-                      </div>
-                      <div className="card-name" style={{ color: sub.color }}>{sub.name}</div>
-                      <div className="card-desc">{sub.desc}</div>
-                      <div className="card-price">{sub.price}</div>
-                    </div>
-                  ))}
-                </div>
+                <SubscriptionCarousel />
               </div>
             </div>
           </div>
@@ -5062,15 +5361,16 @@
                     <h2 className="text-2xl font-bold text-white mb-6">
                       <span className="brand-z brand-z-sm">Z</span> Choose Subscription
                     </h2>
-                    <SubscriptionSelection subscriptions={subscriptions} onSelect={handleSubSelect} selected={selectedSubscription} />
+                    {/* Hot Deals carousel now appears here, BEFORE the subscription grid */}
                     {dealsWithSub.length > 0 && (
-                      <div className="mt-8">
+                      <div className="mb-8">
                         <h3 className="text-xl font-bold text-white mb-4">
                           <span className="brand-z brand-z-sm">Z</span> Hot Deals
                         </h3>
                         <DealsCarousel deals={dealsWithSub} subscriptions={subscriptions} onPurchaseClick={handleDealPurchase} />
                       </div>
                     )}
+                    <SubscriptionSelection subscriptions={subscriptions} onSelect={handleSubSelect} selected={selectedSubscription} />
                   </div>
                 )}
                 {flowStep === 'flow' && <div className="max-w-lg mx-auto">{renderFlow()}</div>}
