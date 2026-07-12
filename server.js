@@ -33,7 +33,7 @@ let subscriptionsCollection;
 let otpsCollection;
 let usersCollection;
 let dealsCollection;
-let promotionsCollection; // <-- NEW
+let promotionsCollection;
 
 // ─── SUBSCRIPTION COSTS (Monthly) ──────────────────────────
 const SUBSCRIPTION_COSTS = {
@@ -60,14 +60,13 @@ async function connectDB() {
   otpsCollection = db.collection('otps');
   usersCollection = db.collection('users');
   dealsCollection = db.collection('deals');
-  promotionsCollection = db.collection('promotions'); // <-- NEW
+  promotionsCollection = db.collection('promotions');
   console.log('✅ Connected to MongoDB');
 }
 
 // ─── Seed / Upsert subscriptions ────────────────────────────
 async function seedData() {
   try {
-    // Define all subscription definitions
     const subscriptionDefs = [
       {
         id: '1',
@@ -205,7 +204,6 @@ async function seedData() {
       }
     ];
 
-    // Upsert each subscription
     for (const def of subscriptionDefs) {
       const existing = await subscriptionsCollection.findOne({ id: def.id });
       if (!existing) {
@@ -219,7 +217,6 @@ async function seedData() {
       }
     }
 
-    // ─── Deals ──────────────────────────────────────────────────
     const dealCount = await dealsCollection.countDocuments();
     if (dealCount === 0) {
       const defaultDeals = [
@@ -258,7 +255,6 @@ async function seedData() {
       console.log('✅ Default deals seeded');
     }
 
-    // ─── Users ──────────────────────────────────────────────────
     const userCount = await usersCollection.countDocuments();
     if (userCount === 0) {
       await usersCollection.insertOne({
@@ -757,13 +753,31 @@ app.get('/api/income', async (req, res) => {
       });
     });
 
+    // Calculate last 30/60/90 days from same data
+    const now30 = new Date(now); now30.setDate(now30.getDate() - 30);
+    const now60 = new Date(now); now60.setDate(now60.getDate() - 60);
+    const now90 = new Date(now); now90.setDate(now90.getDate() - 90);
+    
+    let last30Days = 0, last60Days = 0, last90Days = 0;
+    customers.forEach(c => {
+      if (c.purchasedAt) {
+        const d = new Date(c.purchasedAt);
+        if (d >= now30) last30Days += c.income;
+        if (d >= now60) last60Days += c.income;
+        if (d >= now90) last90Days += c.income;
+      }
+    });
+
     res.json({
       totalIncome,
       incomeByType,
       customers,
       period: period || 'all',
       startDate: startDate.toISOString(),
-      endDate: now.toISOString()
+      endDate: now.toISOString(),
+      last30Days,
+      last60Days,
+      last90Days
     });
   } catch (err) {
     res.status(500).json({ error: err.message });
