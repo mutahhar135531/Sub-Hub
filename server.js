@@ -13,7 +13,7 @@ app.use(cors({
   credentials: true
 }));
 
-app.use(express.json());
+app.use(express.json({ limit: '50mb' }));
 
 // ─── STRICT CACHE CONTROL ──────────────────────────────────────
 app.use((req, res, next) => {
@@ -73,6 +73,12 @@ async function seedData() {
         name: 'Netflix',
         type: 'netflix',
         costPerMonth: 1250,
+        sellingPrice: 0,
+        description: 'Watch unlimited movies & TV shows',
+        importantNote: 'Shared account – 5 screens available',
+        logo: '',
+        slots: 10,
+        askFor: ['name', 'number'],
         accounts: [
           {
             id: 'a1',
@@ -105,6 +111,12 @@ async function seedData() {
         name: 'Amazon Prime',
         type: 'amazon',
         costPerMonth: 250,
+        sellingPrice: 0,
+        description: 'Prime Video, Music & Free Delivery',
+        importantNote: '6 slots available',
+        logo: '',
+        slots: 6,
+        askFor: ['name', 'number'],
         accounts: [
           {
             id: 'a3',
@@ -124,6 +136,12 @@ async function seedData() {
         name: 'YouTube Premium',
         type: 'youtube',
         costPerMonth: 150,
+        sellingPrice: 0,
+        description: 'Ad-free & offline',
+        importantNote: '',
+        logo: '',
+        slots: 5,
+        askFor: ['name', 'number'],
         accounts: []
       },
       {
@@ -131,6 +149,12 @@ async function seedData() {
         name: 'Spotify Premium',
         type: 'spotify',
         costPerMonth: 0,
+        sellingPrice: 0,
+        description: 'Music & podcasts',
+        importantNote: '',
+        logo: '',
+        slots: 1,
+        askFor: ['name', 'number'],
         accounts: [
           {
             id: 'a4',
@@ -147,6 +171,12 @@ async function seedData() {
         name: 'ChatGPT Plus',
         type: 'chatgpt',
         costPerMonth: 1000,
+        sellingPrice: 0,
+        description: 'GPT-4 access',
+        importantNote: '',
+        logo: '',
+        slots: 1,
+        askFor: ['name', 'number', 'email'],
         accounts: [
           {
             id: 'a5',
@@ -163,6 +193,12 @@ async function seedData() {
         name: 'Canva Pro',
         type: 'canva',
         costPerMonth: 20.83,
+        sellingPrice: 0,
+        description: 'Design & creative',
+        importantNote: 'Yearly plan only',
+        logo: '',
+        slots: 1,
+        askFor: ['name', 'number', 'email'],
         accounts: [
           {
             id: 'a6',
@@ -179,6 +215,12 @@ async function seedData() {
         name: 'Capcut Pro',
         type: 'capcut',
         costPerMonth: 200,
+        sellingPrice: 0,
+        description: 'Video editing',
+        importantNote: '',
+        logo: '',
+        slots: 1,
+        askFor: ['name', 'number'],
         accounts: []
       },
       {
@@ -186,6 +228,12 @@ async function seedData() {
         name: 'HBO Max',
         type: 'hbomax',
         costPerMonth: 300,
+        sellingPrice: 0,
+        description: 'Movies & series',
+        importantNote: '',
+        logo: '',
+        slots: 5,
+        askFor: ['name', 'number'],
         accounts: []
       },
       {
@@ -193,6 +241,12 @@ async function seedData() {
         name: 'Crunchyroll',
         type: 'crunchyroll',
         costPerMonth: 200,
+        sellingPrice: 0,
+        description: 'Anime & manga',
+        importantNote: '',
+        logo: '',
+        slots: 4,
+        askFor: ['name', 'number'],
         accounts: []
       },
       {
@@ -200,6 +254,12 @@ async function seedData() {
         name: 'Chaupal',
         type: 'chaupal',
         costPerMonth: 150,
+        sellingPrice: 0,
+        description: 'Regional entertainment',
+        importantNote: '',
+        logo: '',
+        slots: 3,
+        askFor: ['name', 'number'],
         accounts: []
       }
     ];
@@ -210,9 +270,22 @@ async function seedData() {
         await subscriptionsCollection.insertOne(def);
         console.log(`✅ Inserted subscription: ${def.name}`);
       } else {
+        // Only update non‑destructive fields
+        const updateFields = {
+          name: def.name,
+          type: def.type,
+          costPerMonth: def.costPerMonth,
+          sellingPrice: def.sellingPrice,
+          description: def.description,
+          importantNote: def.importantNote,
+          logo: def.logo,
+          slots: def.slots,
+          askFor: def.askFor
+        };
+        Object.keys(updateFields).forEach(key => updateFields[key] === undefined && delete updateFields[key]);
         await subscriptionsCollection.updateOne(
           { id: def.id },
-          { $set: { costPerMonth: def.costPerMonth, accounts: def.accounts } }
+          { $set: updateFields }
         );
       }
     }
@@ -295,7 +368,7 @@ app.get('/api/subscriptions/:id', async (req, res) => {
 
 app.post('/api/subscriptions', async (req, res) => {
   try {
-    const { id, name, type, accounts, costPerMonth, sellingPrice, slots, askFor, description } = req.body;
+    const { id, name, type, accounts, costPerMonth, sellingPrice, slots, askFor, description, importantNote, logo } = req.body;
     const existing = await subscriptionsCollection.findOne({ id });
     if (existing) {
       return res.status(400).json({ error: 'Subscription id already exists' });
@@ -310,6 +383,8 @@ app.post('/api/subscriptions', async (req, res) => {
       slots: slots || 0,
       askFor: askFor || ['name', 'number'],
       description: description || '',
+      importantNote: importantNote || '',
+      logo: logo || '',
       createdAt: new Date()
     };
     await subscriptionsCollection.insertOne(newSub);
@@ -321,7 +396,7 @@ app.post('/api/subscriptions', async (req, res) => {
 
 app.put('/api/subscriptions/:id', async (req, res) => {
   try {
-    const { name, type, accounts, costPerMonth, sellingPrice, slots, askFor, description } = req.body;
+    const { name, type, accounts, costPerMonth, sellingPrice, slots, askFor, description, importantNote, logo } = req.body;
     const update = {};
     if (name !== undefined) update.name = name;
     if (type !== undefined) update.type = type;
@@ -331,6 +406,8 @@ app.put('/api/subscriptions/:id', async (req, res) => {
     if (slots !== undefined) update.slots = slots;
     if (askFor !== undefined) update.askFor = askFor;
     if (description !== undefined) update.description = description;
+    if (importantNote !== undefined) update.importantNote = importantNote;
+    if (logo !== undefined) update.logo = logo;
     const result = await subscriptionsCollection.updateOne(
       { id: req.params.id },
       { $set: update }
@@ -753,7 +830,6 @@ app.get('/api/income', async (req, res) => {
       });
     });
 
-    // Calculate last 30/60/90 days from same data
     const now30 = new Date(now); now30.setDate(now30.getDate() - 30);
     const now60 = new Date(now); now60.setDate(now60.getDate() - 60);
     const now90 = new Date(now); now90.setDate(now90.getDate() - 90);
