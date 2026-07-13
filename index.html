@@ -297,6 +297,73 @@
       return res.json();
     };
 
+    // Atomically push a new customer purchase into one specific account/screen.
+    // This never touches any other customer's data, so it can't wipe out
+    // someone else's subscription details the way a full-document overwrite could.
+    const allocateCustomer = async (subId, accountId, screenId, customer) => {
+      const res = await fetch(`${API_BASE}/api/subscriptions/${subId}/allocate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ accountId, screenId, customer }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: 'Failed to save subscription' }));
+        throw new Error(err.error || 'Failed to save subscription');
+      }
+      return res.json();
+    };
+
+    // Atomically edit one customer's saved details (name/password/whatsapp/expiry/etc.)
+    // without touching any other screen or customer.
+    const editCustomerEntry = async (subId, accountId, screenId, username, data) => {
+      const res = await fetch(`${API_BASE}/api/subscriptions/${subId}/accounts/${accountId}/screens/${screenId}/customers/${encodeURIComponent(username)}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: 'Failed to update customer' }));
+        throw new Error(err.error || 'Failed to update customer');
+      }
+      return res.json();
+    };
+
+    // Atomically remove one customer's allocation from a specific screen.
+    const deleteCustomerEntryAPI = async (subId, accountId, screenId, username) => {
+      const res = await fetch(`${API_BASE}/api/subscriptions/${subId}/accounts/${accountId}/screens/${screenId}/customers/${encodeURIComponent(username)}`, {
+        method: 'DELETE',
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: 'Failed to delete customer' }));
+        throw new Error(err.error || 'Failed to delete customer');
+      }
+      return res.json();
+    };
+
+    const deleteUserAPI = async (username) => {
+      const res = await fetch(`${API_BASE}/api/users/${encodeURIComponent(username)}`, {
+        method: 'DELETE',
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: 'Failed to delete user' }));
+        throw new Error(err.error || 'Failed to delete user');
+      }
+      return res.json();
+    };
+
+    const updateUserAPI = async (username, data) => {
+      const res = await fetch(`${API_BASE}/api/users/${encodeURIComponent(username)}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: 'Failed to update user' }));
+        throw new Error(err.error || 'Failed to update user');
+      }
+      return res.json();
+    };
+
     const signUpUser = async (username, password, whatsapp) => {
       const res = await fetch(`${API_BASE}/api/users/signup`, {
         method: 'POST',
@@ -3256,6 +3323,11 @@
       const [addCreditsAmount, setAddCreditsAmount] = useState(0);
       const [deductCreditsAmount, setDeductCreditsAmount] = useState(0);
       const [selectedUserForCredits, setSelectedUserForCredits] = useState(null);
+      const [editingUser, setEditingUser] = useState(null);
+      const [userEditForm, setUserEditForm] = useState({ username: '', password: '', whatsapp: '' });
+      const [grantModalUser, setGrantModalUser] = useState(null);
+      const [grantForm, setGrantForm] = useState({ subscriptionId: '', name: '', whatsapp: '', screens: 1, durationType: 'months', months: 1, days: 30 });
+      const [grantLoading, setGrantLoading] = useState(false);
       const [showDealModal, setShowDealModal] = useState(false);
       const [editingDeal, setEditingDeal] = useState(null);
       const [dealForm, setDealForm] = useState({ id: '', subscriptionIds: [], title: '', description: '', actualPrice: '', discountPrice: '', active: true });
@@ -3478,6 +3550,115 @@
         }
       };
 
+      const handleDeleteUser = async (username) => {
+        if (!window.confirm(`Delete the account "${username}"? This only removes their login — any subscriptions already granted to them stay untouched.`)) return;
+        try {
+          await deleteUserAPI(username);
+          addToast(`User "${username}" deleted.`, 'warning');
+          await loadUsers();
+        } catch (err) {
+          addToast(err.message || 'Failed to delete user', 'error');
+        }
+      };
+
+      const openUserEditModal = (u) => {
+        setEditingUser(u.username);
+        setUserEditForm({ username: u.username, password: '', whatsapp: u.whatsapp || '' });
+      };
+      const closeUserEditModal = () => {
+        setEditingUser(null);
+        setUserEditForm({ username: '', password: '', whatsapp: '' });
+      };
+      const saveUserEdit = async () => {
+        if (!editingUser) return;
+        if (!userEditForm.username.trim()) { addToast('Username cannot be empty', 'error'); return; }
+        try {
+          const payload = { username: userEditForm.username.trim(), whatsapp: userEditForm.whatsapp };
+          if (userEditForm.password.trim()) payload.password = userEditForm.password.trim();
+          await updateUserAPI(editingUser, payload);
+          addToast('User updated.', 'success');
+          closeUserEditModal();
+          await loadUsers();
+          if (user && user.username === editingUser) await refreshUser();
+        } catch (err) {
+          addToast(err.message || 'Failed to update user', 'error');
+        }
+      };
+
+      const openGrantModal = (u) => {
+        setGrantModalUser(u.username);
+        setGrantForm({ subscriptionId: subscriptions[0]?.id || '', name: '', whatsapp: u.whatsapp || '', screens: 1, durationType: 'months', months: 1, days: 30 });
+      };
+      const closeGrantModal = () => {
+        setGrantModalUser(null);
+        setGrantForm({ subscriptionId: '', name: '', whatsapp: '', screens: 1, durationType: 'months', months: 1, days: 30 });
+      };
+
+      // Manually grants a subscription to a user's portal — picks the best available
+      // screen the same way the customer-facing purchase flows do, then saves it with
+      // the same atomic allocate endpoint (so it can't clobber anyone else's data).
+      const saveGrant = async () => {
+        if (!grantModalUser) return;
+        const sub = subscriptions.find(s => s.id === grantForm.subscriptionId);
+        if (!sub) { addToast('Pick a subscription', 'error'); return; }
+        if (!grantForm.whatsapp.trim()) { addToast('WhatsApp number is required', 'error'); return; }
+
+        setGrantLoading(true);
+        try {
+          let allocations = [];
+          if (sub.type === 'netflix') {
+            const availableSlots = [];
+            sub.accounts.forEach(acc => (acc.screens || []).forEach(screen => {
+              const used = screen.customers?.length || 0;
+              if (used < 3) availableSlots.push({ account: acc, screen, used });
+            }));
+            const result = allocateScreens(availableSlots, grantForm.screens || 1, grantModalUser, grantForm.whatsapp.trim(), null);
+            if (!result || result.error) { addToast('No screens available for this subscription right now.', 'error'); setGrantLoading(false); return; }
+            allocations = result;
+          } else if (sub.type === 'amazon') {
+            const availableSlots = [];
+            sub.accounts.forEach(acc => (acc.screens || []).forEach(screen => availableSlots.push({ account: acc, screen, used: 0 })));
+            const slot = allocateAmazonScreen(availableSlots, grantModalUser, grantForm.whatsapp.trim(), 0);
+            if (!slot) { addToast('No slots available for this subscription right now.', 'error'); setGrantLoading(false); return; }
+            allocations = [slot];
+          } else {
+            const allocation = allocateSimpleScreen(sub, grantModalUser, grantForm.whatsapp.trim());
+            if (!allocation) { addToast('No slots available for this subscription right now.', 'error'); setGrantLoading(false); return; }
+            allocations = [allocation];
+          }
+
+          const now = new Date();
+          const totalDays = grantForm.durationType === 'months' ? (grantForm.months || 1) * 30 : (grantForm.days || 30);
+          const expiry = new Date(now);
+          expiry.setDate(expiry.getDate() + totalDays);
+          const customerPayload = {
+            name: grantForm.name.trim(),
+            username: grantModalUser,
+            password: '',
+            whatsapp: grantForm.whatsapp.trim(),
+            expiryDate: expiry.toISOString().split('T')[0],
+            months: grantForm.durationType === 'months' ? (grantForm.months || 1) : 0,
+            days: totalDays,
+            screens: grantForm.screens || 1,
+            email: '',
+            purchasedAt: now.toISOString()
+          };
+
+          for (const slot of allocations) {
+            await allocateCustomer(sub.id, slot.account.id, slot.screen.id, customerPayload);
+          }
+
+          await refreshData();
+          addToast(`Subscription granted to ${grantModalUser}.`, 'success');
+          closeGrantModal();
+        } catch (err) {
+          console.error(err);
+          addToast(err.message || 'Failed to grant subscription', 'error');
+        } finally {
+          setGrantLoading(false);
+        }
+      };
+
       const deleteSubscription = async (subId) => {
         if (window.confirm('Delete this subscription and all its data?')) {
           await deleteSubscriptionAPI(subId);
@@ -3693,17 +3874,19 @@
       const deleteCustomer = async (subId, accId, screenId, customerIdx) => {
         if (window.confirm('Delete this customer?')) {
           const sub = subscriptions.find(s => s.id === subId);
-          if (!sub) return;
-          const updatedSub = JSON.parse(JSON.stringify(sub));
-          const acc = updatedSub.accounts.find(a => a.id === accId);
-          if (!acc) return;
-          const screen = acc.screens.find(s => s.id === screenId);
-          if (!screen || !screen.customers) return;
-          screen.customers.splice(customerIdx, 1);
-          setSubscriptions(prev => prev.map(s => s.id === subId ? updatedSub : s));
-          await updateSubscription(subId, updatedSub);
-          await refreshData();
-          addToast('Customer deleted.', 'warning');
+          const acc = sub?.accounts.find(a => a.id === accId);
+          const screen = acc?.screens.find(s => s.id === screenId);
+          const customer = screen?.customers?.[customerIdx];
+          if (!customer) { addToast('Customer not found', 'error'); return; }
+          try {
+            await deleteCustomerEntryAPI(subId, accId, screenId, customer.username);
+            await refreshData();
+            addToast('Customer deleted.', 'warning');
+          } catch (err) {
+            console.error('Delete error:', err);
+            addToast(err.message || 'Failed to delete customer.', 'error');
+            await refreshData();
+          }
         }
       };
 
@@ -3726,31 +3909,28 @@
         const { subId, accId, screenId, customerIdx } = editingCustomer;
         const sub = subscriptions.find(s => s.id === subId);
         if (!sub) { addToast('Subscription not found', 'error'); return; }
-        const updatedSub = JSON.parse(JSON.stringify(sub));
-        const acc = updatedSub.accounts.find(a => a.id === accId);
+        const acc = sub.accounts.find(a => a.id === accId);
         if (!acc) { addToast('Account not found', 'error'); return; }
         const screen = acc.screens.find(s => s.id === screenId);
         if (!screen || !screen.customers || screen.customers.length <= customerIdx) {
           addToast('Customer not found', 'error');
           return;
         }
-        screen.customers[customerIdx] = {
-          ...screen.customers[customerIdx],
-          name: editForm.name,
-          username: editForm.username,
-          password: editForm.password,
-          whatsapp: editForm.whatsapp,
-          expiryDate: editForm.expiryDate
-        };
-        setSubscriptions(prev => prev.map(s => s.id === subId ? updatedSub : s));
+        const originalUsername = screen.customers[customerIdx].username;
         try {
-          await updateSubscription(subId, updatedSub);
+          await editCustomerEntry(subId, accId, screenId, originalUsername, {
+            name: editForm.name,
+            password: editForm.password,
+            whatsapp: editForm.whatsapp,
+            expiryDate: editForm.expiryDate,
+            newUsername: editForm.username !== originalUsername ? editForm.username : undefined
+          });
           await refreshData();
           addToast('Customer updated.', 'success');
           closeEditModal();
         } catch (err) {
           console.error('Update error:', err);
-          addToast('Failed to update customer.', 'error');
+          addToast(err.message || 'Failed to update customer.', 'error');
           await refreshData();
         }
       };
@@ -4451,6 +4631,9 @@
                               <button onClick={() => handleAddCredits(u.username)} className="btn-success text-xs"><i className="fas fa-plus mr-1"></i> Add</button>
                               <input type="number" className="input-neon w-20 py-1 px-2 text-sm" placeholder="-" value={selectedUserForCredits === u.username ? deductCreditsAmount : ''} onChange={(e) => { setSelectedUserForCredits(u.username); setDeductCreditsAmount(Number(e.target.value)); }} />
                               <button onClick={() => handleDeductCredits(u.username)} className="btn-danger text-xs"><i className="fas fa-minus mr-1"></i> Deduct</button>
+                              <button onClick={() => openUserEditModal(u)} className="btn-warning text-xs"><i className="fas fa-pen mr-1"></i> Edit</button>
+                              <button onClick={() => openGrantModal(u)} className="btn-neon-sm"><i className="fas fa-gift mr-1"></i> Grant Sub</button>
+                              <button onClick={() => handleDeleteUser(u.username)} className="btn-danger text-xs"><i className="fas fa-trash mr-1"></i> Delete</button>
                             </div>
                           </td>
                         </tr>
@@ -4661,6 +4844,73 @@
             </div>
           )}
 
+          {editingUser && (
+            <div className="modal-overlay">
+              <div className="modal-content glass-panel">
+                <h3 className="text-xl font-bold text-white mb-4">Edit User</h3>
+                <div className="space-y-4">
+                  <div>
+                    <label className="text-white/50 text-sm">Username</label>
+                    <input type="text" value={userEditForm.username} onChange={(e) => setUserEditForm({ ...userEditForm, username: e.target.value })} className="input-neon mt-1" />
+                    <p className="text-white/20 text-[11px] mt-1">Changing this automatically moves their existing subscriptions to the new username.</p>
+                  </div>
+                  <div>
+                    <label className="text-white/50 text-sm">New Password</label>
+                    <input type="text" value={userEditForm.password} onChange={(e) => setUserEditForm({ ...userEditForm, password: e.target.value })} className="input-neon mt-1" placeholder="Leave blank to keep current password" />
+                  </div>
+                  <div><label className="text-white/50 text-sm">WhatsApp</label><input type="text" value={userEditForm.whatsapp} onChange={(e) => setUserEditForm({ ...userEditForm, whatsapp: e.target.value })} className="input-neon mt-1" /></div>
+                </div>
+                <div className="flex gap-3 mt-6">
+                  <button onClick={saveUserEdit} className="btn-neon">Save</button>
+                  <button onClick={closeUserEditModal} className="btn-neon-outline">Cancel</button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {grantModalUser && (
+            <div className="modal-overlay">
+              <div className="modal-content glass-panel">
+                <h3 className="text-xl font-bold text-white mb-4">Grant Subscription to {grantModalUser}</h3>
+                <div className="space-y-4">
+                  <div>
+                    <label className="text-white/50 text-sm">Subscription</label>
+                    <select value={grantForm.subscriptionId} onChange={(e) => setGrantForm({ ...grantForm, subscriptionId: e.target.value })} className="input-neon mt-1">
+                      <option value="">Select a subscription</option>
+                      {subscriptions.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                    </select>
+                  </div>
+                  <div><label className="text-white/50 text-sm">Customer Name</label><input type="text" value={grantForm.name} onChange={(e) => setGrantForm({ ...grantForm, name: e.target.value })} className="input-neon mt-1" /></div>
+                  <div><label className="text-white/50 text-sm">WhatsApp</label><input type="text" value={grantForm.whatsapp} onChange={(e) => setGrantForm({ ...grantForm, whatsapp: e.target.value })} className="input-neon mt-1" /></div>
+                  {subscriptions.find(s => s.id === grantForm.subscriptionId)?.type === 'netflix' && (
+                    <div>
+                      <label className="text-white/50 text-sm">Screens</label>
+                      <input type="number" min="1" max="5" value={grantForm.screens} onChange={(e) => setGrantForm({ ...grantForm, screens: Number(e.target.value) })} className="input-neon mt-1" />
+                    </div>
+                  )}
+                  <div>
+                    <label className="text-white/50 text-sm">Duration</label>
+                    <div className="flex gap-2 mt-1">
+                      <select value={grantForm.durationType} onChange={(e) => setGrantForm({ ...grantForm, durationType: e.target.value })} className="input-neon">
+                        <option value="months">Months</option>
+                        <option value="days">Days</option>
+                      </select>
+                      {grantForm.durationType === 'months' ? (
+                        <input type="number" min="1" value={grantForm.months} onChange={(e) => setGrantForm({ ...grantForm, months: Number(e.target.value) })} className="input-neon" />
+                      ) : (
+                        <input type="number" min="1" value={grantForm.days} onChange={(e) => setGrantForm({ ...grantForm, days: Number(e.target.value) })} className="input-neon" />
+                      )}
+                    </div>
+                  </div>
+                </div>
+                <div className="flex gap-3 mt-6">
+                  <button onClick={saveGrant} disabled={grantLoading} className="btn-neon">{grantLoading ? <span className="spinner"></span> : 'Grant'}</button>
+                  <button onClick={closeGrantModal} className="btn-neon-outline">Cancel</button>
+                </div>
+              </div>
+            </div>
+          )}
+
           {editingAccount && (
             <div className="modal-overlay">
               <div className="modal-content glass-panel">
@@ -4782,9 +5032,9 @@
         setFlowStep('flow');
       };
 
-      const findCustomers = (username) => {
+      const findCustomers = (username, subsList) => {
         const results = [];
-        for (let sub of subscriptions) {
+        for (let sub of (subsList || subscriptions)) {
           for (let acc of sub.accounts) {
             for (let screen of acc.screens) {
               if (screen.customers) {
@@ -4820,148 +5070,53 @@
       };
 
       const handleSubComplete = async (data) => {
-        addToast('🎉 Subscription activated! Check your Customer Portal for details.', 'success');
-        console.log('Subscription data:', data);
+        const customerPayload = {
+          name: data.name || '',
+          username: data.username,
+          password: data.password,
+          whatsapp: data.whatsapp,
+          expiryDate: data.expiryDate,
+          months: data.months || 0,
+          days: data.days || 0,
+          screens: data.screens || 1,
+          email: data.email || '',
+          purchasedAt: data.purchasedAt || new Date().toISOString()
+        };
 
-        let updatedSubs = subscriptions.map(sub => {
-          if (data.isDeal) {
-            const dealSubIds = data.dealSubscriptionIds || [];
-            if (dealSubIds.includes(sub.id)) {
-              const updated = { ...sub };
-              const allocatedForSub = (data.allocated || []).filter(a => a.subscriptionId === sub.id);
-              if (allocatedForSub.length > 0) {
-                allocatedForSub.forEach(allot => {
-                  updated.accounts = updated.accounts.map(acc => {
-                    if (acc.id === allot.accountId) {
-                      acc.screens = acc.screens.map(screen => {
-                        if (screen.id === allot.screenId) {
-                          if (!screen.customers) screen.customers = [];
-                          screen.customers.push({
-                            name: data.name || '',
-                            username: data.username,
-                            password: data.password,
-                            whatsapp: data.whatsapp,
-                            expiryDate: data.expiryDate,
-                            months: data.months || 0,
-                            days: data.days || 0,
-                            screens: data.screens || 1,
-                            email: data.email || '',
-                            purchasedAt: data.purchasedAt || new Date().toISOString()
-                          });
-                        }
-                        return screen;
-                      });
-                    }
-                    return acc;
-                  });
-                });
-              } else {
-                if (updated.accounts.length > 0) {
-                  const firstAcc = updated.accounts[0];
-                  if (firstAcc.screens && firstAcc.screens.length > 0) {
-                    const screen = firstAcc.screens[0];
-                    if (!screen.customers) screen.customers = [];
-                    screen.customers.push({
-                      name: data.name || '',
-                      username: data.username,
-                      password: data.password,
-                      whatsapp: data.whatsapp,
-                      expiryDate: data.expiryDate,
-                      months: data.months || 0,
-                      days: data.days || 0,
-                      screens: data.screens || 1,
-                      email: data.email || '',
-                      purchasedAt: data.purchasedAt || new Date().toISOString()
-                    });
-                  }
-                }
-              }
-              return updated;
-            }
-            return sub;
-          } else {
-            if (sub.id === data.subscriptionId) {
-              const updated = { ...sub };
-              if (data.allocated && data.allocated.length > 0) {
-                data.allocated.forEach(allot => {
-                  updated.accounts = updated.accounts.map(acc => {
-                    if (acc.id === allot.accountId) {
-                      acc.screens = acc.screens.map(screen => {
-                        if (screen.id === allot.screenId) {
-                          if (!screen.customers) screen.customers = [];
-                          screen.customers.push({
-                            name: data.name || '',
-                            username: data.username,
-                            password: data.password,
-                            whatsapp: data.whatsapp,
-                            expiryDate: data.expiryDate,
-                            months: data.months || 0,
-                            days: data.days || 0,
-                            screens: data.screens,
-                            email: data.email || '',
-                            purchasedAt: data.purchasedAt || new Date().toISOString()
-                          });
-                        }
-                        return screen;
-                      });
-                    }
-                    return acc;
-                  });
-                });
-              } else {
-                if (updated.accounts.length > 0) {
-                  const firstAcc = updated.accounts[0];
-                  if (firstAcc.screens && firstAcc.screens.length > 0) {
-                    const screen = firstAcc.screens[0];
-                    if (!screen.customers) screen.customers = [];
-                    screen.customers.push({
-                      name: data.name || '',
-                      username: data.username,
-                      password: data.password,
-                      whatsapp: data.whatsapp,
-                      expiryDate: data.expiryDate,
-                      months: data.months || 0,
-                      days: data.days || 0,
-                      screens: data.screens || 1,
-                      email: data.email || '',
-                      purchasedAt: data.purchasedAt || new Date().toISOString()
-                    });
-                  }
-                }
-              }
-              return updated;
-            }
-            return sub;
+        try {
+          const allocations = (data.allocated && data.allocated.length > 0) ? data.allocated : [];
+
+          if (allocations.length === 0) {
+            throw new Error('No screen was allocated for this purchase.');
           }
-        });
 
-        setSubscriptions(updatedSubs);
-        for (const sub of updatedSubs) {
-          if (data.isDeal) {
-            const dealSubIds = data.dealSubscriptionIds || [];
-            if (dealSubIds.includes(sub.id)) {
-              await updateSubscription(sub.id, sub);
-            }
-          } else if (sub.id === data.subscriptionId) {
-            await updateSubscription(sub.id, sub);
+          // Each allocation is saved with a targeted, atomic update (only touches that
+          // exact account/screen) instead of overwriting the whole subscription document.
+          // This is what used to cause other customers' purchase details to vanish.
+          for (const allot of allocations) {
+            const subIdForAllot = allot.subscriptionId || data.subscriptionId;
+            await allocateCustomer(subIdForAllot, allot.accountId, allot.screenId, customerPayload);
           }
-        }
 
-        const fresh = await fetchSubscriptions();
-        setSubscriptions(fresh);
-        const dealsData = await fetchDeals();
-        setDeals(dealsData);
-        resetFlow();
-        setActiveTab('home');
-        setShowSubscriptions(false);
-        addToast('🎉 Subscription confirmed! Check your details.', 'success');
+          const fresh = await fetchSubscriptions();
+          setSubscriptions(fresh);
+          const dealsData = await fetchDeals();
+          setDeals(dealsData);
+          resetFlow();
+          navigateTo('/');
+          addToast('🎉 Subscription confirmed! Check your details.', 'success');
 
-        if (user) {
-          const found = findCustomers(user.username);
-          setCustomerData(found);
-          setFlowStep('customer-dash');
-          setActiveTab('subscriptions');
-          setShowSubscriptions(true);
+          if (user) {
+            const found = findCustomers(user.username, fresh);
+            setCustomerData(found);
+            setFlowStep('customer-dash');
+            navigateTo('/subscriptions');
+          }
+        } catch (err) {
+          console.error('Failed to save subscription:', err);
+          addToast('Payment went through but saving your subscription failed. Please contact support so we can fix this manually.', 'error');
+          const fresh = await fetchSubscriptions().catch(() => null);
+          if (fresh) setSubscriptions(fresh);
         }
       };
 

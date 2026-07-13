@@ -434,6 +434,100 @@ app.delete('/api/subscriptions/:id', async (req, res) => {
   }
 });
 
+// ---- Customer allocation (atomic — never overwrites the whole subscription doc) ----
+// This is what fixes purchase details "disappearing": every purchase, edit, or delete
+// below only touches the exact account/screen it targets instead of replacing the
+// entire accounts array, so two things happening at once can never wipe each other out.
+
+app.post('/api/subscriptions/:id/allocate', async (req, res) => {
+  try {
+    const { accountId, screenId, customer } = req.body;
+    if (!accountId || !screenId || !customer || !customer.username) {
+      return res.status(400).json({ error: 'accountId, screenId and customer are required' });
+    }
+    const customerToInsert = {
+      name: customer.name || '',
+      username: customer.username,
+      password: customer.password || '',
+      whatsapp: customer.whatsapp || '',
+      expiryDate: customer.expiryDate || '',
+      months: customer.months || 0,
+      days: customer.days || 0,
+      screens: customer.screens || 1,
+      email: customer.email || '',
+      purchasedAt: customer.purchasedAt || new Date().toISOString()
+    };
+    const result = await subscriptionsCollection.updateOne(
+      { id: req.params.id },
+      { $push: { 'accounts.$[acc].screens.$[scr].customers': customerToInsert } },
+      { arrayFilters: [{ 'acc.id': accountId }, { 'scr.id': screenId }] }
+    );
+    if (result.matchedCount === 0) {
+      return res.status(404).json({ error: 'Subscription, account, or screen not found' });
+    }
+    const updated = await subscriptionsCollection.findOne({ id: req.params.id });
+    res.json(updated);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.put('/api/subscriptions/:id/accounts/:accountId/screens/:screenId/customers/:username', async (req, res) => {
+  try {
+    const { name, password, whatsapp, expiryDate, months, days, email, newUsername } = req.body;
+    const setObj = {};
+    if (name !== undefined) setObj['accounts.$[acc].screens.$[scr].customers.$[cust].name'] = name;
+    if (password !== undefined) setObj['accounts.$[acc].screens.$[scr].customers.$[cust].password'] = password;
+    if (whatsapp !== undefined) setObj['accounts.$[acc].screens.$[scr].customers.$[cust].whatsapp'] = whatsapp;
+    if (expiryDate !== undefined) setObj['accounts.$[acc].screens.$[scr].customers.$[cust].expiryDate'] = expiryDate;
+    if (months !== undefined) setObj['accounts.$[acc].screens.$[scr].customers.$[cust].months'] = months;
+    if (days !== undefined) setObj['accounts.$[acc].screens.$[scr].customers.$[cust].days'] = days;
+    if (email !== undefined) setObj['accounts.$[acc].screens.$[scr].customers.$[cust].email'] = email;
+    if (newUsername !== undefined && newUsername !== req.params.username) {
+      setObj['accounts.$[acc].screens.$[scr].customers.$[cust].username'] = newUsername;
+    }
+    if (Object.keys(setObj).length === 0) {
+      return res.status(400).json({ error: 'No fields to update' });
+    }
+    const result = await subscriptionsCollection.updateOne(
+      { id: req.params.id },
+      { $set: setObj },
+      { arrayFilters: [
+          { 'acc.id': req.params.accountId },
+          { 'scr.id': req.params.screenId },
+          { 'cust.username': req.params.username }
+        ] }
+    );
+    if (result.matchedCount === 0) {
+      return res.status(404).json({ error: 'Subscription, account, or screen not found' });
+    }
+    if (result.modifiedCount === 0) {
+      return res.status(404).json({ error: 'Customer not found on that screen' });
+    }
+    const updated = await subscriptionsCollection.findOne({ id: req.params.id });
+    res.json(updated);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.delete('/api/subscriptions/:id/accounts/:accountId/screens/:screenId/customers/:username', async (req, res) => {
+  try {
+    const result = await subscriptionsCollection.updateOne(
+      { id: req.params.id },
+      { $pull: { 'accounts.$[acc].screens.$[scr].customers': { username: req.params.username } } },
+      { arrayFilters: [{ 'acc.id': req.params.accountId }, { 'scr.id': req.params.screenId }] }
+    );
+    if (result.matchedCount === 0) {
+      return res.status(404).json({ error: 'Subscription, account, or screen not found' });
+    }
+    const updated = await subscriptionsCollection.findOne({ id: req.params.id });
+    res.json(updated);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // ---- Users ----
 app.post('/api/users/signup', async (req, res) => {
   try {
@@ -549,6 +643,63 @@ app.post('/api/users/:username/deductCredits', async (req, res) => {
     );
     const updated = await usersCollection.findOne({ username: req.params.username });
     res.json(updated);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Delete a user account (login credentials only — their existing purchased
+// subscription entries are left untouched; remove those separately if needed).
+app.delete('/api/users/:username', async (req, res) => {
+  try {
+    const result = await usersCollection.deleteOne({ username: req.params.username });
+    if (result.deletedCount === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Edit a user's username/password/whatsapp/credits. If the username changes,
+// every existing purchase record under the old username is atomically renamed
+// to the new one so the customer doesn't lose access to their portal.
+app.put('/api/users/:username', async (req, res) => {
+  try {
+    const oldUsername = req.params.username;
+    const { username: newUsername, password, whatsapp, credits } = req.body;
+
+    const existingUser = await usersCollection.findOne({ username: oldUsername });
+    if (!existingUser) return res.status(404).json({ error: 'User not found' });
+
+    if (newUsername && newUsername !== oldUsername) {
+      const clash = await usersCollection.findOne({ username: newUsername });
+      if (clash) return res.status(400).json({ error: 'That username is already taken' });
+    }
+
+    const update = {};
+    if (newUsername !== undefined && newUsername !== '') update.username = newUsername;
+    if (password !== undefined && password !== '') update.password = password;
+    if (whatsapp !== undefined) update.whatsapp = whatsapp;
+    if (credits !== undefined) update.credits = credits;
+
+    if (Object.keys(update).length > 0) {
+      await usersCollection.updateOne({ username: oldUsername }, { $set: update });
+    }
+
+    if (newUsername && newUsername !== oldUsername) {
+      await subscriptionsCollection.updateMany(
+        {},
+        { $set: { 'accounts.$[].screens.$[].customers.$[cust].username': newUsername } },
+        { arrayFilters: [{ 'cust.username': oldUsername }] }
+      );
+    }
+
+    const finalUsername = (newUsername && newUsername !== oldUsername) ? newUsername : oldUsername;
+    const updated = await usersCollection.findOne({ username: finalUsername });
+    const { password: pw, ...sanitized } = updated;
+    res.json(sanitized);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -867,15 +1018,42 @@ app.get('/api/health', (req, res) => {
 
 // ─── Start server ──────────────────────────────────────────
 
+// Automatically and permanently remove subscription entries that have expired.
+// Uses an atomic $pull across every account/screen at once (no read-modify-write),
+// so it can never collide with or erase a purchase that's being saved at the same time.
+async function cleanupExpiredCustomers() {
+  try {
+    const todayStr = new Date().toISOString().slice(0, 10); // 'YYYY-MM-DD'
+    const result = await subscriptionsCollection.updateMany(
+      {},
+      {
+        $pull: {
+          'accounts.$[].screens.$[].customers': {
+            expiryDate: { $exists: true, $ne: '', $lt: todayStr }
+          }
+        }
+      }
+    );
+    if (result.modifiedCount > 0) {
+      console.log(`🧹 Cleaned up expired customer entries from ${result.modifiedCount} subscription(s)`);
+    }
+  } catch (err) {
+    console.error('❌ Cleanup error:', err);
+  }
+}
+
 const PORT = process.env.PORT || 5000;
 
 connectDB()
   .then(() => seedData())
+  .then(() => cleanupExpiredCustomers())
   .then(() => {
     app.listen(PORT, '0.0.0.0', () => {
       console.log(`🚀 Server running on port ${PORT}`);
       console.log(`📡 API URL: http://localhost:${PORT}/api`);
     });
+    // Re-check for expired subscriptions every hour.
+    setInterval(cleanupExpiredCustomers, 60 * 60 * 1000);
   })
   .catch(err => {
     console.error('❌ Failed to connect to MongoDB:', err);
