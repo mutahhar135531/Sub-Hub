@@ -542,7 +542,6 @@
         { id: 'subscriptions', label: 'Subscriptions', icon: 'fa-crown' },
         { id: 'contact', label: 'Contact', icon: 'fa-envelope' },
         { id: 'social', label: 'Social', icon: 'fa-share-alt' },
-        { id: 'admin', label: 'Admin', icon: 'fa-user-shield' },
       ];
 
       const handleNav = (id) => {
@@ -550,6 +549,10 @@
         setMobileOpen(false);
         if (id === 'subscriptions') setShowSubscriptions(true);
         if (id === 'home') setShowSubscriptions(false);
+        const path = id === 'home' ? '/' : `/${id}`;
+        if (window.location.pathname !== path) {
+          window.history.pushState({ tab: id }, '', path);
+        }
         if (id === 'admin') document.getElementById('admin-section')?.scrollIntoView({ behavior: 'smooth' });
         if (id === 'contact') document.getElementById('contact-section')?.scrollIntoView({ behavior: 'smooth' });
         if (id === 'social') document.getElementById('social-section')?.scrollIntoView({ behavior: 'smooth' });
@@ -1413,7 +1416,6 @@
                 {desc && <p className="text-white/30 text-xs mt-1 truncate max-w-full">{desc}</p>}
                 {importantNote && <p className="text-yellow-400 text-[10px] mt-1"><i className="fas fa-info-circle mr-1"></i> {importantNote}</p>}
                 {sellingPrice > 0 && <p className="text-green-400 text-sm font-medium mt-1">RS {sellingPrice} / mo</p>}
-                {slots > 0 && <p className="text-white/20 text-[10px] mt-0.5">{slots} slots available</p>}
                 {isSelected && <div className="mt-3 text-red-400 text-xs"><i className="fas fa-check-circle mr-1"></i> Selected</div>}
               </div>
             );
@@ -2808,7 +2810,6 @@
         if (activeDeals.length === 0) return null;
         return (
           <div>
-            <h3 className="text-xl font-bold text-white mb-4"><span className="brand-z brand-z-sm">Z</span> Hot Deals</h3>
             <DealsCarousel deals={activeDeals} subscriptions={subscriptions || []} onPurchaseClick={onDealPurchase} />
           </div>
         );
@@ -4730,6 +4731,43 @@
         loadData();
       }, []);
 
+      // ─── URL ROUTING ──────────────────────────────────────────
+      // Maps a browser path (e.g. /subscriptions, /admin) to the app's internal tab state.
+      const applyRouteFromPath = (pathname) => {
+        const path = (pathname || '/').replace(/\/+$/, '').toLowerCase() || '/';
+        if (path === '/' ) {
+          setActiveTab('home');
+          setShowSubscriptions(false);
+        } else if (path === '/subscriptions' || path === '/subscription') {
+          setActiveTab('subscriptions');
+          setShowSubscriptions(true);
+        } else if (path === '/contact') {
+          setActiveTab('contact');
+        } else if (path === '/social') {
+          setActiveTab('social');
+        } else if (path === '/admin') {
+          // Hidden route: only reachable by typing the URL directly, never shown in the nav.
+          setActiveTab('admin');
+        } else {
+          setActiveTab('home');
+          setShowSubscriptions(false);
+        }
+      };
+
+      useEffect(() => {
+        applyRouteFromPath(window.location.pathname);
+        const onPopState = () => applyRouteFromPath(window.location.pathname);
+        window.addEventListener('popstate', onPopState);
+        return () => window.removeEventListener('popstate', onPopState);
+      }, []);
+
+      const navigateTo = (path) => {
+        if (window.location.pathname !== path) {
+          window.history.pushState({}, '', path);
+        }
+        applyRouteFromPath(path);
+      };
+
       const resetFlow = () => {
         setFlowStep('welcome');
         setFlowType(null);
@@ -4940,8 +4978,7 @@
         setUser(null);
         setCustomerData(null);
         resetFlow();
-        setActiveTab('home');
-        setShowSubscriptions(false);
+        navigateTo('/');
         addToast('Logged out.', 'info');
       };
 
@@ -4968,44 +5005,35 @@
       };
 
       const handleGetStarted = () => {
+        navigateTo('/subscriptions');
         if (user) {
           setFlowStep('select');
-          setActiveTab('subscriptions');
-          setShowSubscriptions(true);
         } else {
-          setActiveTab('subscriptions');
-          setShowSubscriptions(true);
           setFlowStep('auth');
         }
       };
 
       const handleCustomerPortal = async () => {
+        navigateTo('/subscriptions');
         if (user) {
           await refreshUser();
           const found = findCustomers(user.username);
           setCustomerData(found);
           setFlowStep('customer-dash');
-          setActiveTab('subscriptions');
-          setShowSubscriptions(true);
         } else {
-          setActiveTab('subscriptions');
-          setShowSubscriptions(true);
           setFlowStep('auth');
         }
       };
 
       const handleDealPurchase = (deal) => {
+        navigateTo('/subscriptions');
         if (!user) {
-          setActiveTab('subscriptions');
-          setShowSubscriptions(true);
           setFlowStep('auth');
           addToast('Please login first to purchase this deal.', 'info');
           return;
         }
         setSelectedDeal(deal);
         setFlowStep('deal-purchase');
-        setActiveTab('subscriptions');
-        setShowSubscriptions(true);
       };
 
       const dealsWithSub = deals.filter(d => d.active).map(deal => {
@@ -5126,7 +5154,6 @@
                     <h2 className="text-2xl font-bold text-white mb-6"><span className="brand-z brand-z-sm">Z</span> Choose Subscription</h2>
                     {dealsWithSub.length > 0 && (
                       <div className="mb-8">
-                        <h3 className="text-xl font-bold text-white mb-4"><span className="brand-z brand-z-sm">Z</span> Hot Deals</h3>
                         <DealsCarousel deals={dealsWithSub} subscriptions={subscriptions} onPurchaseClick={handleDealPurchase} />
                       </div>
                     )}
@@ -5137,7 +5164,7 @@
                 {flowStep === 'deal-purchase' && <div className="max-w-lg mx-auto">{renderFlow()}</div>}
                 {flowStep === 'customer-dash' && customerData !== null && (
                   <>
-                    <CustomerDashboard customerData={customerData} onLogout={() => { resetFlow(); setActiveTab('home'); setShowSubscriptions(false); }} deals={dealsWithSub} onDealPurchase={handleDealPurchase} subscriptions={subscriptions} />
+                    <CustomerDashboard customerData={customerData} onLogout={() => { resetFlow(); navigateTo('/'); }} deals={dealsWithSub} onDealPurchase={handleDealPurchase} subscriptions={subscriptions} />
                     <WhatsAppButton />
                     <Footer />
                   </>
@@ -5184,7 +5211,7 @@
 
           {activeTab === 'admin' && (
             <section id="admin-section" className="px-4 max-w-7xl mx-auto py-12">
-              {!isAdmin ? <AdminLogin onLogin={() => setIsAdmin(true)} /> : <AdminDashboard subscriptions={subscriptions} setSubscriptions={setSubscriptions} onLogout={() => setIsAdmin(false)} deals={deals} setDeals={setDeals} promotions={promotions} setPromotions={setPromotions} />}
+              {!isAdmin ? <AdminLogin onLogin={() => setIsAdmin(true)} /> : <AdminDashboard subscriptions={subscriptions} setSubscriptions={setSubscriptions} onLogout={() => { setIsAdmin(false); navigateTo('/'); }} deals={deals} setDeals={setDeals} promotions={promotions} setPromotions={setPromotions} />}
             </section>
           )}
 
