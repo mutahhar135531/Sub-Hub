@@ -269,25 +269,14 @@ async function seedData() {
       if (!existing) {
         await subscriptionsCollection.insertOne(def);
         console.log(`✅ Inserted subscription: ${def.name}`);
-      } else {
-        // Only update non‑destructive fields
-        const updateFields = {
-          name: def.name,
-          type: def.type,
-          costPerMonth: def.costPerMonth,
-          sellingPrice: def.sellingPrice,
-          description: def.description,
-          importantNote: def.importantNote,
-          logo: def.logo,
-          slots: def.slots,
-          askFor: def.askFor
-        };
-        Object.keys(updateFields).forEach(key => updateFields[key] === undefined && delete updateFields[key]);
-        await subscriptionsCollection.updateOne(
-          { id: def.id },
-          { $set: updateFields }
-        );
       }
+      // If it already exists, leave it completely alone. This runs on every
+      // server restart (i.e. every deploy), so previously this block was
+      // silently overwriting whatever cost/sellingPrice/logo/etc. had been
+      // set manually in the admin panel back to these hardcoded defaults.
+      // Seeding should only ever create missing subscriptions, never touch
+      // ones that already exist — manual edits now persist across deploys
+      // until you change them again yourself.
     }
 
     const dealCount = await dealsCollection.countDocuments();
