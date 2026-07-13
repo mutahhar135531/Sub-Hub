@@ -5266,6 +5266,14 @@
 
           {activeTab === 'home' && !showSubscriptions && (
             <>
+              <div className="max-w-7xl mx-auto px-4 pt-4">
+                <a href="https://wa.me/923079163485" target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 rounded-2xl px-4 py-3 bg-green-500/10 border border-green-500/20 hover:bg-green-500/15 transition">
+                  <i className="fab fa-whatsapp text-green-400 text-xl flex-shrink-0"></i>
+                  <p className="text-green-300 text-sm">
+                    <span className="font-semibold">New here?</span> Please click the WhatsApp button and talk to admin before purchasing.
+                  </p>
+                </a>
+              </div>
               {dealsWithSub.length > 0 && (
                 <div className="max-w-7xl mx-auto px-4 pt-4 pb-2">
                   <DealsCarousel deals={dealsWithSub} subscriptions={subscriptions} onPurchaseClick={handleDealPurchase} />
