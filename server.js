@@ -5,16 +5,17 @@ const { MongoClient } = require('mongodb');
 
 const app = express();
 
-// ─── CORS ─────────────────────────────────────────────────────
+// ─── CORS CONFIGURATION ──────────────────────────────────────
 app.use(cors({
   origin: '*',
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'Cache-Control'],
   credentials: true
 }));
+
 app.use(express.json());
 
-// ─── CACHE ──────────────────────────────────────────────────────
+// ─── STRICT CACHE CONTROL ──────────────────────────────────────
 app.use((req, res, next) => {
   res.header('Cache-Control', 'no-cache, no-store, must-revalidate');
   res.header('Pragma', 'no-cache');
@@ -23,12 +24,18 @@ app.use((req, res, next) => {
   next();
 });
 
-// ─── MONGO ──────────────────────────────────────────────────
+// ─── MongoDB connection ──────────────────────────────────────
 const MONGODB_URI = 'mongodb+srv://elitecinezo_db_user:g485P3ELoeP8REkD@cluster0.tsw1i0i.mongodb.net/subscription_hub?retryWrites=true&w=majority';
 const DB_NAME = 'subscription_hub';
-let db, subscriptionsCollection, otpsCollection, usersCollection, dealsCollection, promotionsCollection;
 
-// ─── SUBSCRIPTION COSTS ──────────────────────────────────────
+let db;
+let subscriptionsCollection;
+let otpsCollection;
+let usersCollection;
+let dealsCollection;
+let promotionsCollection;
+
+// ─── SUBSCRIPTION COSTS (Monthly) ──────────────────────────
 const SUBSCRIPTION_COSTS = {
   netflix: 1250,
   amazon: 250,
@@ -44,7 +51,9 @@ const SUBSCRIPTION_COSTS = {
 };
 
 async function connectDB() {
-  const client = new MongoClient(MONGODB_URI, { serverSelectionTimeoutMS: 5000 });
+  const client = new MongoClient(MONGODB_URI, {
+    serverSelectionTimeoutMS: 5000,
+  });
   await client.connect();
   db = client.db(DB_NAME);
   subscriptionsCollection = db.collection('subscriptions');
@@ -55,7 +64,7 @@ async function connectDB() {
   console.log('✅ Connected to MongoDB');
 }
 
-// ─── SEED ──────────────────────────────────────────────────────
+// ─── Seed / Upsert subscriptions ────────────────────────────
 async function seedData() {
   try {
     const subscriptionDefs = [
@@ -263,7 +272,7 @@ async function seedData() {
   }
 }
 
-// ─── ROUTES ──────────────────────────────────────────────────
+// ─── Routes ──────────────────────────────────────────────────
 
 app.get('/api/subscriptions', async (req, res) => {
   try {
@@ -286,7 +295,7 @@ app.get('/api/subscriptions/:id', async (req, res) => {
 
 app.post('/api/subscriptions', async (req, res) => {
   try {
-    const { id, name, type, accounts, costPerMonth, sellingPrice, slots, askFor, description, importantNote, logo } = req.body;
+    const { id, name, type, accounts, costPerMonth, sellingPrice, slots, askFor, description } = req.body;
     const existing = await subscriptionsCollection.findOne({ id });
     if (existing) {
       return res.status(400).json({ error: 'Subscription id already exists' });
@@ -301,8 +310,6 @@ app.post('/api/subscriptions', async (req, res) => {
       slots: slots || 0,
       askFor: askFor || ['name', 'number'],
       description: description || '',
-      importantNote: importantNote || '',
-      logo: logo || '',
       createdAt: new Date()
     };
     await subscriptionsCollection.insertOne(newSub);
@@ -314,7 +321,7 @@ app.post('/api/subscriptions', async (req, res) => {
 
 app.put('/api/subscriptions/:id', async (req, res) => {
   try {
-    const { name, type, accounts, costPerMonth, sellingPrice, slots, askFor, description, importantNote, logo } = req.body;
+    const { name, type, accounts, costPerMonth, sellingPrice, slots, askFor, description } = req.body;
     const update = {};
     if (name !== undefined) update.name = name;
     if (type !== undefined) update.type = type;
@@ -324,8 +331,6 @@ app.put('/api/subscriptions/:id', async (req, res) => {
     if (slots !== undefined) update.slots = slots;
     if (askFor !== undefined) update.askFor = askFor;
     if (description !== undefined) update.description = description;
-    if (importantNote !== undefined) update.importantNote = importantNote;
-    if (logo !== undefined) update.logo = logo;
     const result = await subscriptionsCollection.updateOne(
       { id: req.params.id },
       { $set: update }
@@ -685,7 +690,7 @@ app.get('/api/income', async (req, res) => {
     const { period } = req.query;
     const now = new Date();
     let startDate = new Date(now);
-
+    
     if (period === 'monthly') {
       startDate.setDate(1);
       startDate.setHours(0, 0, 0, 0);
@@ -712,9 +717,9 @@ app.get('/api/income', async (req, res) => {
             screen.customers.forEach(c => {
               const expiryDate = c.expiryDate ? new Date(c.expiryDate) : null;
               const purchaseDate = c.purchasedAt ? new Date(c.purchasedAt) : null;
-
+              
               if (expiryDate && expiryDate < now) return;
-
+              
               if (purchaseDate && purchaseDate < startDate) return;
               if (!purchaseDate) {
                 const months = c.months || 1;
@@ -752,7 +757,7 @@ app.get('/api/income', async (req, res) => {
     const now30 = new Date(now); now30.setDate(now30.getDate() - 30);
     const now60 = new Date(now); now60.setDate(now60.getDate() - 60);
     const now90 = new Date(now); now90.setDate(now90.getDate() - 90);
-
+    
     let last30Days = 0, last60Days = 0, last90Days = 0;
     customers.forEach(c => {
       if (c.purchasedAt) {
@@ -784,16 +789,19 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', database: db ? 'connected' : 'disconnected' });
 });
 
-// ─── START ──────────────────────────────────────────────────
+// ─── Start server ──────────────────────────────────────────
+
 const PORT = process.env.PORT || 5000;
+
 connectDB()
   .then(() => seedData())
   .then(() => {
     app.listen(PORT, '0.0.0.0', () => {
       console.log(`🚀 Server running on port ${PORT}`);
+      console.log(`📡 API URL: http://localhost:${PORT}/api`);
     });
   })
   .catch(err => {
-    console.error('❌ Failed to start:', err);
+    console.error('❌ Failed to connect to MongoDB:', err);
     process.exit(1);
   });
