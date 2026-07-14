@@ -556,6 +556,27 @@ app.post('/api/users/login', async (req, res) => {
   }
 });
 
+// Forgot-password step 1: verify identity by matching the WhatsApp number
+// on file for this username. Numbers are compared after stripping spaces,
+// dashes and a leading "+" so small formatting differences don't block a
+// legitimate match. Never reveals whether the username itself exists.
+app.post('/api/users/verify-whatsapp', async (req, res) => {
+  try {
+    const { username, whatsapp } = req.body;
+    if (!username || !whatsapp) {
+      return res.status(400).json({ error: 'Username and WhatsApp number are required' });
+    }
+    const normalize = (n) => String(n || '').replace(/[\s\-()]/g, '').replace(/^\+/, '');
+    const user = await usersCollection.findOne({ username });
+    if (!user || normalize(user.whatsapp) !== normalize(whatsapp)) {
+      return res.status(401).json({ success: false, error: 'That WhatsApp number does not match our records for this username.' });
+    }
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.get('/api/users', async (req, res) => {
   try {
     const users = await usersCollection.find({}).toArray();
