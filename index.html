@@ -3471,7 +3471,7 @@
     }
 
     // ─── ADMIN DASHBOARD ──────────────────────────────────────
-    function AdminDashboard({ subscriptions, setSubscriptions, onLogout, deals, setDeals, promotions, setPromotions }) {
+    function AdminDashboard({ subscriptions, setSubscriptions, onLogout, onBack, deals, setDeals, promotions, setPromotions }) {
       const [activeTab, setActiveTab] = useState('overview');
       const [showAddSub, setShowAddSub] = useState(false);
       const [showEditSub, setShowEditSub] = useState(null);
@@ -4398,6 +4398,7 @@
               <p className="text-white/30 text-sm">Manage everything.</p>
             </div>
             <div className="flex flex-wrap gap-2">
+              <button onClick={onBack} className="btn-neon-outline text-sm"><i className="fas fa-arrow-left mr-2"></i> Back</button>
               <button onClick={refreshData} className="btn-red text-sm"><i className="fas fa-sync mr-1"></i> Refresh</button>
               <button onClick={() => setShowAdminSettings(!showAdminSettings)} className="btn-warning text-sm"><i className="fas fa-cog mr-1"></i> Settings</button>
               <button onClick={() => { setShowEditSub(null); resetAddForm(); setShowAddSub(true); }} className="btn-neon text-sm"><i className="fas fa-plus mr-2"></i> Add Subscription</button>
@@ -5671,6 +5672,7 @@
 
           {activeTab === 'contact' && (
             <section id="contact-section" className="px-4 max-w-4xl mx-auto py-16">
+              <button onClick={() => navigateTo('/')} className="text-red-400 hover:text-red-300 text-sm mb-6 inline-flex items-center"><i className="fas fa-arrow-left mr-2"></i> Back</button>
               <div className="text-center mb-12">
                 <span className="inline-block px-4 py-1 rounded-full bg-red-500/10 border border-red-500/20 text-red-400 text-xs font-medium tracking-wider uppercase mb-3">Get in Touch</span>
                 <h2 className="text-4xl md:text-5xl font-bold text-white neon-text">Contact Us</h2>
@@ -5689,6 +5691,7 @@
 
           {activeTab === 'social' && (
             <section id="social-section" className="px-4 max-w-4xl mx-auto py-16">
+              <button onClick={() => navigateTo('/')} className="text-red-400 hover:text-red-300 text-sm mb-6 inline-flex items-center"><i className="fas fa-arrow-left mr-2"></i> Back</button>
               <div className="text-center mb-12">
                 <span className="inline-block px-4 py-1 rounded-full bg-red-500/10 border border-red-500/20 text-red-400 text-xs font-medium tracking-wider uppercase mb-3">Follow Us</span>
                 <h2 className="text-4xl md:text-5xl font-bold text-white neon-text">Social Media</h2>
@@ -5707,7 +5710,7 @@
 
           {activeTab === 'admin' && (
             <section id="admin-section" className="px-4 max-w-7xl mx-auto py-12">
-              {!isAdmin ? <AdminLogin onLogin={() => setIsAdmin(true)} /> : <AdminDashboard subscriptions={subscriptions} setSubscriptions={setSubscriptions} onLogout={() => { setIsAdmin(false); navigateTo('/'); }} deals={deals} setDeals={setDeals} promotions={promotions} setPromotions={setPromotions} />}
+              {!isAdmin ? <AdminLogin onLogin={() => setIsAdmin(true)} /> : <AdminDashboard subscriptions={subscriptions} setSubscriptions={setSubscriptions} onLogout={() => { setIsAdmin(false); navigateTo('/'); }} onBack={() => navigateTo('/')} deals={deals} setDeals={setDeals} promotions={promotions} setPromotions={setPromotions} />}
             </section>
           )}
 
