@@ -546,7 +546,7 @@ app.post('/api/users/signup', async (req, res) => {
       password,
       whatsapp,
       purchaseCount: 0,
-      credits: 50,
+      credits: 0,
       createdAt: new Date()
     };
     await usersCollection.insertOne(newUser);
