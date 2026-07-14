@@ -3048,18 +3048,13 @@
       if (!customerData || customerData.length === 0) {
         return (
           <div className="space-y-6">
+            <button onClick={onBack} className="text-red-400 hover:text-red-300 font-bold text-base inline-flex items-center"><i className="fas fa-arrow-left mr-2"></i> Back</button>
             {renderDealsSection()}
             <div className="glass-panel max-w-4xl mx-auto">
-              <div className="flex justify-between items-start mb-6">
-                <div>
-                  <h2 className="text-2xl font-bold text-white"><span className="brand-z brand-z-sm">Z</span> {displayName}</h2>
-                  <p className="text-white/30 text-sm"><i className="fab fa-whatsapp mr-1"></i> {displayWhatsapp}</p>
-                  <p className="text-white/30 text-sm"><i className="fas fa-coins mr-1"></i> Credits: {userCredits}</p>
-                </div>
-                <div className="flex items-center gap-3">
-                  <button onClick={onBack} className="text-white/30 hover:text-white/60 text-sm"><i className="fas fa-arrow-left mr-1"></i> Back</button>
-                  <button onClick={onLogout} className="text-white/30 hover:text-white/60 text-sm"><i className="fas fa-sign-out-alt mr-1"></i> Logout</button>
-                </div>
+              <div className="mb-6">
+                <h2 className="text-2xl font-bold text-white"><span className="brand-z brand-z-sm">Z</span> {displayName}</h2>
+                <p className="text-white/30 text-sm"><i className="fab fa-whatsapp mr-1"></i> {displayWhatsapp}</p>
+                <p className="text-white/30 text-sm"><i className="fas fa-coins mr-1"></i> Credits: {userCredits}</p>
               </div>
               <div className="text-center py-8 text-white/40">
                 <i className="fas fa-inbox text-4xl mb-3 block"></i>
@@ -3074,18 +3069,13 @@
       if (activeEntries.length === 0) {
         return (
           <div className="space-y-6">
+            <button onClick={onBack} className="text-red-400 hover:text-red-300 font-bold text-base inline-flex items-center"><i className="fas fa-arrow-left mr-2"></i> Back</button>
             {renderDealsSection()}
             <div className="glass-panel max-w-4xl mx-auto">
-              <div className="flex justify-between items-start mb-6">
-                <div>
-                  <h2 className="text-2xl font-bold text-white"><span className="brand-z brand-z-sm">Z</span> {displayName}</h2>
-                  <p className="text-white/30 text-sm"><i className="fab fa-whatsapp mr-1"></i> {displayWhatsapp}</p>
-                  <p className="text-white/30 text-sm"><i className="fas fa-coins mr-1"></i> Credits: {userCredits}</p>
-                </div>
-                <div className="flex items-center gap-3">
-                  <button onClick={onBack} className="text-white/30 hover:text-white/60 text-sm"><i className="fas fa-arrow-left mr-1"></i> Back</button>
-                  <button onClick={onLogout} className="text-white/30 hover:text-white/60 text-sm"><i className="fas fa-sign-out-alt mr-1"></i> Logout</button>
-                </div>
+              <div className="mb-6">
+                <h2 className="text-2xl font-bold text-white"><span className="brand-z brand-z-sm">Z</span> {displayName}</h2>
+                <p className="text-white/30 text-sm"><i className="fab fa-whatsapp mr-1"></i> {displayWhatsapp}</p>
+                <p className="text-white/30 text-sm"><i className="fas fa-coins mr-1"></i> Credits: {userCredits}</p>
               </div>
               <div className="text-center py-8 text-white/40">
                 <i className="fas fa-exclamation-circle text-4xl text-yellow-400 mb-3 block"></i>
@@ -3099,18 +3089,13 @@
 
       return (
         <div className="space-y-6">
+          <button onClick={onBack} className="text-red-400 hover:text-red-300 font-bold text-base inline-flex items-center"><i className="fas fa-arrow-left mr-2"></i> Back</button>
           {renderDealsSection()}
           <div className="glass-panel max-w-4xl mx-auto">
-            <div className="flex justify-between items-start mb-6">
-              <div>
-                <h2 className="text-2xl font-bold text-white"><span className="brand-z brand-z-sm">Z</span> {displayName}</h2>
-                <p className="text-white/30 text-sm"><i className="fab fa-whatsapp mr-1"></i> {displayWhatsapp}</p>
-                <p className="text-white/30 text-sm"><i className="fas fa-coins mr-1"></i> Credits: {userCredits}</p>
-              </div>
-              <div className="flex items-center gap-3">
-                <button onClick={onBack} className="text-white/30 hover:text-white/60 text-sm"><i className="fas fa-arrow-left mr-1"></i> Back</button>
-                <button onClick={onLogout} className="text-white/30 hover:text-white/60 text-sm"><i className="fas fa-sign-out-alt mr-1"></i> Logout</button>
-              </div>
+            <div className="mb-6">
+              <h2 className="text-2xl font-bold text-white"><span className="brand-z brand-z-sm">Z</span> {displayName}</h2>
+              <p className="text-white/30 text-sm"><i className="fab fa-whatsapp mr-1"></i> {displayWhatsapp}</p>
+              <p className="text-white/30 text-sm"><i className="fas fa-coins mr-1"></i> Credits: {userCredits}</p>
             </div>
             {expiringSoon && (
               <div className="mb-4 p-3 rounded-xl bg-yellow-500/10 border border-yellow-500/20">
