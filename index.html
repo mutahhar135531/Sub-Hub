@@ -1027,7 +1027,7 @@
     }
 
     // ─── SUBSCRIPTION CAROUSEL ──────────────────────────
-    function SubscriptionCarousel() {
+    function SubscriptionCarousel({ subscriptions: rawSubscriptions, onGetStarted }) {
       const [itemsPerView, setItemsPerView] = useState(4);
       const [offset, setOffset] = useState(0);
       const [isPaused, setIsPaused] = useState(false);
@@ -1045,102 +1045,42 @@
       const lastMoveX = useRef(0);
       const momentumId = useRef(null);
 
-      const subscriptions = [{
-        name: 'Netflix',
-        icon: 'netflix',
-        color: '#e50914',
-        desc: 'Movies & TV Shows',
-        price: 'From RS 350',
-        detail: '4K HDR • 5 Screens',
-        logo: (
-          <svg viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg" style={{ color: '#e50914' }}>
-            <path d="M5.5 2.5v19.5l5-2.5V5l-5 2.5zM12 2.5v19.5l5-2.5V5L12 2.5z" />
-            <path d="M18.5 2.5v19.5l5-2.5V5l-5 2.5z" />
-          </svg>
-        )
-      }, {
-        name: 'Amazon Prime',
-        icon: 'amazon',
-        color: '#ff9900',
-        desc: 'Video, Music & Delivery',
-        price: 'From RS 150',
-        detail: 'Prime Video • Music • Delivery',
-        logo: <i className="fab fa-amazon text-3xl" style={{ color: '#ff9900' }}></i>
-      }, {
-        name: 'YouTube Premium',
-        icon: 'youtube',
-        color: '#ff0000',
-        desc: 'Ad-free & Offline',
-        price: 'From RS 250',
-        detail: 'Ad-free • Background play',
-        logo: <i className="fab fa-youtube text-3xl" style={{ color: '#ff0000' }}></i>
-      }, {
-        name: 'Spotify Premium',
-        icon: 'spotify',
-        color: '#1db954',
-        desc: 'Music & Podcasts',
-        price: 'From RS 180',
-        detail: 'Ad-free • Offline • High quality',
-        logo: <i className="fab fa-spotify text-3xl" style={{ color: '#1db954' }}></i>
-      }, {
-        name: 'Canva Pro',
-        icon: 'canva',
-        color: '#00c4cc',
-        desc: 'Design & Creative',
-        price: 'From RS 200',
-        detail: 'Pro templates • AI tools',
-        logo: (
-          <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ width: '2.6rem', height: '2.6rem' }}>
-            <rect x="2" y="2" width="20" height="20" rx="4" fill="#00C4CC" />
-            <path d="M12 6L8 18h2l1-3h2l1 3h2L12 6zm-1 7l1-3 1 3h-2z" fill="white" />
-          </svg>
-        )
-      }, {
-        name: 'Capcut Pro',
-        icon: 'capcut',
-        color: '#00d4ff',
-        desc: 'Video Editing',
-        price: 'From RS 220',
-        detail: 'Pro effects • No watermark',
-        logo: <i className="fas fa-video text-3xl" style={{ color: '#00d4ff' }}></i>
-      }, {
-        name: 'ChatGPT Plus',
-        icon: 'chatgpt',
-        color: '#10a37f',
-        desc: 'AI Assistant',
-        price: 'From RS 300',
-        detail: 'GPT-4 • Faster responses',
-        logo: (
-          <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ width: '2.6rem', height: '2.6rem' }}>
-            <circle cx="12" cy="12" r="10" fill="#10a37f" />
-            <path d="M8 12l2 2 6-6" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
-        )
-      }, {
-        name: 'HBO Max',
-        icon: 'hbomax',
-        color: '#5822b4',
-        desc: 'Movies & Series',
-        price: 'From RS 280',
-        detail: '4K HDR • Dolby Atmos',
-        logo: <i className="fas fa-tv text-3xl" style={{ color: '#5822b4' }}></i>
-      }, {
-        name: 'Crunchyroll',
-        icon: 'crunchyroll',
-        color: '#f47521',
-        desc: 'Anime & Manga',
-        price: 'From RS 160',
-        detail: 'Simulcast • HD streaming',
-        logo: <i className="fas fa-play text-3xl" style={{ color: '#f47521' }}></i>
-      }, {
-        name: 'Chaupal',
-        icon: 'chaupal',
-        color: '#e74c3c',
-        desc: 'Regional Entertainment',
-        price: 'From RS 120',
-        detail: 'Regional content • Originals',
-        logo: <i className="fas fa-film text-3xl" style={{ color: '#e74c3c' }}></i>
-      }, ];
+      // Fallback icon/color for subscription types that don't have a custom
+      // uploaded logo. Mirrors the maps used on the purchase page
+      // (SubscriptionSelection) so a card always has something to show even
+      // if the admin didn't upload a logo image.
+      const iconMap = { netflix: 'fa-netflix', amazon: 'fa-amazon', youtube: 'fa-youtube', spotify: 'fa-spotify',
+        chatgpt: 'fa-robot', canva: 'fa-paint-brush', capcut: 'fa-video', hbomax: 'fa-tv', crunchyroll: 'fa-play',
+        chaupal: 'fa-film', custom: 'fa-crown' };
+      const colorMap = { netflix: '#e50914', amazon: '#ff9900', youtube: '#ff0000', spotify: '#1db954', chatgpt: '#10a37f',
+        canva: '#00c4cc', capcut: '#00d4ff', hbomax: '#5822b4', crunchyroll: '#f47521', chaupal: '#e74c3c',
+        custom: '#ef4444' };
+
+      // Build carousel cards directly from the real, admin-managed
+      // subscriptions (the same data the purchase page and deals use). Any
+      // subscription you add/edit/delete in the admin panel now shows up
+      // here automatically — nothing is hardcoded anymore.
+      const subscriptions = useMemo(() => {
+        return (rawSubscriptions || []).map(s => {
+          const color = colorMap[s.type] || '#ef4444';
+          const icon = iconMap[s.type] || 'fa-crown';
+          const price = s.sellingPrice || s.costPerMonth || 0;
+          return {
+            id: s.id,
+            raw: s,
+            name: s.name,
+            color,
+            desc: s.description || '',
+            detail: s.importantNote || '',
+            price: price > 0 ? `From RS ${price}` : '',
+            logo: s.logo ? (
+              <img src={s.logo} alt={s.name} style={{ width: '2.6rem', height: '2.6rem', objectFit: 'contain', margin: '0 auto' }} />
+            ) : (
+              <i className={`fas ${icon} text-3xl`} style={{ color }}></i>
+            )
+          };
+        });
+      }, [rawSubscriptions]);
 
       const [selectedCard, setSelectedCard] = useState(null);
 
@@ -1383,7 +1323,15 @@
                 <div className="modal-desc">{selectedCard.desc}</div>
                 <div className="modal-detail">{selectedCard.detail}</div>
                 <div className="modal-price">{selectedCard.price}</div>
-                <div className="mt-4 text-white/20 text-xs">Click outside to close</div>
+                {onGetStarted && (
+                  <button
+                    className="btn-neon px-6 py-2 text-sm mt-4"
+                    onClick={() => { closeCardModal(); onGetStarted(); }}
+                  >
+                    <i className="fas fa-shopping-cart mr-2"></i> Get This Subscription
+                  </button>
+                )}
+                <div className="mt-3 text-white/20 text-xs">Click outside to close</div>
               </div>
             </div>
           )}
@@ -1438,7 +1386,7 @@
     }
 
     // ─── TRENDING SUBSCRIPTIONS ──────────────────────────────
-    function TrendingSubscriptions() {
+    function TrendingSubscriptions({ subscriptions, onGetStarted }) {
       return (
         <div className="trending-wrapper">
           <div className="bg-fixed"></div>
@@ -1446,7 +1394,7 @@
             <div className="trending-section">
               <div className="trending-bg-text"><h2>What We Provide</h2></div>
               <div className="relative z-10 max-w-7xl mx-auto px-4">
-                <SubscriptionCarousel />
+                <SubscriptionCarousel subscriptions={subscriptions} onGetStarted={onGetStarted} />
               </div>
             </div>
           </div>
@@ -5598,7 +5546,7 @@
                 </div>
               )}
               <Hero setActiveTab={setActiveTab} setShowSubscriptions={setShowSubscriptions} onGetStarted={handleGetStarted} />
-              <TrendingSubscriptions />
+              <TrendingSubscriptions subscriptions={subscriptions} onGetStarted={handleGetStarted} />
 
               {promotions.length > 0 && (
                 <div className="max-w-7xl mx-auto px-4 pt-4 pb-2">
