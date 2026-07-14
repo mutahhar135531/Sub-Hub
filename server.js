@@ -67,6 +67,19 @@ async function connectDB() {
 // ─── Seed / Upsert subscriptions ────────────────────────────
 async function seedData() {
   try {
+    // Only seed the very first time the app ever runs (i.e. the
+    // subscriptions collection is completely empty). If it already
+    // has documents in it, it means this app has been initialized
+    // before, so we skip seeding entirely. This prevents any
+    // subscription you intentionally delete (e.g. Chaupal) from
+    // being silently re-inserted the next time the server restarts
+    // or you redeploy.
+    const existingCount = await subscriptionsCollection.countDocuments();
+    if (existingCount > 0) {
+      console.log('ℹ️ Subscriptions already initialized, skipping seed.');
+      return;
+    }
+
     const subscriptionDefs = [
       {
         id: '1',
