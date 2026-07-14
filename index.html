@@ -629,8 +629,11 @@
       const handleNav = (id) => {
         setActiveTab(id);
         setMobileOpen(false);
-        if (id === 'subscriptions') setShowSubscriptions(true);
-        if (id === 'home') setShowSubscriptions(false);
+        // Only the "subscriptions" tab should keep the subscription flow
+        // (My Dashboard / New Subscription) open. Every other tab —
+        // Home, Contact, Social, etc. — must close it, otherwise it stays
+        // rendered underneath whatever section you navigate to next.
+        setShowSubscriptions(id === 'subscriptions');
         const path = id === 'home' ? '/' : `/${id}`;
         if (window.location.pathname !== path) {
           window.history.pushState({ tab: id }, '', path);
@@ -5219,7 +5222,7 @@
       const { user, setUser, refreshUser } = useContext(UserContext);
 
       useEffect(() => {
-        const loadData = async () => {
+        const loadData = async (silent = false) => {
           try {
             const [subs, dealsData, promos] = await Promise.all([fetchSubscriptions(), fetchDeals(), fetchPromotions()]);
             setSubscriptions(subs);
@@ -5227,12 +5230,28 @@
             setPromotions(promos);
           } catch (err) {
             console.error('Failed to load data', err);
-            addToast('Could not load data. Is the backend running?', 'error');
+            if (!silent) addToast('Could not load data. Is the backend running?', 'error');
           } finally {
-            setLoadingData(false);
+            if (!silent) setLoadingData(false);
           }
         };
         loadData();
+
+        // Poll quietly in the background so changes made in the admin
+        // portal (even from a different browser/device) appear here
+        // automatically, without the customer needing to refresh the page.
+        const pollInterval = setInterval(() => loadData(true), 8000);
+
+        // Also refresh immediately whenever the tab regains focus, so
+        // switching back to it feels instant rather than waiting for the
+        // next poll tick.
+        const onVisible = () => { if (document.visibilityState === 'visible') loadData(true); };
+        document.addEventListener('visibilitychange', onVisible);
+
+        return () => {
+          clearInterval(pollInterval);
+          document.removeEventListener('visibilitychange', onVisible);
+        };
       }, []);
 
       // ─── URL ROUTING ──────────────────────────────────────────
@@ -5247,11 +5266,14 @@
           setShowSubscriptions(true);
         } else if (path === '/contact') {
           setActiveTab('contact');
+          setShowSubscriptions(false);
         } else if (path === '/social') {
           setActiveTab('social');
+          setShowSubscriptions(false);
         } else if (path === '/admin') {
           // Hidden route: only reachable by typing the URL directly, never shown in the nav.
           setActiveTab('admin');
+          setShowSubscriptions(false);
         } else {
           setActiveTab('home');
           setShowSubscriptions(false);
