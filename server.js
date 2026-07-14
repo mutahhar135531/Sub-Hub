@@ -902,12 +902,17 @@ app.delete('/api/promotions/:id', async (req, res) => {
 });
 
 // ---- INCOME CALCULATION ----
+// costPerMonth = what YOU pay for the account (your expense/cost).
+// sellingPrice = what YOU charge the customer (your revenue).
+// profit = revenue - cost. All three are reported separately, plus a
+// breakdown by subscription type and an optional custom date range.
 app.get('/api/income', async (req, res) => {
   try {
-    const { period } = req.query;
+    const { period, startDate: customStart, endDate: customEnd } = req.query;
     const now = new Date();
     let startDate = new Date(now);
-    
+    let endDate = now;
+
     if (period === 'monthly') {
       startDate.setDate(1);
       startDate.setHours(0, 0, 0, 0);
@@ -917,41 +922,53 @@ app.get('/api/income', async (req, res) => {
       startDate.setDate(startDate.getDate() - 60);
     } else if (period === '90') {
       startDate.setDate(startDate.getDate() - 90);
+    } else if (period === 'custom' && customStart) {
+      startDate = new Date(customStart);
+      startDate.setHours(0, 0, 0, 0);
+      endDate = customEnd ? new Date(customEnd) : now;
+      endDate.setHours(23, 59, 59, 999);
     } else {
       startDate = new Date(0);
     }
 
     const subs = await subscriptionsCollection.find({}).toArray();
-    let totalIncome = 0;
+    let totalRevenue = 0, totalCost = 0, totalProfit = 0;
     let customers = [];
-    let incomeByType = {};
+    let revenueByType = {}, costByType = {}, profitByType = {};
 
     subs.forEach(sub => {
       const costPerMonth = sub.costPerMonth || 0;
+      const sellingPrice = sub.sellingPrice || 0;
       sub.accounts.forEach(acc => {
         acc.screens.forEach(screen => {
           if (screen.customers && screen.customers.length > 0) {
             screen.customers.forEach(c => {
               const expiryDate = c.expiryDate ? new Date(c.expiryDate) : null;
               const purchaseDate = c.purchasedAt ? new Date(c.purchasedAt) : null;
-              
+
               if (expiryDate && expiryDate < now) return;
-              
-              if (purchaseDate && purchaseDate < startDate) return;
+
+              if (purchaseDate && (purchaseDate < startDate || purchaseDate > endDate)) return;
               if (!purchaseDate) {
                 const months = c.months || 1;
                 const estPurchase = new Date(expiryDate);
                 estPurchase.setMonth(estPurchase.getMonth() - months);
-                if (estPurchase < startDate) return;
+                if (estPurchase < startDate || estPurchase > endDate) return;
               }
 
               const months = c.months || 1;
-              const income = costPerMonth * months;
-              totalIncome += income;
+              const revenue = sellingPrice * months;
+              const cost = costPerMonth * months;
+              const profit = revenue - cost;
+
+              totalRevenue += revenue;
+              totalCost += cost;
+              totalProfit += profit;
 
               const subType = sub.type;
-              if (!incomeByType[subType]) incomeByType[subType] = 0;
-              incomeByType[subType] += income;
+              revenueByType[subType] = (revenueByType[subType] || 0) + revenue;
+              costByType[subType] = (costByType[subType] || 0) + cost;
+              profitByType[subType] = (profitByType[subType] || 0) + profit;
 
               customers.push({
                 customerName: c.name || c.username,
@@ -960,7 +977,9 @@ app.get('/api/income', async (req, res) => {
                 screenName: screen.name,
                 accountEmail: acc.email,
                 months: months,
-                income: income,
+                revenue: revenue,
+                cost: cost,
+                profit: profit,
                 expiryDate: c.expiryDate,
                 purchasedAt: c.purchasedAt || purchaseDate
               });
@@ -973,31 +992,38 @@ app.get('/api/income', async (req, res) => {
     const now30 = new Date(now); now30.setDate(now30.getDate() - 30);
     const now60 = new Date(now); now60.setDate(now60.getDate() - 60);
     const now90 = new Date(now); now90.setDate(now90.getDate() - 90);
-    
-    let last30Days = 0, last60Days = 0, last90Days = 0;
+
+    const last30 = { revenue: 0, cost: 0, profit: 0 };
+    const last60 = { revenue: 0, cost: 0, profit: 0 };
+    const last90 = { revenue: 0, cost: 0, profit: 0 };
     customers.forEach(c => {
       if (c.purchasedAt) {
         const d = new Date(c.purchasedAt);
-        if (d >= now30) last30Days += c.income;
-        if (d >= now60) last60Days += c.income;
-        if (d >= now90) last90Days += c.income;
+        if (d >= now30) { last30.revenue += c.revenue; last30.cost += c.cost; last30.profit += c.profit; }
+        if (d >= now60) { last60.revenue += c.revenue; last60.cost += c.cost; last60.profit += c.profit; }
+        if (d >= now90) { last90.revenue += c.revenue; last90.cost += c.cost; last90.profit += c.profit; }
       }
     });
 
     res.json({
-      totalIncome,
-      incomeByType,
+      totalRevenue,
+      totalCost,
+      totalProfit,
+      revenueByType,
+      costByType,
+      profitByType,
       customers,
       period: period || 'all',
       startDate: startDate.toISOString(),
-      endDate: now.toISOString(),
-      last30Days,
-      last60Days,
-      last90Days
+      endDate: endDate.toISOString(),
+      last30,
+      last60,
+      last90
     });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
+
 });
 
 // ---- Health ----

@@ -453,8 +453,12 @@
       return res.json();
     };
 
-    const fetchIncome = async (period = 'all') => {
-      const res = await fetch(`${API_BASE}/api/income?period=${period}&t=${Date.now()}`, {
+    const fetchIncome = async (period = 'all', customStart, customEnd) => {
+      let url = `${API_BASE}/api/income?period=${period}&t=${Date.now()}`;
+      if (period === 'custom' && customStart) {
+        url += `&startDate=${encodeURIComponent(customStart)}&endDate=${encodeURIComponent(customEnd || '')}`;
+      }
+      const res = await fetch(url, {
         headers: { 'Cache-Control': 'no-cache' }
       });
       return res.json();
@@ -3338,6 +3342,8 @@
       const [dealForm, setDealForm] = useState({ id: '', subscriptionIds: [], title: '', description: '', actualPrice: '', discountPrice: '', active: true });
       const [incomeData, setIncomeData] = useState(null);
       const [incomePeriod, setIncomePeriod] = useState('all');
+      const [incomeCustomStart, setIncomeCustomStart] = useState('');
+      const [incomeCustomEnd, setIncomeCustomEnd] = useState('');
       const [incomeLoading, setIncomeLoading] = useState(false);
       const { addToast, adminPassword, setAdminPassword } = useContext(AppContext);
       const { user, setUser, refreshUser } = useContext(UserContext);
@@ -3370,10 +3376,10 @@
         } catch (err) { console.error(err); }
       };
 
-      const loadIncome = async (period = 'all') => {
+      const loadIncome = async (period = 'all', customStart, customEnd) => {
         setIncomeLoading(true);
         try {
-          const data = await fetchIncome(period);
+          const data = await fetchIncome(period, customStart, customEnd);
           setIncomeData(data);
         } catch (err) {
           addToast('Failed to load income data', 'error');
@@ -3405,7 +3411,9 @@
         if (activeTab === 'users') loadUsers();
         if (activeTab === 'deals') loadDeals();
         if (activeTab === 'promotions') loadPromotions();
-        if (activeTab === 'overview' || activeTab === 'income') loadIncome(incomePeriod);
+        if (activeTab === 'overview' || activeTab === 'income') {
+          if (incomePeriod !== 'custom') loadIncome(incomePeriod);
+        }
       }, [activeTab, incomePeriod]);
 
       const refreshData = async () => {
@@ -3414,7 +3422,7 @@
           setSubscriptions(fresh);
           await loadUsers();
           await loadDeals();
-          await loadIncome(incomePeriod);
+          await loadIncome(incomePeriod, incomeCustomStart, incomeCustomEnd);
           await loadPromotions();
           addToast('Data refreshed!', 'success');
         } catch (err) {
@@ -4355,12 +4363,11 @@
               </div>
               {incomeData && (
                 <div className="glass-panel border-green-500/20">
-                  <h3 className="text-lg font-semibold text-green-400 mb-3"><i className="fas fa-coins mr-2"></i> Income Overview</h3>
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                    <div className="text-center p-2 bg-white/5 rounded-lg"><p className="text-white/30 text-xs">All Time</p><p className="text-xl font-bold text-green-400">RS {incomeData.totalIncome?.toFixed(2) || 0}</p></div>
-                    <div className="text-center p-2 bg-white/5 rounded-lg"><p className="text-white/30 text-xs">Last 30 Days</p><p className="text-xl font-bold text-yellow-400">RS {incomeData.last30Days || 0}</p></div>
-                    <div className="text-center p-2 bg-white/5 rounded-lg"><p className="text-white/30 text-xs">Last 60 Days</p><p className="text-xl font-bold text-blue-400">RS {incomeData.last60Days || 0}</p></div>
-                    <div className="text-center p-2 bg-white/5 rounded-lg"><p className="text-white/30 text-xs">Last 90 Days</p><p className="text-xl font-bold text-purple-400">RS {incomeData.last90Days || 0}</p></div>
+                  <h3 className="text-lg font-semibold text-green-400 mb-3"><i className="fas fa-coins mr-2"></i> Income Overview (All Time)</h3>
+                  <div className="grid grid-cols-3 gap-3">
+                    <div className="text-center p-2 bg-white/5 rounded-lg"><p className="text-white/30 text-xs">Revenue</p><p className="text-xl font-bold text-green-400">RS {incomeData.totalRevenue?.toFixed(2) || 0}</p></div>
+                    <div className="text-center p-2 bg-white/5 rounded-lg"><p className="text-white/30 text-xs">Cost</p><p className="text-xl font-bold text-red-400">RS {incomeData.totalCost?.toFixed(2) || 0}</p></div>
+                    <div className="text-center p-2 bg-white/5 rounded-lg"><p className="text-white/30 text-xs">Profit</p><p className="text-xl font-bold text-yellow-400">RS {incomeData.totalProfit?.toFixed(2) || 0}</p></div>
                   </div>
                   <button onClick={() => setActiveTab('income')} className="mt-3 text-red-400 text-sm hover:text-red-300">View Details <i className="fas fa-arrow-right ml-1"></i></button>
                 </div>
@@ -4599,16 +4606,25 @@
 
           {activeTab === 'income' && (
             <div className="glass-panel">
-              <div className="flex flex-wrap justify-between items-center mb-4">
+              <div className="flex flex-wrap justify-between items-center mb-4 gap-2">
                 <h3 className="text-lg font-semibold text-white"><i className="fas fa-coins mr-2 text-green-400"></i> Income Dashboard</h3>
-                <div className="flex gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                   <select value={incomePeriod} onChange={(e) => setIncomePeriod(e.target.value)} className="input-neon text-sm py-1 px-3 w-auto">
                     <option value="all">All Time</option>
                     <option value="30">Last 30 Days</option>
                     <option value="60">Last 60 Days</option>
                     <option value="90">Last 90 Days</option>
+                    <option value="custom">Custom Range</option>
                   </select>
-                  <button onClick={() => loadIncome(incomePeriod)} className="btn-red text-sm"><i className="fas fa-sync mr-1"></i></button>
+                  {incomePeriod === 'custom' && (
+                    <>
+                      <input type="date" value={incomeCustomStart} onChange={(e) => setIncomeCustomStart(e.target.value)} className="input-neon text-sm py-1 px-3 w-auto" />
+                      <span className="text-white/30 text-sm">to</span>
+                      <input type="date" value={incomeCustomEnd} onChange={(e) => setIncomeCustomEnd(e.target.value)} className="input-neon text-sm py-1 px-3 w-auto" />
+                      <button onClick={() => { if (incomeCustomStart) loadIncome('custom', incomeCustomStart, incomeCustomEnd); else addToast('Pick a start date', 'error'); }} className="btn-neon-sm text-sm">Apply</button>
+                    </>
+                  )}
+                  <button onClick={() => loadIncome(incomePeriod, incomeCustomStart, incomeCustomEnd)} className="btn-red text-sm"><i className="fas fa-sync mr-1"></i></button>
                 </div>
               </div>
               {incomeLoading ? (
@@ -4617,32 +4633,48 @@
                 <div className="space-y-4">
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                     <div className="bg-green-500/10 rounded-xl p-4 border border-green-500/20 text-center">
-                      <p className="text-white/40 text-sm">Total Revenue</p>
-                      <p className="text-3xl font-bold text-green-400">RS {incomeData.totalIncome?.toFixed(2) || 0}</p>
-                      <p className="text-white/20 text-xs mt-1">{incomeData.customers?.length || 0} customers</p>
+                      <p className="text-white/40 text-sm">Revenue</p>
+                      <p className="text-3xl font-bold text-green-400">RS {incomeData.totalRevenue?.toFixed(2) || 0}</p>
+                      <p className="text-white/20 text-xs mt-1">what customers paid you</p>
                     </div>
-                    <div className="bg-blue-500/10 rounded-xl p-4 border border-blue-500/20 text-center">
-                      <p className="text-white/40 text-sm">Period</p>
-                      <p className="text-lg font-bold text-blue-400">{incomePeriod === 'all' ? 'All Time' : `Last ${incomePeriod} Days`}</p>
-                      <p className="text-white/20 text-xs mt-1">{incomeData.startDate ? new Date(incomeData.startDate).toLocaleDateString() : 'N/A'} - {new Date(incomeData.endDate).toLocaleDateString()}</p>
+                    <div className="bg-red-500/10 rounded-xl p-4 border border-red-500/20 text-center">
+                      <p className="text-white/40 text-sm">Cost</p>
+                      <p className="text-3xl font-bold text-red-400">RS {incomeData.totalCost?.toFixed(2) || 0}</p>
+                      <p className="text-white/20 text-xs mt-1">what you paid for accounts</p>
                     </div>
                     <div className="bg-yellow-500/10 rounded-xl p-4 border border-yellow-500/20 text-center">
-                      <p className="text-white/40 text-sm">Avg per Customer</p>
-                      <p className="text-2xl font-bold text-yellow-400">RS {incomeData.customers?.length > 0 ? (incomeData.totalIncome / incomeData.customers.length).toFixed(2) : 0}</p>
+                      <p className="text-white/40 text-sm">Profit</p>
+                      <p className={`text-3xl font-bold ${incomeData.totalProfit >= 0 ? 'text-yellow-400' : 'text-red-500'}`}>RS {incomeData.totalProfit?.toFixed(2) || 0}</p>
+                      <p className="text-white/20 text-xs mt-1">revenue minus cost</p>
                     </div>
                   </div>
-                  {incomeData.incomeByType && Object.keys(incomeData.incomeByType).length > 0 && (
+                  <div className="flex flex-wrap justify-between items-center gap-2 text-sm">
+                    <p className="text-blue-400 font-medium">{incomePeriod === 'all' ? 'All Time' : incomePeriod === 'custom' ? 'Custom Range' : `Last ${incomePeriod} Days`}
+                      <span className="text-white/30 ml-2 font-normal">{incomeData.startDate ? new Date(incomeData.startDate).toLocaleDateString() : 'N/A'} - {new Date(incomeData.endDate).toLocaleDateString()}</span>
+                    </p>
+                    <p className="text-white/30">{incomeData.customers?.length || 0} customers · Avg profit/customer: RS {incomeData.customers?.length > 0 ? (incomeData.totalProfit / incomeData.customers.length).toFixed(2) : 0}</p>
+                  </div>
+                  {incomeData.revenueByType && Object.keys(incomeData.revenueByType).length > 0 && (
                     <div>
-                      <h4 className="text-white font-medium mb-2">Revenue by Type</h4>
-                      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
-                        {Object.entries(incomeData.incomeByType).map(([type, amount]) => {
+                      <h4 className="text-white font-medium mb-2">Breakdown by Type</h4>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                        {Object.keys(incomeData.revenueByType).map((type) => {
                           const colors = { netflix: '#e50914', amazon: '#ff9900', youtube: '#ff0000', spotify: '#1db954', chatgpt: '#10a37f', canva: '#00c4cc', capcut: '#00d4ff', hbomax: '#5822b4', crunchyroll: '#f47521', chaupal: '#e74c3c', custom: '#ef4444' };
                           const icons = { netflix: 'fa-netflix', amazon: 'fa-amazon', youtube: 'fa-youtube', spotify: 'fa-spotify', chatgpt: 'fa-robot', canva: 'fa-paint-brush', capcut: 'fa-video', hbomax: 'fa-tv', crunchyroll: 'fa-play', chaupal: 'fa-film', custom: 'fa-plus-circle' };
+                          const rev = incomeData.revenueByType[type] || 0;
+                          const cost = incomeData.costByType[type] || 0;
+                          const profit = incomeData.profitByType[type] || 0;
                           return (
-                            <div key={type} className="bg-white/5 rounded-lg p-3 text-center">
-                              <i className={`fab ${icons[type] || 'fa-crown'} text-xl`} style={{ color: colors[type] || '#ef4444' }}></i>
-                              <p className="text-white/60 text-xs capitalize">{type}</p>
-                              <p className="text-white font-bold">RS {amount.toFixed(2)}</p>
+                            <div key={type} className="bg-white/5 rounded-lg p-3">
+                              <div className="flex items-center gap-2 mb-2">
+                                <i className={`fab ${icons[type] || 'fa-crown'}`} style={{ color: colors[type] || '#ef4444' }}></i>
+                                <p className="text-white/60 text-xs capitalize">{type}</p>
+                              </div>
+                              <div className="grid grid-cols-3 gap-1 text-center">
+                                <div><p className="text-white/20 text-[10px]">Rev</p><p className="text-green-400 text-xs font-bold">RS {rev.toFixed(0)}</p></div>
+                                <div><p className="text-white/20 text-[10px]">Cost</p><p className="text-red-400 text-xs font-bold">RS {cost.toFixed(0)}</p></div>
+                                <div><p className="text-white/20 text-[10px]">Profit</p><p className="text-yellow-400 text-xs font-bold">RS {profit.toFixed(0)}</p></div>
+                              </div>
                             </div>
                           );
                         })}
@@ -4654,10 +4686,10 @@
                       <h4 className="text-white font-medium mb-2">Customer Breakdown</h4>
                       <div className="overflow-x-auto max-h-60 overflow-y-auto">
                         <table className="admin-table text-sm">
-                          <thead><tr><th>Customer</th><th>Subscription</th><th>Screen</th><th>Months</th><th>Revenue</th><th>Expiry</th></tr></thead>
+                          <thead><tr><th>Customer</th><th>Subscription</th><th>Screen</th><th>Months</th><th>Revenue</th><th>Cost</th><th>Profit</th><th>Expiry</th></tr></thead>
                           <tbody>
                             {incomeData.customers.map((c, idx) => (
-                              <tr key={idx}><td>{c.customerName}</td><td>{c.subscriptionName}</td><td>{c.screenName}</td><td>{c.months}</td><td className="text-green-400">RS {c.income.toFixed(2)}</td><td className="text-yellow-400">{c.expiryDate ? new Date(c.expiryDate).toLocaleDateString() : 'N/A'}</td></tr>
+                              <tr key={idx}><td>{c.customerName}</td><td>{c.subscriptionName}</td><td>{c.screenName}</td><td>{c.months}</td><td className="text-green-400">RS {c.revenue.toFixed(2)}</td><td className="text-red-400">RS {c.cost.toFixed(2)}</td><td className={c.profit >= 0 ? 'text-yellow-400' : 'text-red-500'}>RS {c.profit.toFixed(2)}</td><td className="text-yellow-400">{c.expiryDate ? new Date(c.expiryDate).toLocaleDateString() : 'N/A'}</td></tr>
                             ))}
                           </tbody>
                         </table>
