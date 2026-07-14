@@ -146,6 +146,8 @@
     .tab-btn { padding:8px 22px; border-radius:40px; font-weight:500; transition:all .3s ease; cursor:pointer; background:transparent; color:rgba(255,255,255,0.50); border:1px solid transparent; }
     .tab-btn.active { background:rgba(239,68,68,0.12); color:#fca5a5; border-color:rgba(239,68,68,0.20); }
     .tab-btn:hover { color:#e0e0e0; background:rgba(239,68,68,0.06); }
+    .notif-badge { display:inline-flex; align-items:center; justify-content:center; min-width:18px; height:18px; padding:0 5px; border-radius:999px; background:#ef4444; color:#fff; font-size:.65rem; font-weight:700; line-height:1; margin-left:6px; box-shadow:0 0 8px rgba(239,68,68,0.5); vertical-align:middle; animation:notif-pop .3s ease; }
+    @keyframes notif-pop { from { transform:scale(0.5); opacity:0; } to { transform:scale(1); opacity:1; } }
 
     /* ─── MODALS ────────────────────────────────────────────── */
     .modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.7); backdrop-filter:blur(8px); z-index:1000; display:flex; align-items:center; justify-content:center; padding:20px; }
@@ -619,6 +621,16 @@
       const [mobileOpen, setMobileOpen] = useState(false);
       const { user } = useContext(UserContext);
 
+      // Notification badge for the customer: shows how many purchases they
+      // haven't opened their portal to see yet. Visible right on the navbar,
+      // outside/before entering the Customer Portal itself.
+      const seenPurchaseCount = user ? parseInt(localStorage.getItem(`seenPurchases_${user.username}`) || '0', 10) : 0;
+      const unseenPurchases = user ? Math.max((user.purchaseCount || 0) - seenPurchaseCount, 0) : 0;
+      const handleCustomerPortalClick = () => {
+        if (user) localStorage.setItem(`seenPurchases_${user.username}`, String(user.purchaseCount || 0));
+        onCustomerPortal();
+      };
+
       const navItems = [
         { id: 'home', label: 'Home', icon: 'fa-home' },
         { id: 'subscriptions', label: 'Subscriptions', icon: 'fa-crown' },
@@ -664,8 +676,9 @@
                     <span className="text-red-400 text-sm font-medium mr-2 bg-red-500/10 px-3 py-1 rounded-full border border-red-500/20">
                       <i className="fas fa-coins mr-1"></i> RS {user.credits || 0}
                     </span>
-                    <button onClick={onCustomerPortal} className="nav-link active">
+                    <button onClick={handleCustomerPortalClick} className="nav-link active">
                       <i className="fas fa-user-circle mr-2"></i> Customer Portal ➜
+                      {unseenPurchases > 0 && <span className="notif-badge">{unseenPurchases}</span>}
                     </button>
                     <button onClick={onLogout} className="nav-link text-red-400 hover:text-red-300">
                       <i className="fas fa-sign-out-alt mr-2"></i> Logout
@@ -697,8 +710,9 @@
                 ))}
                 {user ? (
                   <>
-                    <button onClick={() => { onCustomerPortal(); setMobileOpen(false); }} className="nav-link w-full text-left py-3 px-4 active">
+                    <button onClick={() => { handleCustomerPortalClick(); setMobileOpen(false); }} className="nav-link w-full text-left py-3 px-4 active">
                       <i className="fas fa-user-circle mr-3 w-5"></i> Customer Portal ➜
+                      {unseenPurchases > 0 && <span className="notif-badge">{unseenPurchases}</span>}
                     </button>
                     <button onClick={() => { onLogout(); setMobileOpen(false); }} className="nav-link w-full text-left py-3 px-4 text-red-400">
                       <i className="fas fa-sign-out-alt mr-3 w-5"></i> Logout
@@ -3465,6 +3479,59 @@
       const [editScreenForm, setEditScreenForm] = useState({ name: '', pin: '' });
       const [newAccount, setNewAccount] = useState({ email: '', password: '', screens: [{ name: 'Screen 1', pin: '' }], subscriptionId: '' });
 
+      // ─── Notification badges (new registrations / new purchases) ──
+      // "Seen" timestamps are stored in localStorage so the badge only
+      // counts things that happened since the admin last opened that tab.
+      // First time ever running, we start the clock from "now" so old,
+      // already-known users/customers don't all show up as unseen.
+      const [seenUsersAt, setSeenUsersAt] = useState(() => {
+        let v = localStorage.getItem('adminSeenUsersAt');
+        if (!v) { v = new Date().toISOString(); localStorage.setItem('adminSeenUsersAt', v); }
+        return v;
+      });
+      const [seenCustomersAt, setSeenCustomersAt] = useState(() => {
+        let v = localStorage.getItem('adminSeenCustomersAt');
+        if (!v) { v = new Date().toISOString(); localStorage.setItem('adminSeenCustomersAt', v); }
+        return v;
+      });
+
+      const markUsersSeen = () => {
+        const now = new Date().toISOString();
+        localStorage.setItem('adminSeenUsersAt', now);
+        setSeenUsersAt(now);
+      };
+      const markCustomersSeen = () => {
+        const now = new Date().toISOString();
+        localStorage.setItem('adminSeenCustomersAt', now);
+        setSeenCustomersAt(now);
+      };
+
+      // Keep the registered-users list live (not just when the Users tab is
+      // open) so the notification count updates automatically in the
+      // background, in step with the rest of the app's live refresh.
+      useEffect(() => {
+        loadUsers();
+        const t = setInterval(loadUsers, 8000);
+        return () => clearInterval(t);
+      }, []);
+
+      const unseenUsersCount = useMemo(() => {
+        return (usersList || []).filter(u => u.createdAt && new Date(u.createdAt) > new Date(seenUsersAt)).length;
+      }, [usersList, seenUsersAt]);
+
+      // Customer purchase records live inside `subscriptions` (already kept
+      // live by the app's background polling), so no extra fetching is
+      // needed to know about new purchases.
+      const allCustomerRecords = useMemo(() => {
+        const list = [];
+        (subscriptions || []).forEach(sub => (sub.accounts || []).forEach(acc => (acc.screens || []).forEach(scr => (scr.customers || []).forEach(c => list.push(c)))));
+        return list;
+      }, [subscriptions]);
+
+      const unseenCustomersCount = useMemo(() => {
+        return allCustomerRecords.filter(c => c.purchasedAt && new Date(c.purchasedAt) > new Date(seenCustomersAt)).length;
+      }, [allCustomerRecords, seenCustomersAt]);
+
       // ─── Load functions ──────────────────────────────────────────
       const loadOTPs = async () => {
         try {
@@ -4445,12 +4512,16 @@
 
           <div className="flex flex-wrap gap-2 border-b border-white/5 pb-3">
             {['overview', 'subscriptions', 'customers', 'income', 'users', 'deals', 'promotions', 'otp'].map(tab => (
-              <button key={tab} onClick={() => setActiveTab(tab)} className={`tab-btn ${activeTab === tab ? 'active' : ''}`}>
+              <button key={tab} onClick={() => {
+                setActiveTab(tab);
+                if (tab === 'users') markUsersSeen();
+                if (tab === 'customers') markCustomersSeen();
+              }} className={`tab-btn ${activeTab === tab ? 'active' : ''}`}>
                 {tab === 'overview' && <><i className="fas fa-chart-pie mr-2"></i> Overview</>}
                 {tab === 'subscriptions' && <><i className="fas fa-crown mr-2"></i> Subscriptions</>}
-                {tab === 'customers' && <><i className="fas fa-users mr-2"></i> Customers</>}
+                {tab === 'customers' && <><i className="fas fa-users mr-2"></i> Customers{unseenCustomersCount > 0 && <span className="notif-badge">{unseenCustomersCount}</span>}</>}
                 {tab === 'income' && <><i className="fas fa-coins mr-2"></i> Income</>}
-                {tab === 'users' && <><i className="fas fa-user-friends mr-2"></i> Users</>}
+                {tab === 'users' && <><i className="fas fa-user-friends mr-2"></i> Users{unseenUsersCount > 0 && <span className="notif-badge">{unseenUsersCount}</span>}</>}
                 {tab === 'deals' && <><i className="fas fa-fire mr-2"></i> Deals</>}
                 {tab === 'promotions' && <><i className="fas fa-film mr-2"></i> Promotions</>}
                 {tab === 'otp' && <><i className="fas fa-key mr-2"></i> OTP Logs</>}
@@ -5381,6 +5452,12 @@
           resetFlow();
           navigateTo('/');
           addToast('🎉 Subscription confirmed! Check your details.', 'success');
+          if (user) {
+            // Refresh so purchaseCount is up to date (this drives the
+            // unseen-purchases notification badge on the navbar).
+            await refreshUser();
+          }
+          addToast('Your subscription details is added to your portal, go and check it.', 'success');
 
           if (user) {
             const found = findCustomers(user.username, fresh);
