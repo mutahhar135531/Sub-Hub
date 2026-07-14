@@ -649,22 +649,32 @@ app.post('/api/users/:username/addCredits', async (req, res) => {
   }
 });
 
+// Atomic credit deduction. The find-then-update version of this used to
+// check `user.credits < amount` and THEN write the decrement as a second,
+// separate step — if two purchase requests landed close together (e.g. a
+// double-tapped purchase button) they could both read the same starting
+// balance, both pass the check, and both deduct, pushing credits negative
+// and letting a purchase go through without really being paid for. Doing
+// the check and the decrement in a single findOneAndUpdate makes it
+// impossible for two concurrent requests to both succeed against the same
+// balance.
 app.post('/api/users/:username/deductCredits', async (req, res) => {
   try {
     const { amount } = req.body;
     if (!amount || amount <= 0) {
       return res.status(400).json({ error: 'Invalid amount' });
     }
-    const user = await usersCollection.findOne({ username: req.params.username });
-    if (!user) return res.status(404).json({ error: 'User not found' });
-    if (user.credits < amount) {
+    const result = await usersCollection.findOneAndUpdate(
+      { username: req.params.username, credits: { $gte: amount } },
+      { $inc: { credits: -amount } },
+      { returnDocument: 'after' }
+    );
+    const updated = result && result.value !== undefined ? result.value : result;
+    if (!updated) {
+      const user = await usersCollection.findOne({ username: req.params.username });
+      if (!user) return res.status(404).json({ error: 'User not found' });
       return res.status(400).json({ error: 'Insufficient credits' });
     }
-    const result = await usersCollection.updateOne(
-      { username: req.params.username },
-      { $inc: { credits: -amount } }
-    );
-    const updated = await usersCollection.findOne({ username: req.params.username });
     res.json(updated);
   } catch (err) {
     res.status(500).json({ error: err.message });
