@@ -1814,6 +1814,10 @@
       };
 
       const handlePayWithCredits = async () => {
+        if (isSubmittingRef.current) {
+          addToast('Please wait, your purchase is already processing…', 'info');
+          return;
+        }
         if (!canUseCredits) {
           addToast('Insufficient credits', 'error');
           return;
@@ -1936,7 +1940,7 @@
               <p><span className="text-white/50">WhatsApp:</span> <span className="text-white">{whatsapp}</span></p>
               <p><span className="text-white/50">Plan:</span> <span className="text-white">{screens} screen(s) for {durationType === 'months' ? months + ' month(s)' : days + ' day(s)'}</span></p>
             </div>
-            <button onClick={() => completePurchase(false)} disabled={loading} className="btn-neon w-full py-3">
+            <button onClick={() => { if (isSubmittingRef.current) { addToast('Please wait, your purchase is already processing…', 'info'); return; } completePurchase(false); }} disabled={loading} className="btn-neon w-full py-3">
               {loading ? <span className="spinner"></span> : <><i className="fas fa-check-circle mr-2"></i> Complete Purchase</>}
             </button>
           </div>
@@ -2113,6 +2117,10 @@
       };
 
       const handlePayWithCredits = async () => {
+        if (isSubmittingRef.current) {
+          addToast('Please wait, your purchase is already processing…', 'info');
+          return;
+        }
         if (!canUseCredits) {
           addToast('Insufficient credits', 'error');
           return;
@@ -2205,7 +2213,7 @@
               <p><span className="text-white/50">WhatsApp:</span> <span className="text-white">{whatsapp}</span></p>
               <p><span className="text-white/50">Plan:</span> <span className="text-white">1 screen for {durationType === 'months' ? months + ' month(s)' : days + ' day(s)'}</span></p>
             </div>
-            <button onClick={() => completePurchase(false)} disabled={loading} className="btn-neon w-full py-3">
+            <button onClick={() => { if (isSubmittingRef.current) { addToast('Please wait, your purchase is already processing…', 'info'); return; } completePurchase(false); }} disabled={loading} className="btn-neon w-full py-3">
               {loading ? <span className="spinner"></span> : <><i className="fas fa-check-circle mr-2"></i> Complete</>}
             </button>
           </div>
@@ -2404,6 +2412,10 @@
       };
 
       const handlePayWithCredits = async () => {
+        if (isSubmittingRef.current) {
+          addToast('Please wait, your purchase is already processing…', 'info');
+          return;
+        }
         if (!canUseCredits) {
           addToast('Insufficient credits', 'error');
           return;
@@ -2724,6 +2736,10 @@
       };
 
       const handlePayWithCredits = async () => {
+        if (isSubmittingRef.current) {
+          addToast('Please wait, your purchase is already processing…', 'info');
+          return;
+        }
         if (!canUseCredits) {
           addToast('Insufficient credits', 'error');
           return;
