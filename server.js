@@ -34,7 +34,9 @@ let otpsCollection;
 let usersCollection;
 let dealsCollection;
 let promotionsCollection;
-let waitingListCollection;
+let waitingCollection;
+let faqsCollection;
+let processedPurchasesCollection;
 
 // ─── SUBSCRIPTION COSTS (Monthly) ──────────────────────────
 const SUBSCRIPTION_COSTS = {
@@ -62,8 +64,31 @@ async function connectDB() {
   usersCollection = db.collection('users');
   dealsCollection = db.collection('deals');
   promotionsCollection = db.collection('promotions');
-  waitingListCollection = db.collection('waitingList');
+  waitingCollection = db.collection('waitingCustomers');
+  faqsCollection = db.collection('faqs');
+  processedPurchasesCollection = db.collection('processedPurchases');
   console.log('✅ Connected to MongoDB');
+}
+
+// ─── Idempotency guard ──────────────────────────────────────
+// Prevents the exact same purchase step (e.g. "deduct credits for purchase
+// X" or "save allocation for purchase X, account Y, screen Z") from ever
+// being applied twice, no matter what causes a duplicate request to reach
+// the server — a double-click that slipped past the frontend guard, a
+// stale cached page re-submitting, a flaky network retry, two open tabs,
+// etc. It works by trying to insert a document whose _id IS the dedup key;
+// MongoDB's built-in _id uniqueness makes the "has this already happened?"
+// check and the "claim it" step a single atomic operation — there's no
+// window for two concurrent requests to both think they're first.
+async function claimIdempotencyKey(key) {
+  if (!key) return true; // no key supplied (older client) — behave as before, always allow
+  try {
+    await processedPurchasesCollection.insertOne({ _id: key, createdAt: new Date() });
+    return true; // first time we've seen this key — go ahead
+  } catch (err) {
+    if (err.code === 11000) return false; // already claimed — this is a duplicate, skip the side effect
+    throw err;
+  }
 }
 
 // ─── Seed / Upsert subscriptions ────────────────────────────
@@ -445,10 +470,20 @@ app.delete('/api/subscriptions/:id', async (req, res) => {
 
 app.post('/api/subscriptions/:id/allocate', async (req, res) => {
   try {
-    const { accountId, screenId, customer } = req.body;
+    const { accountId, screenId, customer, purchaseId } = req.body;
     if (!accountId || !screenId || !customer || !customer.username) {
       return res.status(400).json({ error: 'accountId, screenId and customer are required' });
     }
+
+    // Same purchase step submitted twice? Don't add the customer a second
+    // time — just return the subscription as it already stands.
+    const key = purchaseId ? `allocate:${purchaseId}:${accountId}:${screenId}` : null;
+    const claimed = await claimIdempotencyKey(key);
+    if (!claimed) {
+      const existing = await subscriptionsCollection.findOne({ id: req.params.id });
+      return res.json(existing);
+    }
+
     const customerToInsert = {
       name: customer.name || '',
       username: customer.username,
@@ -662,10 +697,23 @@ app.post('/api/users/:username/addCredits', async (req, res) => {
 // balance.
 app.post('/api/users/:username/deductCredits', async (req, res) => {
   try {
-    const { amount } = req.body;
+    const { amount, purchaseId } = req.body;
     if (!amount || amount <= 0) {
       return res.status(400).json({ error: 'Invalid amount' });
     }
+
+    // If this exact purchase already deducted credits (e.g. the request
+    // arrived twice), just return the user's current data instead of
+    // deducting a second time.
+    const key = purchaseId ? `credits:${purchaseId}` : null;
+    const claimed = await claimIdempotencyKey(key);
+    if (!claimed) {
+      const existing = await usersCollection.findOne({ username: req.params.username });
+      if (!existing) return res.status(404).json({ error: 'User not found' });
+      const { password, ...rest } = existing;
+      return res.json(rest);
+    }
+
     const result = await usersCollection.findOneAndUpdate(
       { username: req.params.username, credits: { $gte: amount } },
       { $inc: { credits: -amount } },
@@ -822,80 +870,6 @@ app.delete('/api/deals/:id', async (req, res) => {
   }
 });
 
-// ---- Waiting List (custom subscription requests) ----
-// A customer submits a request for a subscription that isn't currently
-// offered, giving their name, WhatsApp number, the exact subscription
-// name they want, and how many months they need. It's stored here as a
-// "waiting customer" for the admin to follow up on and fulfil manually
-// (e.g. by adding the subscription and reaching out once it's ready).
-app.get('/api/waiting-list', async (req, res) => {
-  try {
-    const list = await waitingListCollection.find({}).sort({ createdAt: -1 }).toArray();
-    res.json(list);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-app.post('/api/waiting-list', async (req, res) => {
-  try {
-    const { name, username, whatsapp, subscriptionName, months } = req.body;
-    if (!name || !whatsapp || !subscriptionName || !months) {
-      return res.status(400).json({ error: 'name, whatsapp, subscriptionName and months are required' });
-    }
-    const entry = {
-      id: crypto.randomUUID(),
-      name,
-      username: username || '',
-      whatsapp,
-      subscriptionName,
-      months: Number(months) || 1,
-      status: 'pending',
-      createdAt: new Date()
-    };
-    await waitingListCollection.insertOne(entry);
-    res.json(entry);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// Update a waiting-list entry's status (e.g. 'pending' -> 'fulfilled' /
-// 'contacted') once the admin has followed up with the customer.
-app.put('/api/waiting-list/:id', async (req, res) => {
-  try {
-    const { status } = req.body;
-    const update = {};
-    if (status !== undefined) update.status = status;
-    if (Object.keys(update).length === 0) {
-      return res.status(400).json({ error: 'No fields to update' });
-    }
-    const result = await waitingListCollection.updateOne(
-      { id: req.params.id },
-      { $set: update }
-    );
-    if (result.matchedCount === 0) {
-      return res.status(404).json({ error: 'Not found' });
-    }
-    const updated = await waitingListCollection.findOne({ id: req.params.id });
-    res.json(updated);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-app.delete('/api/waiting-list/:id', async (req, res) => {
-  try {
-    const result = await waitingListCollection.deleteOne({ id: req.params.id });
-    if (result.deletedCount === 0) {
-      return res.status(404).json({ error: 'Not found' });
-    }
-    res.json({ success: true });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
 // ---- OTP ----
 app.post('/api/otp/generate', async (req, res) => {
   try {
@@ -1014,6 +988,119 @@ app.delete('/api/promotions/:id', async (req, res) => {
     const result = await promotionsCollection.deleteOne({ id: req.params.id });
     if (result.deletedCount === 0) {
       return res.status(404).json({ error: 'Promotion not found' });
+    }
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ---- Waiting Customers ----
+// Two ways a customer lands here:
+// 1. They paid/verified for a subscription that has no account/slot
+//    available yet (out of stock) — subscriptionId is set.
+// 2. They submitted a "Custom Subscription Request" for something not
+//    listed at all — subscriptionId is null and isCustomRequest is true.
+// Either way, nothing is auto-removed: the admin sees it here until they
+// manually mark it fulfilled once the account has been created and given
+// to the customer.
+app.get('/api/waiting', async (req, res) => {
+  try {
+    const list = await waitingCollection.find({}).sort({ createdAt: -1 }).toArray();
+    res.json(list);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/waiting', async (req, res) => {
+  try {
+    const {
+      subscriptionId, subscriptionName, isCustomRequest,
+      name, username, whatsapp, months, email,
+      paidWithCredits, creditsAmount, purchasedAt, purchaseId
+    } = req.body;
+    if (!subscriptionName || !name || !whatsapp) {
+      return res.status(400).json({ error: 'subscriptionName, name and whatsapp are required' });
+    }
+
+    // Same waiting-request submitted twice? Don't add a duplicate entry.
+    const key = purchaseId ? `waiting:${purchaseId}:${subscriptionId || 'custom'}` : null;
+    const claimed = await claimIdempotencyKey(key);
+    if (!claimed) {
+      return res.json({ duplicate: true });
+    }
+
+    const entry = {
+      id: Date.now().toString(),
+      subscriptionId: subscriptionId || null,
+      subscriptionName,
+      isCustomRequest: !!isCustomRequest,
+      name,
+      username: username || '',
+      whatsapp,
+      months: months || 1,
+      email: email || '',
+      paidWithCredits: !!paidWithCredits,
+      creditsAmount: creditsAmount || 0,
+      fulfilled: false,
+      purchasedAt: purchasedAt || new Date().toISOString(),
+      createdAt: new Date()
+    };
+    await waitingCollection.insertOne(entry);
+    res.json(entry);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.delete('/api/waiting/:id', async (req, res) => {
+  try {
+    const result = await waitingCollection.deleteOne({ id: req.params.id });
+    if (result.deletedCount === 0) {
+      return res.status(404).json({ error: 'Waiting entry not found' });
+    }
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ---- Help / FAQ (admin-added, on top of the built-in ones in the UI) ----
+app.get('/api/faqs', async (req, res) => {
+  try {
+    const list = await faqsCollection.find({}).sort({ createdAt: 1 }).toArray();
+    res.json(list);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/faqs', async (req, res) => {
+  try {
+    const { question, answer, category } = req.body;
+    if (!question || !answer) {
+      return res.status(400).json({ error: 'question and answer are required' });
+    }
+    const entry = {
+      id: Date.now().toString(),
+      question,
+      answer,
+      category: category || 'General',
+      createdAt: new Date()
+    };
+    await faqsCollection.insertOne(entry);
+    res.json(entry);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.delete('/api/faqs/:id', async (req, res) => {
+  try {
+    const result = await faqsCollection.deleteOne({ id: req.params.id });
+    if (result.deletedCount === 0) {
+      return res.status(404).json({ error: 'FAQ not found' });
     }
     res.json({ success: true });
   } catch (err) {
