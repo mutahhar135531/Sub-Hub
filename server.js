@@ -34,6 +34,7 @@ let otpsCollection;
 let usersCollection;
 let dealsCollection;
 let promotionsCollection;
+let waitingCollection;
 
 // ─── SUBSCRIPTION COSTS (Monthly) ──────────────────────────
 const SUBSCRIPTION_COSTS = {
@@ -61,6 +62,7 @@ async function connectDB() {
   usersCollection = db.collection('users');
   dealsCollection = db.collection('deals');
   promotionsCollection = db.collection('promotions');
+  waitingCollection = db.collection('waitingCustomers');
   console.log('✅ Connected to MongoDB');
 }
 
@@ -938,6 +940,69 @@ app.delete('/api/promotions/:id', async (req, res) => {
     const result = await promotionsCollection.deleteOne({ id: req.params.id });
     if (result.deletedCount === 0) {
       return res.status(404).json({ error: 'Promotion not found' });
+    }
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ---- Waiting Customers ----
+// Two ways a customer lands here:
+// 1. They paid/verified for a subscription that has no account/slot
+//    available yet (out of stock) — subscriptionId is set.
+// 2. They submitted a "Custom Subscription Request" for something not
+//    listed at all — subscriptionId is null and isCustomRequest is true.
+// Either way, nothing is auto-removed: the admin sees it here until they
+// manually mark it fulfilled once the account has been created and given
+// to the customer.
+app.get('/api/waiting', async (req, res) => {
+  try {
+    const list = await waitingCollection.find({}).sort({ createdAt: -1 }).toArray();
+    res.json(list);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/waiting', async (req, res) => {
+  try {
+    const {
+      subscriptionId, subscriptionName, isCustomRequest,
+      name, username, whatsapp, months, email,
+      paidWithCredits, creditsAmount, purchasedAt
+    } = req.body;
+    if (!subscriptionName || !name || !whatsapp) {
+      return res.status(400).json({ error: 'subscriptionName, name and whatsapp are required' });
+    }
+    const entry = {
+      id: Date.now().toString(),
+      subscriptionId: subscriptionId || null,
+      subscriptionName,
+      isCustomRequest: !!isCustomRequest,
+      name,
+      username: username || '',
+      whatsapp,
+      months: months || 1,
+      email: email || '',
+      paidWithCredits: !!paidWithCredits,
+      creditsAmount: creditsAmount || 0,
+      fulfilled: false,
+      purchasedAt: purchasedAt || new Date().toISOString(),
+      createdAt: new Date()
+    };
+    await waitingCollection.insertOne(entry);
+    res.json(entry);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.delete('/api/waiting/:id', async (req, res) => {
+  try {
+    const result = await waitingCollection.deleteOne({ id: req.params.id });
+    if (result.deletedCount === 0) {
+      return res.status(404).json({ error: 'Waiting entry not found' });
     }
     res.json({ success: true });
   } catch (err) {

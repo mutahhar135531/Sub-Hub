@@ -517,6 +517,30 @@
       return res.json();
     };
 
+    // ─── WAITING CUSTOMERS ──────────────────────────────────────
+    const fetchWaitingList = async () => {
+      const res = await fetch(`${API_BASE}/api/waiting?t=${Date.now()}`, {
+        headers: { 'Cache-Control': 'no-cache' }
+      });
+      return res.json();
+    };
+
+    const addWaitingCustomer = async (data) => {
+      const res = await fetch(`${API_BASE}/api/waiting`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+      const result = await res.json();
+      if (!res.ok) throw result;
+      return result;
+    };
+
+    const removeWaitingCustomer = async (id) => {
+      const res = await fetch(`${API_BASE}/api/waiting/${id}`, { method: 'DELETE' });
+      return res.json();
+    };
+
     // ─── PRICING ──────────────────────────────────────────────
     // Every subscription is charged using ONLY the "Selling Price (RS / mo)"
     // that the admin sets for it in the admin portal — nothing is hardcoded
@@ -1655,11 +1679,10 @@
           addToast('WhatsApp number must match your sign-up number', 'error');
           return;
         }
-        if (!canAllocate) {
-          addToast('No screens available right now.', 'error');
-          return;
-        }
-        if (specificScreen && !selectedScreenId) {
+        // No accounts/screens added for this subscription yet (or all full).
+        // We still let the purchase go ahead — it'll be recorded as a
+        // waiting request for the admin instead of an active account.
+        if (canAllocate && specificScreen && !selectedScreenId) {
           addToast('Please select a specific screen', 'error');
           return;
         }
@@ -1709,42 +1732,45 @@
           isSubmittingRef.current = false;
           return;
         }
-        if (!canAllocate) {
-          addToast('No screens available right now.', 'error');
-          isSubmittingRef.current = false;
-          return;
-        }
 
-        let requestedId = specificScreen ? selectedScreenId : null;
-        let allocationResult = allocateScreens(allAvailableSlots, screens, user.username, whatsapp.trim(), requestedId);
-        let allocated = null;
-        if (allocationResult.error) {
-          if (specificScreen) {
-            const autoResult = allocateScreens(allAvailableSlots, screens, user.username, whatsapp.trim(), null);
-            if (autoResult.error) {
-              addToast('No screens available right now.', 'error');
-              isSubmittingRef.current = false;
-              return;
+        // No account/screen exists for this subscription yet (or every
+        // existing one is full). We don't block the purchase for this —
+        // it goes through and lands in the admin's Waiting Customers list
+        // instead of getting real account credentials right away.
+        let allocatedData = [];
+        let isWaiting = !canAllocate;
+
+        if (canAllocate) {
+          let requestedId = specificScreen ? selectedScreenId : null;
+          let allocationResult = allocateScreens(allAvailableSlots, screens, user.username, whatsapp.trim(), requestedId);
+          let allocated = null;
+          if (allocationResult.error) {
+            if (specificScreen) {
+              const autoResult = allocateScreens(allAvailableSlots, screens, user.username, whatsapp.trim(), null);
+              if (autoResult.error) {
+                isWaiting = true;
+              } else {
+                allocated = autoResult;
+                addToast('The requested screen is not available. We\'ve assigned you another screen.', 'warning');
+              }
+            } else {
+              isWaiting = true;
             }
-            allocated = autoResult;
-            addToast('The requested screen is not available. We\'ve assigned you another screen.', 'warning');
           } else {
-            addToast('No screens available right now.', 'error');
-            isSubmittingRef.current = false;
-            return;
+            allocated = allocationResult;
           }
-        } else {
-          allocated = allocationResult;
-        }
 
-        const allocatedData = allocated.map(slot => ({
-          accountId: slot.account.id,
-          screenId: slot.screen.id,
-          screenName: slot.screen.name,
-          accountEmail: slot.account.email,
-          accountPassword: slot.account.password || '••••••••',
-          screenPin: slot.screen.pin || 'N/A'
-        }));
+          if (allocated) {
+            allocatedData = allocated.map(slot => ({
+              accountId: slot.account.id,
+              screenId: slot.screen.id,
+              screenName: slot.screen.name,
+              accountEmail: slot.account.email,
+              accountPassword: slot.account.password || '••••••••',
+              screenPin: slot.screen.pin || 'N/A'
+            }));
+          }
+        }
 
         setLoading(true);
         const now = new Date();
@@ -1768,6 +1794,7 @@
         setTimeout(() => {
           onComplete({
             subscriptionId: subscription.id,
+            subscriptionName: subscription.name,
             screens,
             months: durationType === 'months' ? months : 0,
             days: totalDays,
@@ -1778,6 +1805,7 @@
             allocated: allocatedData,
             expiryDate: expiry.toISOString().split('T')[0],
             paidWithCredits: useCreditsFlag,
+            isWaiting,
             purchasedAt: now.toISOString()
           });
           setLoading(false);
@@ -1828,21 +1856,27 @@
                 <input type="number" value={days} onChange={(e) => setDays(Math.max(1, Number(e.target.value)))} className="input-neon mt-1" min="1" />
               </div>
             )}
-            <div className="bg-red-500/5 rounded-xl p-4 border border-red-500/10">
-              <div className="flex items-center gap-3">
-                <input type="checkbox" checked={specificScreen} onChange={(e) => setSpecificScreen(e.target.checked)} className="w-4 h-4 accent-red-500" />
-                <label className="text-white/70 text-sm">I want a specific screen</label>
-              </div>
-              {specificScreen && (
-                <div className="mt-3">
-                  <label className="text-white/50 text-sm font-medium">Choose Screen</label>
-                  <select value={selectedScreenId} onChange={(e) => setSelectedScreenId(e.target.value)} className="input-neon mt-1">
-                    <option value="">--Select--</option>
-                    {availableForDisplay.map(opt => <option key={opt.id} value={opt.id}>{opt.label}</option>)}
-                  </select>
+            {canAllocate ? (
+              <div className="bg-red-500/5 rounded-xl p-4 border border-red-500/10">
+                <div className="flex items-center gap-3">
+                  <input type="checkbox" checked={specificScreen} onChange={(e) => setSpecificScreen(e.target.checked)} className="w-4 h-4 accent-red-500" />
+                  <label className="text-white/70 text-sm">I want a specific screen</label>
                 </div>
-              )}
-            </div>
+                {specificScreen && (
+                  <div className="mt-3">
+                    <label className="text-white/50 text-sm font-medium">Choose Screen</label>
+                    <select value={selectedScreenId} onChange={(e) => setSelectedScreenId(e.target.value)} className="input-neon mt-1">
+                      <option value="">--Select--</option>
+                      {availableForDisplay.map(opt => <option key={opt.id} value={opt.id}>{opt.label}</option>)}
+                    </select>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="bg-yellow-500/10 rounded-xl p-4 border border-yellow-500/20">
+                <p className="text-yellow-400 text-sm"><i className="fas fa-info-circle mr-2"></i> This subscription is currently out of stock. You can still purchase — your account will be added to your portal soon and admin will be notified.</p>
+              </div>
+            )}
             <div className="space-y-3">
               <div><label className="text-white/50 text-sm font-medium">Full Name</label>
                 <input type="text" value={name} onChange={(e) => setName(e.target.value)} className="input-neon mt-1" placeholder="Your full name" />
@@ -1866,7 +1900,7 @@
                 {loading ? <span className="spinner"></span> : <><i className="fas fa-coins mr-2"></i> Pay with Credits</>}
               </button>
             ) : (
-              <button onClick={handleGenerateOTP} disabled={!canAllocate} className={`btn-neon w-full py-3 ${!canAllocate ? 'opacity-50 cursor-not-allowed' : ''}`}>
+              <button onClick={handleGenerateOTP} className="btn-neon w-full py-3">
                 <i className="fas fa-key mr-2"></i> Get OTP
               </button>
             )}
@@ -1964,7 +1998,6 @@
           addToast('WhatsApp number must match your sign-up number', 'error');
           return;
         }
-        if (!canAllocate) { addToast('No screens available right now.', 'error'); return; }
         await generateOTPAPI();
       };
 
@@ -2009,24 +2042,27 @@
           isSubmittingRef.current = false;
           return;
         }
-        if (!canAllocate) { addToast('No screens available right now.', 'error'); isSubmittingRef.current = false; return; }
 
-        const purchaseCount = user.purchaseCount || 0;
-        const slot = allocateAmazonScreen(availableSlots, user.username, whatsapp.trim(), purchaseCount);
-        if (!slot) {
-          addToast('No available screens.', 'error');
-          isSubmittingRef.current = false;
-          return;
+        // No account/screen exists yet (or all full) — purchase still goes
+        // ahead and lands in the admin's Waiting Customers list.
+        let allocatedData = [];
+        let isWaiting = !canAllocate;
+        if (canAllocate) {
+          const purchaseCount = user.purchaseCount || 0;
+          const slot = allocateAmazonScreen(availableSlots, user.username, whatsapp.trim(), purchaseCount);
+          if (!slot) {
+            isWaiting = true;
+          } else {
+            allocatedData = [{
+              accountId: slot.account.id,
+              screenId: slot.screen.id,
+              screenName: slot.screen.name,
+              accountEmail: slot.account.email,
+              accountPassword: slot.account.password || '••••••••',
+              screenPin: slot.screen.pin || 'N/A'
+            }];
+          }
         }
-
-        const allocatedData = [{
-          accountId: slot.account.id,
-          screenId: slot.screen.id,
-          screenName: slot.screen.name,
-          accountEmail: slot.account.email,
-          accountPassword: slot.account.password || '••••••••',
-          screenPin: slot.screen.pin || 'N/A'
-        }];
 
         setLoading(true);
         const now = new Date();
@@ -2057,6 +2093,7 @@
         setTimeout(() => {
           onComplete({
             subscriptionId: subscription.id,
+            subscriptionName: subscription.name,
             screens: 1,
             months: durationType === 'months' ? months : 0,
             days: totalDays,
@@ -2067,6 +2104,7 @@
             allocated: allocatedData,
             expiryDate: expiry.toISOString().split('T')[0],
             paidWithCredits: useCreditsFlag,
+            isWaiting,
             purchasedAt: now.toISOString()
           });
           setLoading(false);
@@ -2103,6 +2141,11 @@
                 <input type="number" value={days} onChange={(e) => setDays(Math.max(1, Number(e.target.value)))} className="input-neon mt-1" min="1" />
               </div>
             )}
+            {!canAllocate && (
+              <div className="bg-yellow-500/10 rounded-xl p-4 border border-yellow-500/20">
+                <p className="text-yellow-400 text-sm"><i className="fas fa-info-circle mr-2"></i> This subscription is currently out of stock. You can still purchase — your account will be added to your portal soon and admin will be notified.</p>
+              </div>
+            )}
             <div className="space-y-3">
               <div><label className="text-white/50 text-sm font-medium">Full Name</label>
                 <input type="text" value={name} onChange={(e) => setName(e.target.value)} className="input-neon mt-1" placeholder="Your full name" />
@@ -2126,7 +2169,7 @@
                 {loading ? <span className="spinner"></span> : <><i className="fas fa-coins mr-2"></i> Pay with Credits</>}
               </button>
             ) : (
-              <button onClick={handleGenerateOTP} disabled={!canAllocate} className={`btn-neon w-full py-3 ${!canAllocate ? 'opacity-50 cursor-not-allowed' : ''}`}>
+              <button onClick={handleGenerateOTP} className="btn-neon w-full py-3">
                 <i className="fas fa-key mr-2"></i> Get OTP
               </button>
             )}
@@ -2300,6 +2343,7 @@
 
         const allocation = allocateSimpleScreen(subscription, user.username, whatsapp.trim());
         let allocatedData = [];
+        let isWaiting = false;
         if (allocation) {
           allocatedData = [{
             accountId: allocation.account.id,
@@ -2309,6 +2353,11 @@
             accountPassword: allocation.account.password || '••••••••',
             screenPin: allocation.screen.pin || 'N/A'
           }];
+        } else {
+          // No account exists for this subscription yet (or it's full) —
+          // purchase still goes ahead and lands in the admin's Waiting
+          // Customers list instead of getting real credentials right away.
+          isWaiting = true;
         }
 
         if (useCreditsFlag) {
@@ -2333,6 +2382,7 @@
         setTimeout(() => {
           onComplete({
             subscriptionId: subscription.id,
+            subscriptionName: isCustom ? customSubName.trim() : subscription.name,
             screens: 1,
             months: months,
             days: totalDays,
@@ -2345,6 +2395,7 @@
             allocated: allocatedData,
             expiryDate: expiry.toISOString().split('T')[0],
             paidWithCredits: useCreditsFlag,
+            isWaiting,
             purchasedAt: now.toISOString()
           });
           setLoading(false);
@@ -2410,10 +2461,10 @@
                 </p>
               </div>
             )}
-            {isCanva && (
+            {isCanva && creditsNeeded > 0 && (
               <div className="bg-yellow-500/10 rounded-xl p-3 border border-yellow-500/20">
                 <p className="text-yellow-400 text-sm">
-                  <i className="fas fa-info-circle mr-2"></i> Canva Pro: 250 credits for 1 year
+                  <i className="fas fa-info-circle mr-2"></i> Canva Pro: {creditsNeeded} credits for 1 year
                 </p>
               </div>
             )}
@@ -2559,6 +2610,7 @@
 
         let allAllocated = [];
         let allSubscriptions = [];
+        let waitingSubs = [];
 
         for (const sub of dealSubs) {
           const subType = sub.type;
@@ -2631,6 +2683,12 @@
           if (allocatedForSub.length > 0) {
             allAllocated = allAllocated.concat(allocatedForSub);
             allSubscriptions.push(sub.id);
+          } else {
+            // No account available for this part of the deal — it still
+            // gets recorded so the admin can fulfill it and add the
+            // customer's account soon, instead of the customer silently
+            // getting less than what the deal promised.
+            waitingSubs.push({ id: sub.id, name: sub.name });
           }
         }
 
@@ -2657,6 +2715,7 @@
             dealTitle: deal.title,
             dealSubscriptionIds: deal.subscriptionIds || [],
             dealSubscriptions: allSubscriptions,
+            waitingSubs,
             purchasedAt: now.toISOString()
           });
           setLoading(false);
@@ -2703,6 +2762,7 @@
                 <span className="badge badge-yellow text-xs">🔥 Deal</span>
               </div>
             </div>
+            <p className="text-white/30 text-xs -mt-2">If any part of this deal is out of stock, it'll still be purchased and added to your portal soon — admin will be notified.</p>
             <div className="space-y-3">
               <div><label className="text-white/50 text-sm font-medium">Full Name</label>
                 <input type="text" value={name} onChange={(e) => setName(e.target.value)} className="input-neon mt-1" placeholder="Your full name" />
@@ -2755,9 +2815,72 @@
       return null;
     }
 
-    // ─── CUSTOM FLOW (legacy) ────────────────────────────────
-    function CustomFlow({ subscription, onBack, onComplete, user }) {
-      return <SimpleSubscriptionFlow subscription={subscription} onBack={onBack} onComplete={onComplete} user={user} />;
+    // ─── CUSTOM SUBSCRIPTION REQUEST ────────────────────────────
+    // For when the customer wants something that isn't listed at all.
+    // No payment here — it's just a request. Name/WhatsApp come from
+    // their account already; they only type the subscription name and
+    // pick how many months. Goes straight to the admin's Waiting
+    // Customers list so the admin can follow up with pricing/availability.
+    function CustomFlow({ onBack, onComplete, user }) {
+      const [subName, setSubName] = useState('');
+      const [months, setMonths] = useState(1);
+      const [name, setName] = useState('');
+      const [whatsapp, setWhatsapp] = useState(user?.whatsapp || '');
+      const [submitting, setSubmitting] = useState(false);
+      const { addToast } = useContext(AppContext);
+      const isSubmittingRef = useRef(false);
+
+      const handleSubmit = async () => {
+        if (isSubmittingRef.current) return;
+        if (!subName.trim()) { addToast('Please enter the exact subscription name', 'error'); return; }
+        if (!name.trim() || !whatsapp.trim()) { addToast('Please fill your name and WhatsApp number', 'error'); return; }
+        if (user && whatsapp.trim() !== user?.whatsapp) {
+          addToast('WhatsApp number must match your sign-up number', 'error');
+          return;
+        }
+        isSubmittingRef.current = true;
+        setSubmitting(true);
+        try {
+          await onComplete({
+            subscriptionName: subName.trim(),
+            name: name.trim(),
+            username: user?.username || '',
+            whatsapp: whatsapp.trim(),
+            months
+          });
+        } finally {
+          setSubmitting(false);
+          isSubmittingRef.current = false;
+        }
+      };
+
+      return (
+        <div className="space-y-6">
+          <button onClick={onBack} className="text-red-400 hover:text-red-300 text-sm"><i className="fas fa-arrow-left mr-2"></i> Back</button>
+          <h2 className="text-2xl font-bold text-white"><i className="fas fa-hand-paper text-red-400 mr-3"></i> Request Custom Subscription</h2>
+          <p className="text-white/40 text-sm -mt-2">Don't see what you want in our list? Tell us exactly what you need and we'll get back to you with pricing and availability.</p>
+          <div><label className="text-white/50 text-sm font-medium">Subscription Name (exact)</label>
+            <input type="text" value={subName} onChange={(e) => setSubName(e.target.value)} className="input-neon mt-1" placeholder="e.g. Disney+ Hotstar" />
+          </div>
+          <div><label className="text-white/50 text-sm font-medium">For how many months</label>
+            <select value={months} onChange={(e) => setMonths(Number(e.target.value))} className="input-neon mt-1">
+              {[1,2,3,6,12].map(n => <option key={n} value={n}>{n} {n === 1 ? 'month' : 'months'}</option>)}
+            </select>
+          </div>
+          <div className="space-y-3">
+            <div><label className="text-white/50 text-sm font-medium">Full Name</label>
+              <input type="text" value={name} onChange={(e) => setName(e.target.value)} className="input-neon mt-1" placeholder="Your full name" />
+            </div>
+            <div><label className="text-white/50 text-sm font-medium">WhatsApp Number</label>
+              <input type="tel" value={whatsapp} onChange={(e) => setWhatsapp(e.target.value)} className="input-neon mt-1" placeholder="+92 300 1234567" readOnly={!!user?.whatsapp} />
+              {user?.whatsapp && <p className="text-xs text-white/30 mt-1">(locked to your sign‑up number)</p>}
+            </div>
+          </div>
+          <button onClick={handleSubmit} disabled={submitting} className="btn-neon w-full py-3">
+            {submitting ? <span className="spinner"></span> : <><i className="fas fa-paper-plane mr-2"></i> Submit Request</>}
+          </button>
+        </div>
+      );
     }
 
     // ─── AUTH PAGE ─────────────────────────────────────────────
@@ -3468,6 +3591,7 @@
       const [confirmAdminPassword, setConfirmAdminPassword] = useState('');
       const [otpList, setOtpList] = useState([]);
       const [usersList, setUsersList] = useState([]);
+      const [waitingList, setWaitingList] = useState([]);
       const [addCreditsAmount, setAddCreditsAmount] = useState(0);
       const [deductCreditsAmount, setDeductCreditsAmount] = useState(0);
       const [selectedUserForCredits, setSelectedUserForCredits] = useState(null);
@@ -3573,6 +3697,23 @@
         } catch (err) { console.error(err); }
       };
 
+      const loadWaiting = async () => {
+        try {
+          const data = await fetchWaitingList();
+          setWaitingList(data);
+        } catch (err) { console.error(err); }
+      };
+
+      const handleFulfillWaiting = async (id) => {
+        try {
+          await removeWaitingCustomer(id);
+          setWaitingList(prev => prev.filter(w => w.id !== id));
+          addToast('Marked as fulfilled and removed from the waiting list.', 'success');
+        } catch (err) {
+          addToast('Failed to update waiting list', 'error');
+        }
+      };
+
       const loadIncome = async (period = 'all', customStart, customEnd) => {
         setIncomeLoading(true);
         try {
@@ -3608,10 +3749,15 @@
         if (activeTab === 'users') loadUsers();
         if (activeTab === 'deals') loadDeals();
         if (activeTab === 'promotions') loadPromotions();
+        if (activeTab === 'waiting') loadWaiting();
         if (activeTab === 'overview' || activeTab === 'income') {
           if (incomePeriod !== 'custom') loadIncome(incomePeriod);
         }
       }, [activeTab, incomePeriod]);
+
+      useEffect(() => {
+        loadWaiting();
+      }, []);
 
       const refreshData = async () => {
         try {
@@ -4537,7 +4683,7 @@
           )}
 
           <div className="flex flex-wrap gap-2 border-b border-white/5 pb-3">
-            {['overview', 'subscriptions', 'customers', 'income', 'users', 'deals', 'promotions', 'otp'].map(tab => (
+            {['overview', 'subscriptions', 'customers', 'waiting', 'income', 'users', 'deals', 'promotions', 'otp'].map(tab => (
               <button key={tab} onClick={() => {
                 setActiveTab(tab);
                 if (tab === 'users') markUsersSeen();
@@ -4546,6 +4692,7 @@
                 {tab === 'overview' && <><i className="fas fa-chart-pie mr-2"></i> Overview</>}
                 {tab === 'subscriptions' && <><i className="fas fa-crown mr-2"></i> Subscriptions</>}
                 {tab === 'customers' && <><i className="fas fa-users mr-2"></i> Customers{unseenCustomersCount > 0 && <span className="notif-badge">{unseenCustomersCount}</span>}</>}
+                {tab === 'waiting' && <><i className="fas fa-clock mr-2"></i> Waiting Customers{waitingList.length > 0 && <span className="notif-badge">{waitingList.length}</span>}</>}
                 {tab === 'income' && <><i className="fas fa-coins mr-2"></i> Income</>}
                 {tab === 'users' && <><i className="fas fa-user-friends mr-2"></i> Users{unseenUsersCount > 0 && <span className="notif-badge">{unseenUsersCount}</span>}</>}
                 {tab === 'deals' && <><i className="fas fa-fire mr-2"></i> Deals</>}
@@ -4803,6 +4950,43 @@
               {subscriptions.every(s => getCustomerRecords(s).length === 0) && (
                 <div className="text-center py-8 text-white/30"><i className="fas fa-users text-4xl mb-3 block"></i> No customers yet.</div>
               )}
+            </div>
+          )}
+
+          {activeTab === 'waiting' && (
+            <div className="glass-panel">
+              <h3 className="text-lg font-bold text-white mb-1">Waiting Customers</h3>
+              <p className="text-white/40 text-sm mb-4">Customers who already paid (or requested) for a subscription you haven't added an account for yet. Add the account, deliver it to them manually, then mark it fulfilled here.</p>
+              <div className="overflow-x-auto">
+                <table className="admin-table text-sm">
+                  <thead><tr><th>Subscription Needed</th><th>Name</th><th>Username</th><th>WhatsApp</th><th>Months</th><th>Type</th><th>Requested</th><th>Actions</th></tr></thead>
+                  <tbody>
+                    {waitingList.map(w => (
+                      <tr key={w.id}>
+                        <td className="font-semibold text-white">{w.subscriptionName}</td>
+                        <td>{w.name || 'N/A'}</td>
+                        <td className="font-mono text-xs">{w.username || 'N/A'}</td>
+                        <td>{w.whatsapp}</td>
+                        <td>{w.months}</td>
+                        <td>
+                          {w.isCustomRequest ? (
+                            <span className="badge badge-yellow text-xs">Custom Request</span>
+                          ) : (
+                            <span className="badge badge-green text-xs">{w.paidWithCredits ? 'Paid (Credits)' : 'Paid (OTP)'}</span>
+                          )}
+                        </td>
+                        <td className="text-xs text-white/40">{w.purchasedAt ? new Date(w.purchasedAt).toLocaleDateString() : 'N/A'}</td>
+                        <td>
+                          <button onClick={() => handleFulfillWaiting(w.id)} className="btn-neon-outline text-xs py-1 px-2"><i className="fas fa-check mr-1"></i> Mark Fulfilled</button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                {waitingList.length === 0 && (
+                  <div className="text-center py-8 text-white/30"><i className="fas fa-clock text-4xl mb-3 block"></i> No one is waiting right now.</div>
+                )}
+              </div>
             </div>
           )}
 
@@ -5442,6 +5626,28 @@
         return results;
       };
 
+      const handleCustomRequestComplete = async (data) => {
+        try {
+          await addWaitingCustomer({
+            subscriptionId: null,
+            subscriptionName: data.subscriptionName,
+            isCustomRequest: true,
+            name: data.name,
+            username: data.username,
+            whatsapp: data.whatsapp,
+            months: data.months,
+            paidWithCredits: false,
+            purchasedAt: new Date().toISOString()
+          });
+          addToast('✅ Request submitted! Admin will contact you soon with pricing & availability.', 'success');
+          setFlowStep('welcome');
+          navigateTo('/');
+        } catch (err) {
+          console.error('Failed to submit custom request:', err);
+          addToast('Failed to submit your request. Please try again or contact support.', 'error');
+        }
+      };
+
       const handleSubComplete = async (data) => {
         const customerPayload = {
           name: data.name || '',
@@ -5456,10 +5662,29 @@
           purchasedAt: data.purchasedAt || new Date().toISOString()
         };
 
+        // Build the list of things that need to go to the admin's Waiting
+        // Customers list: either the whole purchase (data.isWaiting, from
+        // Netflix/Amazon/Simple flows with no account available) or just
+        // part of a deal (data.waitingSubs, when some — not all — of the
+        // deal's subscriptions had no account available).
+        const waitingEntries = [];
+        if (data.isWaiting) {
+          waitingEntries.push({
+            subscriptionId: data.subscriptionId || null,
+            subscriptionName: data.subscriptionName || data.customName || 'Subscription',
+            months: data.months || 1
+          });
+        }
+        if (data.waitingSubs && data.waitingSubs.length > 0) {
+          data.waitingSubs.forEach(ws => {
+            waitingEntries.push({ subscriptionId: ws.id, subscriptionName: ws.name, months: 1 });
+          });
+        }
+
         try {
           const allocations = (data.allocated && data.allocated.length > 0) ? data.allocated : [];
 
-          if (allocations.length === 0) {
+          if (allocations.length === 0 && waitingEntries.length === 0) {
             throw new Error('No screen was allocated for this purchase.');
           }
 
@@ -5471,21 +5696,44 @@
             await allocateCustomer(subIdForAllot, allot.accountId, allot.screenId, customerPayload);
           }
 
+          for (const entry of waitingEntries) {
+            await addWaitingCustomer({
+              subscriptionId: entry.subscriptionId,
+              subscriptionName: entry.subscriptionName,
+              isCustomRequest: false,
+              name: data.name || '',
+              username: data.username,
+              whatsapp: data.whatsapp,
+              months: entry.months,
+              email: data.email || '',
+              paidWithCredits: !!data.paidWithCredits,
+              purchasedAt: data.purchasedAt || new Date().toISOString()
+            });
+          }
+
           const fresh = await fetchSubscriptions();
           setSubscriptions(fresh);
           const dealsData = await fetchDeals();
           setDeals(dealsData);
           resetFlow();
           navigateTo('/');
-          addToast('🎉 Subscription confirmed! Check your details.', 'success');
+
+          if (allocations.length > 0) {
+            addToast('🎉 Subscription confirmed! Check your details.', 'success');
+          }
           if (user) {
             // Refresh so purchaseCount is up to date (this drives the
             // unseen-purchases notification badge on the navbar).
             await refreshUser();
           }
-          addToast('Your subscription details is added to your portal, go and check it.', 'success');
+          if (allocations.length > 0) {
+            addToast('Your subscription details is added to your portal, go and check it.', 'success');
+          }
+          if (waitingEntries.length > 0) {
+            addToast('✅ Payment received! This subscription will be added to your portal soon — contact admin for updates.', 'success');
+          }
 
-          if (user) {
+          if (user && allocations.length > 0) {
             const found = findCustomers(user.username, fresh);
             setCustomerData(found);
             setFlowStep('customer-dash');
@@ -5713,6 +5961,16 @@
                       </div>
                     )}
                     <SubscriptionSelection subscriptions={subscriptions} onSelect={handleSubSelect} selected={selectedSubscription} />
+                    <div className="text-center mt-8">
+                      <button onClick={() => setFlowStep('custom-request')} className="btn-neon-outline px-6 py-3 text-sm">
+                        <i className="fas fa-hand-paper mr-2"></i> Don't see what you want? Request Custom Subscription
+                      </button>
+                    </div>
+                  </div>
+                )}
+                {flowStep === 'custom-request' && (
+                  <div className="max-w-lg mx-auto">
+                    <CustomFlow onBack={() => setFlowStep('select')} onComplete={handleCustomRequestComplete} user={user} />
                   </div>
                 )}
                 {flowStep === 'flow' && <div className="max-w-lg mx-auto">{renderFlow()}</div>}
