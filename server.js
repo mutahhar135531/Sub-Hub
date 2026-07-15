@@ -35,6 +35,8 @@ let usersCollection;
 let dealsCollection;
 let promotionsCollection;
 let waitingCollection;
+let faqsCollection;
+let processedPurchasesCollection;
 
 // ─── SUBSCRIPTION COSTS (Monthly) ──────────────────────────
 const SUBSCRIPTION_COSTS = {
@@ -63,7 +65,30 @@ async function connectDB() {
   dealsCollection = db.collection('deals');
   promotionsCollection = db.collection('promotions');
   waitingCollection = db.collection('waitingCustomers');
+  faqsCollection = db.collection('faqs');
+  processedPurchasesCollection = db.collection('processedPurchases');
   console.log('✅ Connected to MongoDB');
+}
+
+// ─── Idempotency guard ──────────────────────────────────────
+// Prevents the exact same purchase step (e.g. "deduct credits for purchase
+// X" or "save allocation for purchase X, account Y, screen Z") from ever
+// being applied twice, no matter what causes a duplicate request to reach
+// the server — a double-click that slipped past the frontend guard, a
+// stale cached page re-submitting, a flaky network retry, two open tabs,
+// etc. It works by trying to insert a document whose _id IS the dedup key;
+// MongoDB's built-in _id uniqueness makes the "has this already happened?"
+// check and the "claim it" step a single atomic operation — there's no
+// window for two concurrent requests to both think they're first.
+async function claimIdempotencyKey(key) {
+  if (!key) return true; // no key supplied (older client) — behave as before, always allow
+  try {
+    await processedPurchasesCollection.insertOne({ _id: key, createdAt: new Date() });
+    return true; // first time we've seen this key — go ahead
+  } catch (err) {
+    if (err.code === 11000) return false; // already claimed — this is a duplicate, skip the side effect
+    throw err;
+  }
 }
 
 // ─── Seed / Upsert subscriptions ────────────────────────────
@@ -445,10 +470,20 @@ app.delete('/api/subscriptions/:id', async (req, res) => {
 
 app.post('/api/subscriptions/:id/allocate', async (req, res) => {
   try {
-    const { accountId, screenId, customer } = req.body;
+    const { accountId, screenId, customer, purchaseId } = req.body;
     if (!accountId || !screenId || !customer || !customer.username) {
       return res.status(400).json({ error: 'accountId, screenId and customer are required' });
     }
+
+    // Same purchase step submitted twice? Don't add the customer a second
+    // time — just return the subscription as it already stands.
+    const key = purchaseId ? `allocate:${purchaseId}:${accountId}:${screenId}` : null;
+    const claimed = await claimIdempotencyKey(key);
+    if (!claimed) {
+      const existing = await subscriptionsCollection.findOne({ id: req.params.id });
+      return res.json(existing);
+    }
+
     const customerToInsert = {
       name: customer.name || '',
       username: customer.username,
@@ -662,10 +697,23 @@ app.post('/api/users/:username/addCredits', async (req, res) => {
 // balance.
 app.post('/api/users/:username/deductCredits', async (req, res) => {
   try {
-    const { amount } = req.body;
+    const { amount, purchaseId } = req.body;
     if (!amount || amount <= 0) {
       return res.status(400).json({ error: 'Invalid amount' });
     }
+
+    // If this exact purchase already deducted credits (e.g. the request
+    // arrived twice), just return the user's current data instead of
+    // deducting a second time.
+    const key = purchaseId ? `credits:${purchaseId}` : null;
+    const claimed = await claimIdempotencyKey(key);
+    if (!claimed) {
+      const existing = await usersCollection.findOne({ username: req.params.username });
+      if (!existing) return res.status(404).json({ error: 'User not found' });
+      const { password, ...rest } = existing;
+      return res.json(rest);
+    }
+
     const result = await usersCollection.findOneAndUpdate(
       { username: req.params.username, credits: { $gte: amount } },
       { $inc: { credits: -amount } },
@@ -948,12 +996,15 @@ app.delete('/api/promotions/:id', async (req, res) => {
 });
 
 // ---- Waiting Customers ----
-// When a customer purchases a subscription but no account/screen slot is
-// currently available for it, the purchase still goes through: we record
-// a "waiting" entry here instead of an actual account allocation. The
-// admin portal surfaces these under a dedicated tab so an account can be
-// added and the customer contacted as soon as possible.
-app.get('/api/waiting-customers', async (req, res) => {
+// Two ways a customer lands here:
+// 1. They paid/verified for a subscription that has no account/slot
+//    available yet (out of stock) — subscriptionId is set.
+// 2. They submitted a "Custom Subscription Request" for something not
+//    listed at all — subscriptionId is null and isCustomRequest is true.
+// Either way, nothing is auto-removed: the admin sees it here until they
+// manually mark it fulfilled once the account has been created and given
+// to the customer.
+app.get('/api/waiting', async (req, res) => {
   try {
     const list = await waitingCollection.find({}).sort({ createdAt: -1 }).toArray();
     res.json(list);
@@ -962,26 +1013,38 @@ app.get('/api/waiting-customers', async (req, res) => {
   }
 });
 
-app.post('/api/waiting-customers', async (req, res) => {
+app.post('/api/waiting', async (req, res) => {
   try {
-    const { subscriptionId, subscriptionName, name, username, whatsapp, email, months, days, expiryDate, purchasedAt, note } = req.body;
-    if (!subscriptionId || !username) {
-      return res.status(400).json({ error: 'subscriptionId and username are required' });
+    const {
+      subscriptionId, subscriptionName, isCustomRequest,
+      name, username, whatsapp, months, email,
+      paidWithCredits, creditsAmount, purchasedAt, purchaseId
+    } = req.body;
+    if (!subscriptionName || !name || !whatsapp) {
+      return res.status(400).json({ error: 'subscriptionName, name and whatsapp are required' });
     }
+
+    // Same waiting-request submitted twice? Don't add a duplicate entry.
+    const key = purchaseId ? `waiting:${purchaseId}:${subscriptionId || 'custom'}` : null;
+    const claimed = await claimIdempotencyKey(key);
+    if (!claimed) {
+      return res.json({ duplicate: true });
+    }
+
     const entry = {
-      id: crypto.randomUUID(),
-      subscriptionId,
-      subscriptionName: subscriptionName || '',
-      name: name || '',
-      username,
-      whatsapp: whatsapp || '',
+      id: Date.now().toString(),
+      subscriptionId: subscriptionId || null,
+      subscriptionName,
+      isCustomRequest: !!isCustomRequest,
+      name,
+      username: username || '',
+      whatsapp,
+      months: months || 1,
       email: email || '',
-      months: months || 0,
-      days: days || 0,
-      expiryDate: expiryDate || '',
+      paidWithCredits: !!paidWithCredits,
+      creditsAmount: creditsAmount || 0,
+      fulfilled: false,
       purchasedAt: purchasedAt || new Date().toISOString(),
-      note: note || '',
-      status: 'pending',
       createdAt: new Date()
     };
     await waitingCollection.insertOne(entry);
@@ -991,31 +1054,53 @@ app.post('/api/waiting-customers', async (req, res) => {
   }
 });
 
-app.put('/api/waiting-customers/:id', async (req, res) => {
+app.delete('/api/waiting/:id', async (req, res) => {
   try {
-    const { status, note } = req.body;
-    const update = {};
-    if (status !== undefined) update.status = status;
-    if (note !== undefined) update.note = note;
-    if (Object.keys(update).length === 0) {
-      return res.status(400).json({ error: 'No fields to update' });
+    const result = await waitingCollection.deleteOne({ id: req.params.id });
+    if (result.deletedCount === 0) {
+      return res.status(404).json({ error: 'Waiting entry not found' });
     }
-    const result = await waitingCollection.updateOne({ id: req.params.id }, { $set: update });
-    if (result.matchedCount === 0) {
-      return res.status(404).json({ error: 'Not found' });
-    }
-    const updated = await waitingCollection.findOne({ id: req.params.id });
-    res.json(updated);
+    res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
-app.delete('/api/waiting-customers/:id', async (req, res) => {
+// ---- Help / FAQ (admin-added, on top of the built-in ones in the UI) ----
+app.get('/api/faqs', async (req, res) => {
   try {
-    const result = await waitingCollection.deleteOne({ id: req.params.id });
+    const list = await faqsCollection.find({}).sort({ createdAt: 1 }).toArray();
+    res.json(list);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/faqs', async (req, res) => {
+  try {
+    const { question, answer, category } = req.body;
+    if (!question || !answer) {
+      return res.status(400).json({ error: 'question and answer are required' });
+    }
+    const entry = {
+      id: Date.now().toString(),
+      question,
+      answer,
+      category: category || 'General',
+      createdAt: new Date()
+    };
+    await faqsCollection.insertOne(entry);
+    res.json(entry);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.delete('/api/faqs/:id', async (req, res) => {
+  try {
+    const result = await faqsCollection.deleteOne({ id: req.params.id });
     if (result.deletedCount === 0) {
-      return res.status(404).json({ error: 'Not found' });
+      return res.status(404).json({ error: 'FAQ not found' });
     }
     res.json({ success: true });
   } catch (err) {
@@ -1155,51 +1240,24 @@ app.get('/api/health', (req, res) => {
 
 // ─── Start server ──────────────────────────────────────────
 
-// Automatically remove subscription entries that have expired from the
-// customer's portal. Unlike before, we don't just silently delete them:
-// each screen that just lost a customer this way gets flagged with
-// `needsRotation: true` (plus a note of who expired) so the admin portal
-// can blink/highlight that exact screen. This is the reminder to actually
-// change that screen's PIN (or the account password) since the old
-// customer may still remember it. The flag is cleared automatically the
-// next time an admin regenerates that screen's PIN or edits it manually.
+// Automatically and permanently remove subscription entries that have expired.
+// Uses an atomic $pull across every account/screen at once (no read-modify-write),
+// so it can never collide with or erase a purchase that's being saved at the same time.
 async function cleanupExpiredCustomers() {
   try {
     const todayStr = new Date().toISOString().slice(0, 10); // 'YYYY-MM-DD'
-    const subs = await subscriptionsCollection.find(
-      { 'accounts.screens.customers.expiryDate': { $exists: true, $ne: '', $lt: todayStr } }
-    ).toArray();
-
-    let flaggedCount = 0;
-    for (const sub of subs) {
-      for (const acc of (sub.accounts || [])) {
-        for (const screen of (acc.screens || [])) {
-          const expired = (screen.customers || []).filter(c =>
-            c.expiryDate && c.expiryDate !== '' && c.expiryDate < todayStr
-          );
-          if (expired.length === 0) continue;
-
-          await subscriptionsCollection.updateOne(
-            { id: sub.id },
-            {
-              $set: {
-                'accounts.$[acc].screens.$[scr].needsRotation': true,
-                'accounts.$[acc].screens.$[scr].rotationNote': expired.map(c => c.name || c.username).join(', ')
-              },
-              $pull: {
-                'accounts.$[acc].screens.$[scr].customers': {
-                  expiryDate: { $exists: true, $ne: '', $lt: todayStr }
-                }
-              }
-            },
-            { arrayFilters: [{ 'acc.id': acc.id }, { 'scr.id': screen.id }] }
-          );
-          flaggedCount++;
+    const result = await subscriptionsCollection.updateMany(
+      {},
+      {
+        $pull: {
+          'accounts.$[].screens.$[].customers': {
+            expiryDate: { $exists: true, $ne: '', $lt: todayStr }
+          }
         }
       }
-    }
-    if (flaggedCount > 0) {
-      console.log(`🧹 Cleared expired customers and flagged ${flaggedCount} screen(s) for PIN/password rotation`);
+    );
+    if (result.modifiedCount > 0) {
+      console.log(`🧹 Cleaned up expired customer entries from ${result.modifiedCount} subscription(s)`);
     }
   } catch (err) {
     console.error('❌ Cleanup error:', err);

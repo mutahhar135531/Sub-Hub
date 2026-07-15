@@ -175,10 +175,6 @@
     .spinner { width:24px; height:24px; border:3px solid rgba(239,68,68,0.15); border-top-color:#ef4444; border-radius:50%; animation:spin .8s linear infinite; display:inline-block; }
     @keyframes spin { to { transform:rotate(360deg); } }
 
-    /* ─── SCREEN NEEDS ROTATION (expired customer — PIN/password should be changed) ─── */
-    .screen-needs-rotation { border:1px solid #fbbf24 !important; background:rgba(251,191,36,0.18) !important; animation:screen-blink 1s ease-in-out infinite; cursor:pointer; }
-    @keyframes screen-blink { 0%, 100% { box-shadow:0 0 4px rgba(251,191,36,0.3); background:rgba(251,191,36,0.10); } 50% { box-shadow:0 0 16px rgba(251,191,36,0.9); background:rgba(251,191,36,0.35); } }
-
     .fade-up { opacity:0; transform:translateY(30px); transition:all .6s ease; }
     .fade-up.visible { opacity:1; transform:translateY(0); }
     ::selection { background:rgba(239,68,68,0.30); color:#fff; }
@@ -244,6 +240,17 @@
     const { useState, useEffect, useRef, useCallback, useMemo, createContext, useContext } = React;
 
     const API_BASE = 'https://sub-hub-he32.onrender.com';
+
+    // A fresh, unique ID generated once per purchase attempt. It's sent to
+    // the server with every step of that purchase (credit deduction,
+    // saving the allocation, adding a waiting-list entry) so the server can
+    // recognize "this is the same purchase, not a new one" and refuse to
+    // apply it twice — even if a duplicate request reaches it for any
+    // reason (double click, retry, stale cached page, etc).
+    const genPurchaseId = () => {
+      if (window.crypto && window.crypto.randomUUID) return window.crypto.randomUUID();
+      return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    };
     const ADMIN_WHATSAPP = 'https://wa.me/923079163485';
 
     // ─── API HELPERS ──────────────────────────────────────────
@@ -307,56 +314,16 @@
     // Atomically push a new customer purchase into one specific account/screen.
     // This never touches any other customer's data, so it can't wipe out
     // someone else's subscription details the way a full-document overwrite could.
-    const allocateCustomer = async (subId, accountId, screenId, customer) => {
+    const allocateCustomer = async (subId, accountId, screenId, customer, purchaseId) => {
       const res = await fetch(`${API_BASE}/api/subscriptions/${subId}/allocate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ accountId, screenId, customer }),
+        body: JSON.stringify({ accountId, screenId, customer, purchaseId }),
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({ error: 'Failed to save subscription' }));
         throw new Error(err.error || 'Failed to save subscription');
       }
-      return res.json();
-    };
-
-    // Waiting customers: used when a purchase completes but no account/screen
-    // slot is available for that subscription right now. The purchase still
-    // goes through for the customer; this records what's owed so the admin
-    // can add the account and follow up.
-    const fetchWaitingCustomers = async () => {
-      const res = await fetch(`${API_BASE}/api/waiting-customers?t=${Date.now()}`, {
-        headers: { 'Cache-Control': 'no-cache' }
-      });
-      return res.json();
-    };
-
-    const addWaitingCustomer = async (data) => {
-      const res = await fetch(`${API_BASE}/api/waiting-customers`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
-      });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({ error: 'Failed to record waiting customer' }));
-        throw new Error(err.error || 'Failed to record waiting customer');
-      }
-      return res.json();
-    };
-
-    const updateWaitingCustomerAPI = async (id, data) => {
-      const res = await fetch(`${API_BASE}/api/waiting-customers/${id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
-      });
-      return res.json();
-    };
-
-    const deleteWaitingCustomerAPI = async (id) => {
-      const res = await fetch(`${API_BASE}/api/waiting-customers/${id}`, {
-        method: 'DELETE',
-      });
       return res.json();
     };
 
@@ -471,11 +438,11 @@
       return data;
     };
 
-    const deductCredits = async (username, amount) => {
+    const deductCredits = async (username, amount, purchaseId) => {
       const res = await fetch(`${API_BASE}/api/users/${username}/deductCredits`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ amount }),
+        body: JSON.stringify({ amount, purchaseId }),
       });
       const data = await res.json();
       // IMPORTANT: fetch() does NOT throw on 4xx/5xx responses, so without
@@ -558,6 +525,54 @@
       const res = await fetch(`${API_BASE}/api/promotions/${promoId}`, {
         method: 'DELETE',
       });
+      return res.json();
+    };
+
+    // ─── WAITING CUSTOMERS ──────────────────────────────────────
+    const fetchWaitingList = async () => {
+      const res = await fetch(`${API_BASE}/api/waiting?t=${Date.now()}`, {
+        headers: { 'Cache-Control': 'no-cache' }
+      });
+      return res.json();
+    };
+
+    const addWaitingCustomer = async (data) => {
+      const res = await fetch(`${API_BASE}/api/waiting`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+      const result = await res.json();
+      if (!res.ok) throw result;
+      return result;
+    };
+
+    const removeWaitingCustomer = async (id) => {
+      const res = await fetch(`${API_BASE}/api/waiting/${id}`, { method: 'DELETE' });
+      return res.json();
+    };
+
+    // ─── HELP / FAQ ───────────────────────────────────────────
+    const fetchFaqs = async () => {
+      const res = await fetch(`${API_BASE}/api/faqs?t=${Date.now()}`, {
+        headers: { 'Cache-Control': 'no-cache' }
+      });
+      return res.json();
+    };
+
+    const addFaq = async (data) => {
+      const res = await fetch(`${API_BASE}/api/faqs`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+      const result = await res.json();
+      if (!res.ok) throw result;
+      return result;
+    };
+
+    const deleteFaq = async (id) => {
+      const res = await fetch(`${API_BASE}/api/faqs/${id}`, { method: 'DELETE' });
       return res.json();
     };
 
@@ -660,6 +675,7 @@
       const navItems = [
         { id: 'home', label: 'Home', icon: 'fa-home' },
         { id: 'subscriptions', label: 'Subscriptions', icon: 'fa-crown' },
+        { id: 'help', label: 'Help', icon: 'fa-question-circle' },
         { id: 'contact', label: 'Contact', icon: 'fa-envelope' },
         { id: 'social', label: 'Social', icon: 'fa-share-alt' },
       ];
@@ -677,6 +693,7 @@
           window.history.pushState({ tab: id }, '', path);
         }
         if (id === 'admin') document.getElementById('admin-section')?.scrollIntoView({ behavior: 'smooth' });
+        if (id === 'help') document.getElementById('help-section')?.scrollIntoView({ behavior: 'smooth' });
         if (id === 'contact') document.getElementById('contact-section')?.scrollIntoView({ behavior: 'smooth' });
         if (id === 'social') document.getElementById('social-section')?.scrollIntoView({ behavior: 'smooth' });
       };
@@ -1699,7 +1716,10 @@
           addToast('WhatsApp number must match your sign-up number', 'error');
           return;
         }
-        if (specificScreen && !selectedScreenId && canAllocate) {
+        // No accounts/screens added for this subscription yet (or all full).
+        // We still let the purchase go ahead — it'll be recorded as a
+        // waiting request for the admin instead of an active account.
+        if (canAllocate && specificScreen && !selectedScreenId) {
           addToast('Please select a specific screen', 'error');
           return;
         }
@@ -1738,6 +1758,7 @@
         // an earlier click that hasn't finished yet), ignore this one.
         if (isSubmittingRef.current) return;
         isSubmittingRef.current = true;
+        const purchaseId = genPurchaseId();
 
         if (!name.trim() || !whatsapp.trim()) {
           addToast('Please fill all details', 'error');
@@ -1749,35 +1770,45 @@
           isSubmittingRef.current = false;
           return;
         }
-        // If no screens are currently available, we no longer block the purchase —
-        // it still goes through, and `allocated` stays empty. handleSubComplete
-        // will record it as a waiting-list entry for the admin instead of
-        // assigning a screen right now.
-        let allocated = [];
+
+        // No account/screen exists for this subscription yet (or every
+        // existing one is full). We don't block the purchase for this —
+        // it goes through and lands in the admin's Waiting Customers list
+        // instead of getting real account credentials right away.
+        let allocatedData = [];
+        let isWaiting = !canAllocate;
+
         if (canAllocate) {
           let requestedId = specificScreen ? selectedScreenId : null;
           let allocationResult = allocateScreens(allAvailableSlots, screens, user.username, whatsapp.trim(), requestedId);
+          let allocated = null;
           if (allocationResult.error) {
             if (specificScreen) {
               const autoResult = allocateScreens(allAvailableSlots, screens, user.username, whatsapp.trim(), null);
-              if (!autoResult.error) {
+              if (autoResult.error) {
+                isWaiting = true;
+              } else {
                 allocated = autoResult;
                 addToast('The requested screen is not available. We\'ve assigned you another screen.', 'warning');
               }
+            } else {
+              isWaiting = true;
             }
           } else {
             allocated = allocationResult;
           }
-        }
 
-        const allocatedData = allocated.map(slot => ({
-          accountId: slot.account.id,
-          screenId: slot.screen.id,
-          screenName: slot.screen.name,
-          accountEmail: slot.account.email,
-          accountPassword: slot.account.password || '••••••••',
-          screenPin: slot.screen.pin || 'N/A'
-        }));
+          if (allocated) {
+            allocatedData = allocated.map(slot => ({
+              accountId: slot.account.id,
+              screenId: slot.screen.id,
+              screenName: slot.screen.name,
+              accountEmail: slot.account.email,
+              accountPassword: slot.account.password || '••••••••',
+              screenPin: slot.screen.pin || 'N/A'
+            }));
+          }
+        }
 
         setLoading(true);
         const now = new Date();
@@ -1787,7 +1818,7 @@
 
         if (useCreditsFlag) {
           try {
-            const updatedUser = await deductCredits(user.username, creditsNeeded);
+            const updatedUser = await deductCredits(user.username, creditsNeeded, purchaseId);
             setUser(updatedUser);
             addToast(`✅ ${creditsNeeded} credits deducted. Subscription activated!`, 'success');
           } catch (err) {
@@ -1801,6 +1832,7 @@
         setTimeout(() => {
           onComplete({
             subscriptionId: subscription.id,
+            subscriptionName: subscription.name,
             screens,
             months: durationType === 'months' ? months : 0,
             days: totalDays,
@@ -1811,6 +1843,8 @@
             allocated: allocatedData,
             expiryDate: expiry.toISOString().split('T')[0],
             paidWithCredits: useCreditsFlag,
+            isWaiting,
+            purchaseId,
             purchasedAt: now.toISOString()
           });
           setLoading(false);
@@ -1819,6 +1853,10 @@
       };
 
       const handlePayWithCredits = async () => {
+        if (isSubmittingRef.current) {
+          addToast('Please wait, your purchase is already processing…', 'info');
+          return;
+        }
         if (!canUseCredits) {
           addToast('Insufficient credits', 'error');
           return;
@@ -1861,21 +1899,27 @@
                 <input type="number" value={days} onChange={(e) => setDays(Math.max(1, Number(e.target.value)))} className="input-neon mt-1" min="1" />
               </div>
             )}
-            <div className="bg-red-500/5 rounded-xl p-4 border border-red-500/10">
-              <div className="flex items-center gap-3">
-                <input type="checkbox" checked={specificScreen} onChange={(e) => setSpecificScreen(e.target.checked)} className="w-4 h-4 accent-red-500" />
-                <label className="text-white/70 text-sm">I want a specific screen</label>
-              </div>
-              {specificScreen && (
-                <div className="mt-3">
-                  <label className="text-white/50 text-sm font-medium">Choose Screen</label>
-                  <select value={selectedScreenId} onChange={(e) => setSelectedScreenId(e.target.value)} className="input-neon mt-1">
-                    <option value="">--Select--</option>
-                    {availableForDisplay.map(opt => <option key={opt.id} value={opt.id}>{opt.label}</option>)}
-                  </select>
+            {canAllocate ? (
+              <div className="bg-red-500/5 rounded-xl p-4 border border-red-500/10">
+                <div className="flex items-center gap-3">
+                  <input type="checkbox" checked={specificScreen} onChange={(e) => setSpecificScreen(e.target.checked)} className="w-4 h-4 accent-red-500" />
+                  <label className="text-white/70 text-sm">I want a specific screen</label>
                 </div>
-              )}
-            </div>
+                {specificScreen && (
+                  <div className="mt-3">
+                    <label className="text-white/50 text-sm font-medium">Choose Screen</label>
+                    <select value={selectedScreenId} onChange={(e) => setSelectedScreenId(e.target.value)} className="input-neon mt-1">
+                      <option value="">--Select--</option>
+                      {availableForDisplay.map(opt => <option key={opt.id} value={opt.id}>{opt.label}</option>)}
+                    </select>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="bg-yellow-500/10 rounded-xl p-4 border border-yellow-500/20">
+                <p className="text-yellow-400 text-sm"><i className="fas fa-info-circle mr-2"></i> This subscription is currently out of stock. You can still purchase — your account will be added to your portal soon and admin will be notified.</p>
+              </div>
+            )}
             <div className="space-y-3">
               <div><label className="text-white/50 text-sm font-medium">Full Name</label>
                 <input type="text" value={name} onChange={(e) => setName(e.target.value)} className="input-neon mt-1" placeholder="Your full name" />
@@ -1899,9 +1943,6 @@
                 {loading ? <span className="spinner"></span> : <><i className="fas fa-coins mr-2"></i> Pay with Credits</>}
               </button>
             ) : (
-              {!canAllocate && (
-                <p className="text-amber-400 text-xs mb-2"><i className="fas fa-info-circle mr-1"></i> No screen is free right now — your purchase will still go through and be added to your portal as soon as an account is available.</p>
-              )}
               <button onClick={handleGenerateOTP} className="btn-neon w-full py-3">
                 <i className="fas fa-key mr-2"></i> Get OTP
               </button>
@@ -1938,7 +1979,7 @@
               <p><span className="text-white/50">WhatsApp:</span> <span className="text-white">{whatsapp}</span></p>
               <p><span className="text-white/50">Plan:</span> <span className="text-white">{screens} screen(s) for {durationType === 'months' ? months + ' month(s)' : days + ' day(s)'}</span></p>
             </div>
-            <button onClick={() => completePurchase(false)} disabled={loading} className="btn-neon w-full py-3">
+            <button onClick={() => { if (isSubmittingRef.current) { addToast('Please wait, your purchase is already processing…', 'info'); return; } completePurchase(false); }} disabled={loading} className="btn-neon w-full py-3">
               {loading ? <span className="spinner"></span> : <><i className="fas fa-check-circle mr-2"></i> Complete Purchase</>}
             </button>
           </div>
@@ -2033,6 +2074,7 @@
       const completePurchase = async (useCreditsFlag = false) => {
         if (isSubmittingRef.current) return;
         isSubmittingRef.current = true;
+        const purchaseId = genPurchaseId();
 
         if (!name.trim() || !whatsapp.trim()) {
           addToast('Please fill all details', 'error');
@@ -2044,20 +2086,27 @@
           isSubmittingRef.current = false;
           return;
         }
-        // If no slot is currently available, the purchase still proceeds —
-        // allocatedData stays empty and handleSubComplete records it as a
-        // waiting-list entry for the admin instead of assigning a screen now.
-        const purchaseCount = user.purchaseCount || 0;
-        const slot = canAllocate ? allocateAmazonScreen(availableSlots, user.username, whatsapp.trim(), purchaseCount) : null;
 
-        const allocatedData = slot ? [{
-          accountId: slot.account.id,
-          screenId: slot.screen.id,
-          screenName: slot.screen.name,
-          accountEmail: slot.account.email,
-          accountPassword: slot.account.password || '••••••••',
-          screenPin: slot.screen.pin || 'N/A'
-        }] : [];
+        // No account/screen exists yet (or all full) — purchase still goes
+        // ahead and lands in the admin's Waiting Customers list.
+        let allocatedData = [];
+        let isWaiting = !canAllocate;
+        if (canAllocate) {
+          const purchaseCount = user.purchaseCount || 0;
+          const slot = allocateAmazonScreen(availableSlots, user.username, whatsapp.trim(), purchaseCount);
+          if (!slot) {
+            isWaiting = true;
+          } else {
+            allocatedData = [{
+              accountId: slot.account.id,
+              screenId: slot.screen.id,
+              screenName: slot.screen.name,
+              accountEmail: slot.account.email,
+              accountPassword: slot.account.password || '••••••••',
+              screenPin: slot.screen.pin || 'N/A'
+            }];
+          }
+        }
 
         setLoading(true);
         const now = new Date();
@@ -2067,7 +2116,7 @@
 
         if (useCreditsFlag) {
           try {
-            const updatedUser = await deductCredits(user.username, creditsNeeded);
+            const updatedUser = await deductCredits(user.username, creditsNeeded, purchaseId);
             setUser(updatedUser);
             addToast(`✅ ${creditsNeeded} credits deducted.`, 'success');
           } catch (err) {
@@ -2088,6 +2137,7 @@
         setTimeout(() => {
           onComplete({
             subscriptionId: subscription.id,
+            subscriptionName: subscription.name,
             screens: 1,
             months: durationType === 'months' ? months : 0,
             days: totalDays,
@@ -2098,6 +2148,8 @@
             allocated: allocatedData,
             expiryDate: expiry.toISOString().split('T')[0],
             paidWithCredits: useCreditsFlag,
+            isWaiting,
+            purchaseId,
             purchasedAt: now.toISOString()
           });
           setLoading(false);
@@ -2106,6 +2158,10 @@
       };
 
       const handlePayWithCredits = async () => {
+        if (isSubmittingRef.current) {
+          addToast('Please wait, your purchase is already processing…', 'info');
+          return;
+        }
         if (!canUseCredits) {
           addToast('Insufficient credits', 'error');
           return;
@@ -2134,6 +2190,11 @@
                 <input type="number" value={days} onChange={(e) => setDays(Math.max(1, Number(e.target.value)))} className="input-neon mt-1" min="1" />
               </div>
             )}
+            {!canAllocate && (
+              <div className="bg-yellow-500/10 rounded-xl p-4 border border-yellow-500/20">
+                <p className="text-yellow-400 text-sm"><i className="fas fa-info-circle mr-2"></i> This subscription is currently out of stock. You can still purchase — your account will be added to your portal soon and admin will be notified.</p>
+              </div>
+            )}
             <div className="space-y-3">
               <div><label className="text-white/50 text-sm font-medium">Full Name</label>
                 <input type="text" value={name} onChange={(e) => setName(e.target.value)} className="input-neon mt-1" placeholder="Your full name" />
@@ -2157,9 +2218,6 @@
                 {loading ? <span className="spinner"></span> : <><i className="fas fa-coins mr-2"></i> Pay with Credits</>}
               </button>
             ) : (
-              {!canAllocate && (
-                <p className="text-amber-400 text-xs mb-2"><i className="fas fa-info-circle mr-1"></i> No screen is free right now — your purchase will still go through and be added to your portal as soon as an account is available.</p>
-              )}
               <button onClick={handleGenerateOTP} className="btn-neon w-full py-3">
                 <i className="fas fa-key mr-2"></i> Get OTP
               </button>
@@ -2196,7 +2254,7 @@
               <p><span className="text-white/50">WhatsApp:</span> <span className="text-white">{whatsapp}</span></p>
               <p><span className="text-white/50">Plan:</span> <span className="text-white">1 screen for {durationType === 'months' ? months + ' month(s)' : days + ' day(s)'}</span></p>
             </div>
-            <button onClick={() => completePurchase(false)} disabled={loading} className="btn-neon w-full py-3">
+            <button onClick={() => { if (isSubmittingRef.current) { addToast('Please wait, your purchase is already processing…', 'info'); return; } completePurchase(false); }} disabled={loading} className="btn-neon w-full py-3">
               {loading ? <span className="spinner"></span> : <><i className="fas fa-check-circle mr-2"></i> Complete</>}
             </button>
           </div>
@@ -2299,6 +2357,7 @@
       const completePurchase = async (useCreditsFlag = false) => {
         if (isSubmittingRef.current) return;
         isSubmittingRef.current = true;
+        const purchaseId = genPurchaseId();
 
         if (!name.trim() || !whatsapp.trim()) {
           addToast('Please fill all details', 'error');
@@ -2334,6 +2393,7 @@
 
         const allocation = allocateSimpleScreen(subscription, user.username, whatsapp.trim());
         let allocatedData = [];
+        let isWaiting = false;
         if (allocation) {
           allocatedData = [{
             accountId: allocation.account.id,
@@ -2343,11 +2403,16 @@
             accountPassword: allocation.account.password || '••••••••',
             screenPin: allocation.screen.pin || 'N/A'
           }];
+        } else {
+          // No account exists for this subscription yet (or it's full) —
+          // purchase still goes ahead and lands in the admin's Waiting
+          // Customers list instead of getting real credentials right away.
+          isWaiting = true;
         }
 
         if (useCreditsFlag) {
           try {
-            const updatedUser = await deductCredits(user.username, creditsNeeded);
+            const updatedUser = await deductCredits(user.username, creditsNeeded, purchaseId);
             setUser(updatedUser);
             addToast(`✅ ${creditsNeeded} credits deducted.`, 'success');
           } catch (err) {
@@ -2367,6 +2432,7 @@
         setTimeout(() => {
           onComplete({
             subscriptionId: subscription.id,
+            subscriptionName: isCustom ? customSubName.trim() : subscription.name,
             screens: 1,
             months: months,
             days: totalDays,
@@ -2379,6 +2445,8 @@
             allocated: allocatedData,
             expiryDate: expiry.toISOString().split('T')[0],
             paidWithCredits: useCreditsFlag,
+            isWaiting,
+            purchaseId,
             purchasedAt: now.toISOString()
           });
           setLoading(false);
@@ -2387,6 +2455,10 @@
       };
 
       const handlePayWithCredits = async () => {
+        if (isSubmittingRef.current) {
+          addToast('Please wait, your purchase is already processing…', 'info');
+          return;
+        }
         if (!canUseCredits) {
           addToast('Insufficient credits', 'error');
           return;
@@ -2444,10 +2516,10 @@
                 </p>
               </div>
             )}
-            {isCanva && (
+            {isCanva && creditsNeeded > 0 && (
               <div className="bg-yellow-500/10 rounded-xl p-3 border border-yellow-500/20">
                 <p className="text-yellow-400 text-sm">
-                  <i className="fas fa-info-circle mr-2"></i> Canva Pro: 250 credits for 1 year
+                  <i className="fas fa-info-circle mr-2"></i> Canva Pro: {creditsNeeded} credits for 1 year
                 </p>
               </div>
             )}
@@ -2565,6 +2637,7 @@
       const completePurchase = async (useCreditsFlag = false) => {
         if (isSubmittingRef.current) return;
         isSubmittingRef.current = true;
+        const purchaseId = genPurchaseId();
 
         if (!name.trim() || !whatsapp.trim()) {
           addToast('Please fill all details', 'error');
@@ -2580,7 +2653,7 @@
 
         if (useCreditsFlag) {
           try {
-            const updatedUser = await deductCredits(user.username, creditsNeeded);
+            const updatedUser = await deductCredits(user.username, creditsNeeded, purchaseId);
             setUser(updatedUser);
             addToast(`✅ ${creditsNeeded} credits deducted.`, 'success');
           } catch (err) {
@@ -2593,6 +2666,7 @@
 
         let allAllocated = [];
         let allSubscriptions = [];
+        let waitingSubs = [];
 
         for (const sub of dealSubs) {
           const subType = sub.type;
@@ -2665,6 +2739,12 @@
           if (allocatedForSub.length > 0) {
             allAllocated = allAllocated.concat(allocatedForSub);
             allSubscriptions.push(sub.id);
+          } else {
+            // No account available for this part of the deal — it still
+            // gets recorded so the admin can fulfill it and add the
+            // customer's account soon, instead of the customer silently
+            // getting less than what the deal promised.
+            waitingSubs.push({ id: sub.id, name: sub.name });
           }
         }
 
@@ -2691,6 +2771,8 @@
             dealTitle: deal.title,
             dealSubscriptionIds: deal.subscriptionIds || [],
             dealSubscriptions: allSubscriptions,
+            waitingSubs,
+            purchaseId,
             purchasedAt: now.toISOString()
           });
           setLoading(false);
@@ -2699,6 +2781,10 @@
       };
 
       const handlePayWithCredits = async () => {
+        if (isSubmittingRef.current) {
+          addToast('Please wait, your purchase is already processing…', 'info');
+          return;
+        }
         if (!canUseCredits) {
           addToast('Insufficient credits', 'error');
           return;
@@ -2737,6 +2823,7 @@
                 <span className="badge badge-yellow text-xs">🔥 Deal</span>
               </div>
             </div>
+            <p className="text-white/30 text-xs -mt-2">If any part of this deal is out of stock, it'll still be purchased and added to your portal soon — admin will be notified.</p>
             <div className="space-y-3">
               <div><label className="text-white/50 text-sm font-medium">Full Name</label>
                 <input type="text" value={name} onChange={(e) => setName(e.target.value)} className="input-neon mt-1" placeholder="Your full name" />
@@ -2789,9 +2876,74 @@
       return null;
     }
 
-    // ─── CUSTOM FLOW (legacy) ────────────────────────────────
-    function CustomFlow({ subscription, onBack, onComplete, user }) {
-      return <SimpleSubscriptionFlow subscription={subscription} onBack={onBack} onComplete={onComplete} user={user} />;
+    // ─── CUSTOM SUBSCRIPTION REQUEST ────────────────────────────
+    // For when the customer wants something that isn't listed at all.
+    // No payment here — it's just a request. Name/WhatsApp come from
+    // their account already; they only type the subscription name and
+    // pick how many months. Goes straight to the admin's Waiting
+    // Customers list so the admin can follow up with pricing/availability.
+    function CustomFlow({ onBack, onComplete, user }) {
+      const [subName, setSubName] = useState('');
+      const [months, setMonths] = useState(1);
+      const [name, setName] = useState('');
+      const [whatsapp, setWhatsapp] = useState(user?.whatsapp || '');
+      const [submitting, setSubmitting] = useState(false);
+      const { addToast } = useContext(AppContext);
+      const isSubmittingRef = useRef(false);
+
+      const handleSubmit = async () => {
+        if (isSubmittingRef.current) return;
+        if (!subName.trim()) { addToast('Please enter the exact subscription name', 'error'); return; }
+        if (!name.trim() || !whatsapp.trim()) { addToast('Please fill your name and WhatsApp number', 'error'); return; }
+        if (user && whatsapp.trim() !== user?.whatsapp) {
+          addToast('WhatsApp number must match your sign-up number', 'error');
+          return;
+        }
+        isSubmittingRef.current = true;
+        const purchaseId = genPurchaseId();
+        setSubmitting(true);
+        try {
+          await onComplete({
+            subscriptionName: subName.trim(),
+            name: name.trim(),
+            username: user?.username || '',
+            whatsapp: whatsapp.trim(),
+            months,
+            purchaseId
+          });
+        } finally {
+          setSubmitting(false);
+          isSubmittingRef.current = false;
+        }
+      };
+
+      return (
+        <div className="space-y-6">
+          <button onClick={onBack} className="text-red-400 hover:text-red-300 text-sm"><i className="fas fa-arrow-left mr-2"></i> Back</button>
+          <h2 className="text-2xl font-bold text-white"><i className="fas fa-hand-paper text-red-400 mr-3"></i> Request Custom Subscription</h2>
+          <p className="text-white/40 text-sm -mt-2">Don't see what you want in our list? Tell us exactly what you need and we'll get back to you with pricing and availability.</p>
+          <div><label className="text-white/50 text-sm font-medium">Subscription Name (exact)</label>
+            <input type="text" value={subName} onChange={(e) => setSubName(e.target.value)} className="input-neon mt-1" placeholder="e.g. Disney+ Hotstar" />
+          </div>
+          <div><label className="text-white/50 text-sm font-medium">For how many months</label>
+            <select value={months} onChange={(e) => setMonths(Number(e.target.value))} className="input-neon mt-1">
+              {[1,2,3,6,12].map(n => <option key={n} value={n}>{n} {n === 1 ? 'month' : 'months'}</option>)}
+            </select>
+          </div>
+          <div className="space-y-3">
+            <div><label className="text-white/50 text-sm font-medium">Full Name</label>
+              <input type="text" value={name} onChange={(e) => setName(e.target.value)} className="input-neon mt-1" placeholder="Your full name" />
+            </div>
+            <div><label className="text-white/50 text-sm font-medium">WhatsApp Number</label>
+              <input type="tel" value={whatsapp} onChange={(e) => setWhatsapp(e.target.value)} className="input-neon mt-1" placeholder="+92 300 1234567" readOnly={!!user?.whatsapp} />
+              {user?.whatsapp && <p className="text-xs text-white/30 mt-1">(locked to your sign‑up number)</p>}
+            </div>
+          </div>
+          <button onClick={handleSubmit} disabled={submitting} className="btn-neon w-full py-3">
+            {submitting ? <span className="spinner"></span> : <><i className="fas fa-paper-plane mr-2"></i> Submit Request</>}
+          </button>
+        </div>
+      );
     }
 
     // ─── AUTH PAGE ─────────────────────────────────────────────
@@ -3480,6 +3632,167 @@
       );
     }
 
+    // ─── HELP / FAQ ─────────────────────────────────────────────
+    // Built-in answers to the questions customers ask most. Each item can
+    // carry an `action` that renders a real button taking them straight to
+    // that part of the app, instead of just describing it in text.
+    // `onAction` types used below: 'subscriptions' (browse/purchase),
+    // 'auth' (sign up / sign in), 'portal' (customer dashboard), 'whatsapp'.
+    const DEFAULT_FAQS = [
+      {
+        id: 'signup', category: 'Getting Started',
+        question: 'How do I sign up?',
+        answer: "Tap \"Customer Portal\" in the navbar, choose Sign Up, and enter your WhatsApp number with a username and password. That WhatsApp number is what confirms it's really you on every purchase afterwards, so make sure it's correct.",
+        action: { label: 'Sign Up Now', type: 'auth' }
+      },
+      {
+        id: 'signin', category: 'Getting Started',
+        question: 'How do I sign in?',
+        answer: 'Tap "Customer Portal" in the navbar and enter the username and password you signed up with.',
+        action: { label: 'Sign In', type: 'auth' }
+      },
+      {
+        id: 'forgot-password', category: 'Getting Started',
+        question: 'I forgot my password. How do I recover it?',
+        answer: "For your account's security, passwords can't be recovered automatically. Message our support team on WhatsApp with your registered username and WhatsApp number — once we verify it's you, we'll reset it for you.",
+        action: { label: 'Chat on WhatsApp', type: 'whatsapp' }
+      },
+      {
+        id: 'buy-subscription', category: 'Purchases & Payments',
+        question: 'How do I buy a subscription?',
+        answer: 'Browse Subscriptions, pick the one you want, choose your plan (screens/months), and fill in your name and WhatsApp number. Then either pay with credits or request an OTP to confirm. Once confirmed, your login details show up instantly in your Customer Portal.',
+        action: { label: 'Browse Subscriptions', type: 'subscriptions' }
+      },
+      {
+        id: 'buy-credits', category: 'Purchases & Payments',
+        question: 'How do I buy or add credits?',
+        answer: "Credits are topped up by our team, not purchased inside the app directly. Message us on WhatsApp with how many credits you'd like — once your payment is confirmed, we'll add them to your account right away.",
+        action: { label: 'Chat on WhatsApp', type: 'whatsapp' }
+      },
+      {
+        id: 'pay-credits', category: 'Purchases & Payments',
+        question: 'Can I pay with credits instead of an OTP?',
+        answer: 'Yes. On any subscription\'s purchase page, if you have enough credits you\'ll see a "Pay with Credits" toggle — turn it on and your purchase completes instantly, no OTP needed.'
+      },
+      {
+        id: 'otp-issue', category: 'Purchases & Payments',
+        question: "I didn't receive my OTP. What should I do?",
+        answer: 'OTPs are sent instantly and expire after a short time. Double check your WhatsApp number exactly matches your sign-up number, then tap "Get OTP" again. Still nothing? Reach out to support and we\'ll sort it out.',
+        action: { label: 'Chat on WhatsApp', type: 'whatsapp' }
+      },
+      {
+        id: 'out-of-stock', category: 'Purchases & Payments',
+        question: 'What happens if a subscription is out of stock?',
+        answer: "You can still complete your purchase — payment goes through as normal. Instead of getting login details immediately, you're added to our waiting list and we'll deliver your account soon after, usually within 24 hours."
+      },
+      {
+        id: 'custom-request', category: 'Purchases & Payments',
+        question: "The subscription I want isn't listed. What can I do?",
+        answer: "Use \"Request Custom Subscription\" on the subscription selection page. Tell us exactly what you need and for how many months, and we'll follow up with pricing and availability.",
+        action: { label: 'Browse Subscriptions', type: 'subscriptions' }
+      },
+      {
+        id: 'deals', category: 'Purchases & Payments',
+        question: 'How do deals / bundles work?',
+        answer: "Deals bundle two or more subscriptions together at a discounted price. Fill in your details and confirm just like a normal purchase — every subscription in the bundle gets added to your portal."
+      },
+      {
+        id: 'check-purchases', category: 'Your Account',
+        question: 'How do I check my purchased subscriptions?',
+        answer: 'Open "Customer Portal" from the navbar — every active subscription you own, its login details, and its expiry date are all listed there.',
+        action: { label: 'Go to Customer Portal', type: 'portal' }
+      },
+      {
+        id: 'whatsapp-locked', category: 'Your Account',
+        question: 'Why is my WhatsApp number locked during purchase?',
+        answer: "It's locked to the number you signed up with so we can always verify a purchase is really coming from you, and reach you directly if there's ever an issue with your order."
+      },
+      {
+        id: 'refund', category: 'Support',
+        question: 'Can I get a refund?',
+        answer: "Refund eligibility depends on your specific order. Message our support team on WhatsApp with your order details and we'll help sort it out.",
+        action: { label: 'Chat on WhatsApp', type: 'whatsapp' }
+      },
+      {
+        id: 'contact-support', category: 'Support',
+        question: 'How do I contact support?',
+        answer: 'Tap the WhatsApp button visible anywhere in the app, or check the Contact page for our phone number and email.',
+        action: { label: 'Chat on WhatsApp', type: 'whatsapp' }
+      }
+    ];
+
+    function HelpSection({ customFaqs, onAction }) {
+      const [search, setSearch] = useState('');
+      const [openId, setOpenId] = useState(null);
+
+      const allFaqs = useMemo(() => {
+        return [...DEFAULT_FAQS, ...(customFaqs || []).map(f => ({ ...f, isCustom: true }))];
+      }, [customFaqs]);
+
+      const filtered = useMemo(() => {
+        const term = search.trim().toLowerCase();
+        if (!term) return allFaqs;
+        return allFaqs.filter(f =>
+          f.question.toLowerCase().includes(term) || f.answer.toLowerCase().includes(term)
+        );
+      }, [allFaqs, search]);
+
+      const grouped = useMemo(() => {
+        const g = {};
+        filtered.forEach(f => {
+          const cat = f.category || 'General';
+          if (!g[cat]) g[cat] = [];
+          g[cat].push(f);
+        });
+        return g;
+      }, [filtered]);
+
+      const toggle = (id) => setOpenId(prev => prev === id ? null : id);
+
+      return (
+        <div className="max-w-3xl mx-auto">
+          <div className="mb-8">
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="input-neon w-full"
+              placeholder="Search for a question... (e.g. password, OTP, credits)"
+            />
+          </div>
+          {Object.keys(grouped).length === 0 ? (
+            <div className="text-center py-8 text-white/30"><i className="fas fa-question-circle text-4xl mb-3 block"></i> No questions match "{search}".</div>
+          ) : (
+            Object.entries(grouped).map(([category, items]) => (
+              <div key={category} className="mb-8">
+                <h3 className="text-white/40 text-xs font-semibold tracking-wider uppercase mb-3">{category}</h3>
+                <div className="space-y-3">
+                  {items.map(item => (
+                    <div key={item.id} className="rounded-2xl border border-white/10 bg-white/5 overflow-hidden">
+                      <button onClick={() => toggle(item.id)} className="w-full flex items-center justify-between text-left px-5 py-4 hover:bg-white/5 transition">
+                        <span className="text-white font-medium pr-4">{item.question}</span>
+                        <i className={`fas fa-chevron-down text-red-400 flex-shrink-0 transition-transform ${openId === item.id ? 'rotate-180' : ''}`}></i>
+                      </button>
+                      {openId === item.id && (
+                        <div className="px-5 pb-5 pt-1 border-t border-white/5">
+                          <p className="text-white/60 text-sm leading-relaxed">{item.answer}</p>
+                          {item.action && (
+                            <button onClick={() => onAction(item.action.type)} className="btn-neon-outline text-xs mt-4">
+                              {item.action.label} <i className="fas fa-arrow-right ml-2"></i>
+                            </button>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      );
+    }
+
     // ─── ADMIN DASHBOARD ──────────────────────────────────────
     function AdminDashboard({ subscriptions, setSubscriptions, onLogout, onBack, deals, setDeals, promotions, setPromotions }) {
       const [activeTab, setActiveTab] = useState('overview');
@@ -3501,8 +3814,27 @@
       const [newAdminPassword, setNewAdminPassword] = useState('');
       const [confirmAdminPassword, setConfirmAdminPassword] = useState('');
       const [otpList, setOtpList] = useState([]);
-      const [waitingList, setWaitingList] = useState([]);
       const [usersList, setUsersList] = useState([]);
+      const [waitingList, setWaitingList] = useState([]);
+      const [faqsList, setFaqsList] = useState([]);
+      const [newFaqQuestion, setNewFaqQuestion] = useState('');
+      const [newFaqAnswer, setNewFaqAnswer] = useState('');
+      const [newFaqCategory, setNewFaqCategory] = useState('General');
+      // Section-specific search (filters the already-loaded Customers /
+      // Users tables). Search only applies once the button is clicked or
+      // Enter is pressed — typing alone doesn't filter, to match a real
+      // "search" action rather than live-filtering as you type.
+      const [customerSearchInput, setCustomerSearchInput] = useState('');
+      const [customerSearch, setCustomerSearch] = useState('');
+      const [userSearchInput, setUserSearchInput] = useState('');
+      const [userSearch, setUserSearch] = useState('');
+      // General search: looks across registered users, every subscription's
+      // customer records, and the waiting-customers list all at once — for
+      // when you only know a little about the customer (e.g. just a number).
+      const [globalSearchInput, setGlobalSearchInput] = useState('');
+      const [globalSearchTerm, setGlobalSearchTerm] = useState('');
+      const [globalSearchResults, setGlobalSearchResults] = useState(null);
+      const [globalSearching, setGlobalSearching] = useState(false);
       const [addCreditsAmount, setAddCreditsAmount] = useState(0);
       const [deductCreditsAmount, setDeductCreditsAmount] = useState(0);
       const [selectedUserForCredits, setSelectedUserForCredits] = useState(null);
@@ -3593,15 +3925,6 @@
         return allCustomerRecords.filter(c => c.purchasedAt && new Date(c.purchasedAt) > new Date(seenCustomersAt)).length;
       }, [allCustomerRecords, seenCustomersAt]);
 
-      // Screens whose last customer expired and were auto-removed from the
-      // customer's portal — these still need their PIN (or account password)
-      // rotated by hand, so they blink in the Subscriptions tab until resolved.
-      const screensNeedingRotationCount = useMemo(() => {
-        let count = 0;
-        (subscriptions || []).forEach(sub => (sub.accounts || []).forEach(acc => (acc.screens || []).forEach(scr => { if (scr.needsRotation) count++; })));
-        return count;
-      }, [subscriptions]);
-
       // ─── Load functions ──────────────────────────────────────────
       const loadOTPs = async () => {
         try {
@@ -3619,28 +3942,104 @@
 
       const loadWaiting = async () => {
         try {
-          const data = await fetchWaitingCustomers();
+          const data = await fetchWaitingList();
           setWaitingList(data);
         } catch (err) { console.error(err); }
       };
 
-      const resolveWaitingCustomer = async (id) => {
+      const handleFulfillWaiting = async (id) => {
         try {
-          await deleteWaitingCustomerAPI(id);
+          await removeWaitingCustomer(id);
           setWaitingList(prev => prev.filter(w => w.id !== id));
-          addToast('Waiting entry cleared.', 'success');
+          addToast('Marked as fulfilled and removed from the waiting list.', 'success');
         } catch (err) {
-          addToast('Failed to clear waiting entry', 'error');
+          addToast('Failed to update waiting list', 'error');
         }
       };
 
-      // Keep the waiting-list count live in the background (not just when the
-      // tab is open) so the badge next to "Waiting" updates automatically.
-      useEffect(() => {
-        loadWaiting();
-        const t = setInterval(loadWaiting, 8000);
-        return () => clearInterval(t);
-      }, []);
+      const loadFaqs = async () => {
+        try {
+          const data = await fetchFaqs();
+          setFaqsList(data);
+        } catch (err) { console.error(err); }
+      };
+
+      const handleAddFaq = async () => {
+        if (!newFaqQuestion.trim() || !newFaqAnswer.trim()) {
+          addToast('Please fill in both the question and the answer', 'error');
+          return;
+        }
+        try {
+          const entry = await addFaq({
+            question: newFaqQuestion.trim(),
+            answer: newFaqAnswer.trim(),
+            category: newFaqCategory.trim() || 'General'
+          });
+          setFaqsList(prev => [...prev, entry]);
+          setNewFaqQuestion('');
+          setNewFaqAnswer('');
+          setNewFaqCategory('General');
+          addToast('Question added to Help & FAQs.', 'success');
+        } catch (err) {
+          addToast('Failed to add question: ' + (err?.error || 'unknown error'), 'error');
+        }
+      };
+
+      const handleDeleteFaq = async (id) => {
+        try {
+          await deleteFaq(id);
+          setFaqsList(prev => prev.filter(f => f.id !== id));
+          addToast('Question removed.', 'success');
+        } catch (err) {
+          addToast('Failed to remove question', 'error');
+        }
+      };
+
+      // Searches everything at once: registered accounts, every
+      // subscription's active customer records, and the waiting-customers
+      // list — so admin only needs one piece of info (name, username, or
+      // number) to find out everything about a customer.
+      const handleGlobalSearch = async () => {
+        const term = globalSearchInput.trim();
+        if (!term) {
+          addToast('Enter a name, username, or WhatsApp number to search', 'error');
+          return;
+        }
+        setGlobalSearchTerm(term);
+        setGlobalSearching(true);
+        try {
+          const [freshUsers, freshWaiting] = await Promise.all([
+            fetchAllUsers().catch(() => usersList),
+            fetchWaitingList().catch(() => waitingList)
+          ]);
+          setUsersList(freshUsers);
+          setWaitingList(freshWaiting);
+
+          const userMatches = freshUsers.filter(u =>
+            matchesSearch([u.username, u.whatsapp], term)
+          );
+
+          const subscriptionMatches = [];
+          subscriptions.forEach(sub => {
+            getCustomerRecords(sub).forEach(r => {
+              if (matchesSearch([r.customer?.name, r.customer?.username, r.customer?.whatsapp, r.customer?.email], term)) {
+                subscriptionMatches.push({ sub, record: r });
+              }
+            });
+          });
+
+          const waitingMatches = freshWaiting.filter(w =>
+            matchesSearch([w.name, w.username, w.whatsapp, w.subscriptionName], term)
+          );
+
+          setGlobalSearchResults({ userMatches, subscriptionMatches, waitingMatches });
+        } catch (err) {
+          console.error('Global search failed:', err);
+          addToast('Search failed. Please try again.', 'error');
+        } finally {
+          setGlobalSearching(false);
+        }
+      };
 
       const loadIncome = async (period = 'all', customStart, customEnd) => {
         setIncomeLoading(true);
@@ -3677,10 +4076,16 @@
         if (activeTab === 'users') loadUsers();
         if (activeTab === 'deals') loadDeals();
         if (activeTab === 'promotions') loadPromotions();
+        if (activeTab === 'waiting') loadWaiting();
+        if (activeTab === 'faqs') loadFaqs();
         if (activeTab === 'overview' || activeTab === 'income') {
           if (incomePeriod !== 'custom') loadIncome(incomePeriod);
         }
       }, [activeTab, incomePeriod]);
+
+      useEffect(() => {
+        loadWaiting();
+      }, []);
 
       const refreshData = async () => {
         try {
@@ -3980,8 +4385,9 @@
             purchasedAt: now.toISOString()
           };
 
+          const grantPurchaseId = genPurchaseId();
           for (const slot of allocations) {
-            await allocateCustomer(sub.id, slot.account.id, slot.screen.id, customerPayload);
+            await allocateCustomer(sub.id, slot.account.id, slot.screen.id, customerPayload, grantPurchaseId);
           }
 
           await refreshData();
@@ -4271,6 +4677,15 @@
         }
       };
 
+      // Simple case-insensitive "does any of these fields contain the
+      // search term" helper, shared by the Customers/Users filters and the
+      // general search below. Empty term = everything matches.
+      const matchesSearch = (fields, term) => {
+        const t = (term || '').trim().toLowerCase();
+        if (!t) return true;
+        return fields.some(f => (f || '').toString().toLowerCase().includes(t));
+      };
+
       const getCustomerRecords = (sub) => {
         const records = [];
         sub.accounts.forEach(acc => {
@@ -4441,8 +4856,6 @@
         if (!screen) return;
         screen.name = name;
         screen.pin = pin;
-        screen.needsRotation = false;
-        screen.rotationNote = '';
         setSubscriptions(prev => prev.map(s => s.id === subId ? updatedSub : s));
         await updateSubscription(subId, updatedSub);
         await refreshData();
@@ -4473,14 +4886,9 @@
         const screen = acc.screens.find(s => s.id === screenId);
         if (!screen) return;
         screen.pin = newPin;
-        // Regenerating the PIN is the admin's acknowledgement that they've
-        // rotated it — stop the blinking highlight for this screen.
-        const wasFlagged = !!screen.needsRotation;
-        screen.needsRotation = false;
-        screen.rotationNote = '';
         setSubscriptions(prev => prev.map(s => s.id === subId ? updatedSub : s));
         await updateSubscription(subId, updatedSub);
-        addToast(wasFlagged ? 'New PIN generated — screen is no longer flagged.' : 'New PIN generated!', 'success');
+        addToast('New PIN generated!', 'success');
       };
 
       const generatePassword = () => {
@@ -4613,24 +5021,133 @@
           )}
 
           <div className="flex flex-wrap gap-2 border-b border-white/5 pb-3">
-            {['overview', 'subscriptions', 'customers', 'income', 'users', 'deals', 'promotions', 'waiting', 'otp'].map(tab => (
+            {['overview', 'search', 'subscriptions', 'customers', 'waiting', 'income', 'users', 'deals', 'promotions', 'faqs', 'otp'].map(tab => (
               <button key={tab} onClick={() => {
                 setActiveTab(tab);
                 if (tab === 'users') markUsersSeen();
                 if (tab === 'customers') markCustomersSeen();
               }} className={`tab-btn ${activeTab === tab ? 'active' : ''}`}>
                 {tab === 'overview' && <><i className="fas fa-chart-pie mr-2"></i> Overview</>}
-                {tab === 'subscriptions' && <><i className="fas fa-crown mr-2"></i> Subscriptions{screensNeedingRotationCount > 0 && <span className="notif-badge" style={{background:'#fbbf24'}}>{screensNeedingRotationCount}</span>}</>}
+                {tab === 'search' && <><i className="fas fa-search mr-2"></i> Search</>}
+                {tab === 'subscriptions' && <><i className="fas fa-crown mr-2"></i> Subscriptions</>}
                 {tab === 'customers' && <><i className="fas fa-users mr-2"></i> Customers{unseenCustomersCount > 0 && <span className="notif-badge">{unseenCustomersCount}</span>}</>}
+                {tab === 'waiting' && <><i className="fas fa-clock mr-2"></i> Waiting Customers{waitingList.length > 0 && <span className="notif-badge">{waitingList.length}</span>}</>}
                 {tab === 'income' && <><i className="fas fa-coins mr-2"></i> Income</>}
                 {tab === 'users' && <><i className="fas fa-user-friends mr-2"></i> Users{unseenUsersCount > 0 && <span className="notif-badge">{unseenUsersCount}</span>}</>}
                 {tab === 'deals' && <><i className="fas fa-fire mr-2"></i> Deals</>}
                 {tab === 'promotions' && <><i className="fas fa-film mr-2"></i> Promotions</>}
-                {tab === 'waiting' && <><i className="fas fa-clock mr-2"></i> Waiting{waitingList.length > 0 && <span className="notif-badge">{waitingList.length}</span>}</>}
+                {tab === 'faqs' && <><i className="fas fa-question-circle mr-2"></i> Help & FAQs</>}
                 {tab === 'otp' && <><i className="fas fa-key mr-2"></i> OTP Logs</>}
               </button>
             ))}
           </div>
+
+          {activeTab === 'search' && (
+            <div className="space-y-4">
+              <div className="glass-panel">
+                <h3 className="text-lg font-bold text-white mb-1"><i className="fas fa-search mr-2 text-red-400"></i> Search Everything</h3>
+                <p className="text-white/40 text-sm mb-4">Only know a little about the customer — a name, a username, or just their WhatsApp number? Search once here and see their registered account, every active subscription, and whether they're on the waiting list.</p>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={globalSearchInput}
+                    onChange={(e) => setGlobalSearchInput(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === 'Enter') handleGlobalSearch(); }}
+                    className="input-neon flex-1"
+                    placeholder="Search by name, username, or WhatsApp number..."
+                  />
+                  <button onClick={handleGlobalSearch} disabled={globalSearching} className="btn-neon px-6">
+                    {globalSearching ? <span className="spinner"></span> : <><i className="fas fa-search mr-2"></i> Search</>}
+                  </button>
+                </div>
+              </div>
+
+              {globalSearchResults && (
+                <>
+                  {globalSearchResults.userMatches.length === 0 && globalSearchResults.subscriptionMatches.length === 0 && globalSearchResults.waitingMatches.length === 0 ? (
+                    <div className="glass-panel text-center py-8 text-white/30">
+                      <i className="fas fa-search text-4xl mb-3 block"></i> No results found for "{globalSearchTerm}".
+                    </div>
+                  ) : (
+                    <>
+                      {globalSearchResults.userMatches.length > 0 && (
+                        <div className="glass-panel">
+                          <h4 className="text-white font-semibold mb-3"><i className="fas fa-user-friends mr-2 text-red-400"></i> Registered Account ({globalSearchResults.userMatches.length})</h4>
+                          <div className="overflow-x-auto">
+                            <table className="admin-table text-sm">
+                              <thead><tr><th>Username</th><th>WhatsApp</th><th>Credits</th><th>Purchases</th></tr></thead>
+                              <tbody>
+                                {globalSearchResults.userMatches.map(u => (
+                                  <tr key={u.username}>
+                                    <td className="font-mono">{u.username}</td>
+                                    <td>{u.whatsapp}</td>
+                                    <td><span className="badge badge-green">{u.credits || 0}</span></td>
+                                    <td>{u.purchaseCount || 0}</td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+                      )}
+
+                      {globalSearchResults.subscriptionMatches.length > 0 && (
+                        <div className="glass-panel">
+                          <h4 className="text-white font-semibold mb-3"><i className="fas fa-crown mr-2 text-red-400"></i> Active Subscriptions ({globalSearchResults.subscriptionMatches.length})</h4>
+                          <div className="overflow-x-auto">
+                            <table className="admin-table text-sm">
+                              <thead><tr><th>Subscription</th><th>Name</th><th>Username</th><th>WhatsApp</th><th>Screen</th><th>Expiry</th><th>Status</th></tr></thead>
+                              <tbody>
+                                {globalSearchResults.subscriptionMatches.map((m, idx) => {
+                                  const status = checkExpiry(m.record.expiry);
+                                  const statusColors = { expired: 'badge-red', today: 'badge-yellow', tomorrow: 'badge-yellow', soon: 'badge-yellow', active: 'badge-green', unknown: 'badge-red-light' };
+                                  const statusLabels = { expired: 'Expired', today: 'Today', tomorrow: 'Tomorrow', soon: 'Soon', active: 'Active', unknown: 'N/A' };
+                                  return (
+                                    <tr key={idx}>
+                                      <td className="font-semibold">{m.sub.name}</td>
+                                      <td>{m.record.customer.name || 'N/A'}</td>
+                                      <td className="font-mono text-xs">{m.record.customer.username}</td>
+                                      <td>{m.record.customer.whatsapp}</td>
+                                      <td>{m.record.screenName}</td>
+                                      <td>{m.record.expiry}</td>
+                                      <td><span className={`badge ${statusColors[status] || 'badge-red-light'}`}>{statusLabels[status] || 'N/A'}</span></td>
+                                    </tr>
+                                  );
+                                })}
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+                      )}
+
+                      {globalSearchResults.waitingMatches.length > 0 && (
+                        <div className="glass-panel">
+                          <h4 className="text-white font-semibold mb-3"><i className="fas fa-clock mr-2 text-yellow-400"></i> Waiting List ({globalSearchResults.waitingMatches.length})</h4>
+                          <div className="overflow-x-auto">
+                            <table className="admin-table text-sm">
+                              <thead><tr><th>Subscription Needed</th><th>Name</th><th>Username</th><th>WhatsApp</th><th>Months</th><th>Type</th></tr></thead>
+                              <tbody>
+                                {globalSearchResults.waitingMatches.map(w => (
+                                  <tr key={w.id}>
+                                    <td className="font-semibold">{w.subscriptionName}</td>
+                                    <td>{w.name || 'N/A'}</td>
+                                    <td className="font-mono text-xs">{w.username || 'N/A'}</td>
+                                    <td>{w.whatsapp}</td>
+                                    <td>{w.months}</td>
+                                    <td>{w.isCustomRequest ? <span className="badge badge-yellow text-xs">Custom Request</span> : <span className="badge badge-green text-xs">{w.paidWithCredits ? 'Paid (Credits)' : 'Paid (OTP)'}</span>}</td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+                      )}
+                    </>
+                  )}
+                </>
+              )}
+            </div>
+          )}
 
           {activeTab === 'overview' && (
             <div className="space-y-4">
@@ -4742,17 +5259,11 @@
                                       <p className="text-xs text-white/40 mb-1">Screens:</p>
                                       <div className="flex flex-wrap gap-2">
                                         {acc.screens.map(screen => (
-                                          <div
-                                            key={screen.id}
-                                            onClick={() => screen.needsRotation && handleGeneratePin(sub.id, acc.id, screen.id)}
-                                            title={screen.needsRotation ? `Customer expired (${screen.rotationNote || 'unknown'}) — click to generate a new PIN and clear this alert` : ''}
-                                            className={`flex items-center gap-2 px-3 py-1 rounded-full text-xs ${screen.needsRotation ? 'screen-needs-rotation' : 'bg-red-500/10'}`}
-                                          >
+                                          <div key={screen.id} className="flex items-center gap-2 bg-red-500/10 px-3 py-1 rounded-full text-xs">
                                             <span className="text-white/70">{screen.name}</span>
-                                            {screen.needsRotation && <i className="fas fa-exclamation-triangle text-yellow-400"></i>}
                                             <span className="text-white/30">PIN: {screen.pin || 'N/A'}</span>
-                                            <button onClick={(e) => { e.stopPropagation(); openEditScreen(sub.id, acc.id, screen.id, screen.name, screen.pin); }} className="btn-warning text-xs"><i className="fas fa-edit"></i></button>
-                                            <button onClick={(e) => { e.stopPropagation(); handleGeneratePin(sub.id, acc.id, screen.id); }} className="btn-red text-xs"><i className="fas fa-shield-alt"></i> Gen PIN</button>
+                                            <button onClick={() => openEditScreen(sub.id, acc.id, screen.id, screen.name, screen.pin)} className="btn-warning text-xs"><i className="fas fa-edit"></i></button>
+                                            <button onClick={() => handleGeneratePin(sub.id, acc.id, screen.id)} className="btn-red text-xs"><i className="fas fa-shield-alt"></i> Gen PIN</button>
                                           </div>
                                         ))}
                                       </div>
@@ -4832,8 +5343,27 @@
 
           {activeTab === 'customers' && (
             <div className="space-y-4">
+              <div className="glass-panel">
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={customerSearchInput}
+                    onChange={(e) => setCustomerSearchInput(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === 'Enter') setCustomerSearch(customerSearchInput.trim()); }}
+                    className="input-neon flex-1"
+                    placeholder="Search customers by name, username, or WhatsApp number..."
+                  />
+                  <button onClick={() => setCustomerSearch(customerSearchInput.trim())} className="btn-neon px-6"><i className="fas fa-search mr-2"></i> Search</button>
+                  {customerSearch && (
+                    <button onClick={() => { setCustomerSearchInput(''); setCustomerSearch(''); }} className="btn-neon-outline px-4"><i className="fas fa-times"></i></button>
+                  )}
+                </div>
+              </div>
               {subscriptions.map(sub => {
-                const records = getCustomerRecords(sub);
+                const allRecords = getCustomerRecords(sub);
+                const records = customerSearch
+                  ? allRecords.filter(r => matchesSearch([r.customer?.name, r.customer?.username, r.customer?.whatsapp], customerSearch))
+                  : allRecords;
                 if (records.length === 0) return null;
                 return (
                   <div key={sub.id} className="glass-panel">
@@ -4883,9 +5413,55 @@
                   </div>
                 );
               })}
-              {subscriptions.every(s => getCustomerRecords(s).length === 0) && (
-                <div className="text-center py-8 text-white/30"><i className="fas fa-users text-4xl mb-3 block"></i> No customers yet.</div>
+              {subscriptions.every(s => {
+                const allRecords = getCustomerRecords(s);
+                const records = customerSearch
+                  ? allRecords.filter(r => matchesSearch([r.customer?.name, r.customer?.username, r.customer?.whatsapp], customerSearch))
+                  : allRecords;
+                return records.length === 0;
+              }) && (
+                <div className="text-center py-8 text-white/30">
+                  <i className="fas fa-users text-4xl mb-3 block"></i>
+                  {customerSearch ? `No customers match "${customerSearch}".` : 'No customers yet.'}
+                </div>
               )}
+            </div>
+          )}
+
+          {activeTab === 'waiting' && (
+            <div className="glass-panel">
+              <h3 className="text-lg font-bold text-white mb-1">Waiting Customers</h3>
+              <p className="text-white/40 text-sm mb-4">Customers who already paid (or requested) for a subscription you haven't added an account for yet. Add the account, deliver it to them manually, then mark it fulfilled here.</p>
+              <div className="overflow-x-auto">
+                <table className="admin-table text-sm">
+                  <thead><tr><th>Subscription Needed</th><th>Name</th><th>Username</th><th>WhatsApp</th><th>Months</th><th>Type</th><th>Requested</th><th>Actions</th></tr></thead>
+                  <tbody>
+                    {waitingList.map(w => (
+                      <tr key={w.id}>
+                        <td className="font-semibold text-white">{w.subscriptionName}</td>
+                        <td>{w.name || 'N/A'}</td>
+                        <td className="font-mono text-xs">{w.username || 'N/A'}</td>
+                        <td>{w.whatsapp}</td>
+                        <td>{w.months}</td>
+                        <td>
+                          {w.isCustomRequest ? (
+                            <span className="badge badge-yellow text-xs">Custom Request</span>
+                          ) : (
+                            <span className="badge badge-green text-xs">{w.paidWithCredits ? 'Paid (Credits)' : 'Paid (OTP)'}</span>
+                          )}
+                        </td>
+                        <td className="text-xs text-white/40">{w.purchasedAt ? new Date(w.purchasedAt).toLocaleDateString() : 'N/A'}</td>
+                        <td>
+                          <button onClick={() => handleFulfillWaiting(w.id)} className="btn-neon-outline text-xs py-1 px-2"><i className="fas fa-check mr-1"></i> Mark Fulfilled</button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                {waitingList.length === 0 && (
+                  <div className="text-center py-8 text-white/30"><i className="fas fa-clock text-4xl mb-3 block"></i> No one is waiting right now.</div>
+                )}
+              </div>
             </div>
           )}
 
@@ -4994,37 +5570,62 @@
                 <h3 className="text-lg font-semibold text-white"><i className="fas fa-user-friends mr-2 text-red-400"></i> Registered Users</h3>
                 <button onClick={openAddUserModal} className="btn-neon text-sm"><i className="fas fa-user-plus mr-2"></i> Add User</button>
               </div>
-              {usersList.length === 0 ? (
-                <div className="text-center py-8 text-white/30"><i className="fas fa-user-slash text-3xl mb-3 block"></i> No users registered yet.</div>
-              ) : (
-                <div className="overflow-x-auto">
-                  <table className="admin-table text-sm">
-                    <thead><tr><th>Username</th><th>WhatsApp</th><th>Credits</th><th>Purchases</th><th>Actions</th></tr></thead>
-                    <tbody>
-                      {usersList.map(u => (
-                        <tr key={u.username}>
-                          <td className="font-mono">{u.username}</td>
-                          <td>{u.whatsapp}</td>
-                          <td><span className="badge badge-green">{u.credits || 0}</span></td>
-                          <td>{u.purchaseCount || 0}</td>
-                          <td>
-                            <div className="flex flex-wrap gap-2 items-center">
-                              <input type="number" className="input-neon w-20 py-1 px-2 text-sm" placeholder="+" value={selectedUserForCredits === u.username ? addCreditsAmount : ''} onChange={(e) => { setSelectedUserForCredits(u.username); setAddCreditsAmount(Number(e.target.value)); }} />
-                              <button onClick={() => handleAddCredits(u.username)} className="btn-success text-xs"><i className="fas fa-plus mr-1"></i> Add</button>
-                              <input type="number" className="input-neon w-20 py-1 px-2 text-sm" placeholder="-" value={selectedUserForCredits === u.username ? deductCreditsAmount : ''} onChange={(e) => { setSelectedUserForCredits(u.username); setDeductCreditsAmount(Number(e.target.value)); }} />
-                              <button onClick={() => handleDeductCredits(u.username)} className="btn-danger text-xs"><i className="fas fa-minus mr-1"></i> Deduct</button>
-                              <button onClick={() => openUserEditModal(u)} className="btn-warning text-xs"><i className="fas fa-pen mr-1"></i> Edit</button>
-                              <button onClick={() => openGrantModal(u)} className="btn-neon-sm"><i className="fas fa-gift mr-1"></i> Grant Sub</button>
-                              <button onClick={() => handleViewCredentials(u.username)} disabled={credsLoading} className="btn-neon-outline text-xs"><i className="fas fa-eye mr-1"></i> Creds</button>
-                              <button onClick={() => handleDeleteUser(u.username)} className="btn-danger text-xs"><i className="fas fa-trash mr-1"></i> Delete</button>
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
+              <div className="flex gap-2 mb-4">
+                <input
+                  type="text"
+                  value={userSearchInput}
+                  onChange={(e) => setUserSearchInput(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') setUserSearch(userSearchInput.trim()); }}
+                  className="input-neon flex-1"
+                  placeholder="Search users by username or WhatsApp number..."
+                />
+                <button onClick={() => setUserSearch(userSearchInput.trim())} className="btn-neon px-6"><i className="fas fa-search mr-2"></i> Search</button>
+                {userSearch && (
+                  <button onClick={() => { setUserSearchInput(''); setUserSearch(''); }} className="btn-neon-outline px-4"><i className="fas fa-times"></i></button>
+                )}
+              </div>
+              {(() => {
+                const filteredUsers = userSearch
+                  ? usersList.filter(u => matchesSearch([u.username, u.whatsapp], userSearch))
+                  : usersList;
+                if (filteredUsers.length === 0) {
+                  return (
+                    <div className="text-center py-8 text-white/30">
+                      <i className="fas fa-user-slash text-3xl mb-3 block"></i>
+                      {userSearch ? `No users match "${userSearch}".` : 'No users registered yet.'}
+                    </div>
+                  );
+                }
+                return (
+                  <div className="overflow-x-auto">
+                    <table className="admin-table text-sm">
+                      <thead><tr><th>Username</th><th>WhatsApp</th><th>Credits</th><th>Purchases</th><th>Actions</th></tr></thead>
+                      <tbody>
+                        {filteredUsers.map(u => (
+                          <tr key={u.username}>
+                            <td className="font-mono">{u.username}</td>
+                            <td>{u.whatsapp}</td>
+                            <td><span className="badge badge-green">{u.credits || 0}</span></td>
+                            <td>{u.purchaseCount || 0}</td>
+                            <td>
+                              <div className="flex flex-wrap gap-2 items-center">
+                                <input type="number" className="input-neon w-20 py-1 px-2 text-sm" placeholder="+" value={selectedUserForCredits === u.username ? addCreditsAmount : ''} onChange={(e) => { setSelectedUserForCredits(u.username); setAddCreditsAmount(Number(e.target.value)); }} />
+                                <button onClick={() => handleAddCredits(u.username)} className="btn-success text-xs"><i className="fas fa-plus mr-1"></i> Add</button>
+                                <input type="number" className="input-neon w-20 py-1 px-2 text-sm" placeholder="-" value={selectedUserForCredits === u.username ? deductCreditsAmount : ''} onChange={(e) => { setSelectedUserForCredits(u.username); setDeductCreditsAmount(Number(e.target.value)); }} />
+                                <button onClick={() => handleDeductCredits(u.username)} className="btn-danger text-xs"><i className="fas fa-minus mr-1"></i> Deduct</button>
+                                <button onClick={() => openUserEditModal(u)} className="btn-warning text-xs"><i className="fas fa-pen mr-1"></i> Edit</button>
+                                <button onClick={() => openGrantModal(u)} className="btn-neon-sm"><i className="fas fa-gift mr-1"></i> Grant Sub</button>
+                                <button onClick={() => handleViewCredentials(u.username)} disabled={credsLoading} className="btn-neon-outline text-xs"><i className="fas fa-eye mr-1"></i> Creds</button>
+                                <button onClick={() => handleDeleteUser(u.username)} className="btn-danger text-xs"><i className="fas fa-trash mr-1"></i> Delete</button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                );
+              })()}
             </div>
           )}
 
@@ -5103,33 +5704,49 @@
             </div>
           )}
 
-          {activeTab === 'waiting' && (
-            <div className="glass-panel">
-              <h3 className="text-lg font-semibold text-white mb-3"><i className="fas fa-clock mr-2 text-red-400"></i> Waiting Customers</h3>
-              <p className="text-white/30 text-xs mb-4">Purchases made when no account/screen was available for that subscription. Add an account, message the customer, then clear the entry.</p>
-              {waitingList.length === 0 ? (
-                <div className="text-center py-8 text-white/30"><i className="fas fa-check-circle text-3xl mb-3 block"></i> Nobody is waiting right now.</div>
-              ) : (
-                <div className="overflow-x-auto">
-                  <table className="admin-table text-sm">
-                    <thead><tr><th>Subscription</th><th>Customer</th><th>WhatsApp</th><th>Duration</th><th>Requested</th><th>Actions</th></tr></thead>
-                    <tbody>
-                      {waitingList.map(w => (
-                        <tr key={w.id}>
-                          <td><span className="badge badge-yellow">{w.subscriptionName || 'Subscription'}</span></td>
-                          <td>{w.name || w.username}<div className="text-xs text-white/30">{w.username}</div></td>
-                          <td className="text-xs">{w.whatsapp || 'N/A'}</td>
-                          <td className="text-xs">{w.months ? `${w.months} month(s)` : (w.days ? `${w.days} day(s)` : 'N/A')}</td>
-                          <td className="text-xs text-white/40">{w.purchasedAt ? new Date(w.purchasedAt).toLocaleString() : (w.createdAt ? new Date(w.createdAt).toLocaleString() : 'N/A')}</td>
-                          <td>
-                            <button onClick={() => resolveWaitingCustomer(w.id)} className="btn-neon text-xs"><i className="fas fa-check mr-1"></i> Resolved / Clear</button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+          {activeTab === 'faqs' && (
+            <div className="space-y-4">
+              <div className="glass-panel">
+                <h3 className="text-lg font-bold text-white mb-1"><i className="fas fa-question-circle mr-2 text-red-400"></i> Add a Question</h3>
+                <p className="text-white/40 text-sm mb-4">This gets added to the Help & FAQs page customers see, alongside the built-in questions. It won't show its answer until the customer taps the question.</p>
+                <div className="space-y-3">
+                  <div>
+                    <label className="text-white/50 text-sm font-medium">Question</label>
+                    <input type="text" value={newFaqQuestion} onChange={(e) => setNewFaqQuestion(e.target.value)} className="input-neon mt-1" placeholder="e.g. Do you offer student discounts?" />
+                  </div>
+                  <div>
+                    <label className="text-white/50 text-sm font-medium">Answer</label>
+                    <textarea value={newFaqAnswer} onChange={(e) => setNewFaqAnswer(e.target.value)} className="input-neon mt-1" rows="3" placeholder="Write the full answer here..."></textarea>
+                  </div>
+                  <div>
+                    <label className="text-white/50 text-sm font-medium">Category (groups it with similar questions — optional)</label>
+                    <input type="text" value={newFaqCategory} onChange={(e) => setNewFaqCategory(e.target.value)} className="input-neon mt-1" placeholder="e.g. Getting Started, Purchases & Payments, Support" />
+                  </div>
+                  <button onClick={handleAddFaq} className="btn-neon px-6 py-2"><i className="fas fa-plus mr-2"></i> Add Question</button>
                 </div>
-              )}
+              </div>
+
+              <div className="glass-panel">
+                <h3 className="text-lg font-bold text-white mb-4">Your Added Questions ({faqsList.length})</h3>
+                {faqsList.length === 0 ? (
+                  <div className="text-center py-8 text-white/30"><i className="fas fa-comment-slash text-3xl mb-3 block"></i> You haven't added any custom questions yet.</div>
+                ) : (
+                  <div className="space-y-3">
+                    {faqsList.map(f => (
+                      <div key={f.id} className="rounded-xl border border-white/10 bg-white/5 p-4">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="flex-1">
+                            <span className="badge badge-yellow text-xs mb-2 inline-block">{f.category || 'General'}</span>
+                            <p className="text-white font-semibold">{f.question}</p>
+                            <p className="text-white/50 text-sm mt-1">{f.answer}</p>
+                          </div>
+                          <button onClick={() => handleDeleteFaq(f.id)} className="btn-danger text-xs flex-shrink-0"><i className="fas fa-trash"></i></button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
           )}
 
@@ -5421,6 +6038,7 @@
       const [subscriptions, setSubscriptions] = useState([]);
       const [deals, setDeals] = useState([]);
       const [promotions, setPromotions] = useState([]);
+      const [customFaqs, setCustomFaqs] = useState([]);
       const [isAdmin, setIsAdmin] = useState(false);
       const [customerData, setCustomerData] = useState(null);
       const [flowStep, setFlowStep] = useState('welcome');
@@ -5434,10 +6052,11 @@
       useEffect(() => {
         const loadData = async (silent = false) => {
           try {
-            const [subs, dealsData, promos] = await Promise.all([fetchSubscriptions(), fetchDeals(), fetchPromotions()]);
+            const [subs, dealsData, promos, faqsData] = await Promise.all([fetchSubscriptions(), fetchDeals(), fetchPromotions(), fetchFaqs().catch(() => [])]);
             setSubscriptions(subs);
             setDeals(dealsData);
             setPromotions(promos);
+            setCustomFaqs(faqsData);
           } catch (err) {
             console.error('Failed to load data', err);
             if (!silent) addToast('Could not load data. Is the backend running?', 'error');
@@ -5474,6 +6093,9 @@
         } else if (path === '/subscriptions' || path === '/subscription') {
           setActiveTab('subscriptions');
           setShowSubscriptions(true);
+        } else if (path === '/help') {
+          setActiveTab('help');
+          setShowSubscriptions(false);
         } else if (path === '/contact') {
           setActiveTab('contact');
           setShowSubscriptions(false);
@@ -5555,6 +6177,29 @@
         return results;
       };
 
+      const handleCustomRequestComplete = async (data) => {
+        try {
+          await addWaitingCustomer({
+            subscriptionId: null,
+            subscriptionName: data.subscriptionName,
+            isCustomRequest: true,
+            name: data.name,
+            username: data.username,
+            whatsapp: data.whatsapp,
+            months: data.months,
+            paidWithCredits: false,
+            purchaseId: data.purchaseId,
+            purchasedAt: new Date().toISOString()
+          });
+          addToast('✅ Request submitted! Admin will contact you soon with pricing & availability.', 'success');
+          setFlowStep('welcome');
+          navigateTo('/');
+        } catch (err) {
+          console.error('Failed to submit custom request:', err);
+          addToast('Failed to submit your request. Please try again or contact support.', 'error');
+        }
+      };
+
       const handleSubComplete = async (data) => {
         const customerPayload = {
           name: data.name || '',
@@ -5569,49 +6214,54 @@
           purchasedAt: data.purchasedAt || new Date().toISOString()
         };
 
+        // Build the list of things that need to go to the admin's Waiting
+        // Customers list: either the whole purchase (data.isWaiting, from
+        // Netflix/Amazon/Simple flows with no account available) or just
+        // part of a deal (data.waitingSubs, when some — not all — of the
+        // deal's subscriptions had no account available).
+        const waitingEntries = [];
+        if (data.isWaiting) {
+          waitingEntries.push({
+            subscriptionId: data.subscriptionId || null,
+            subscriptionName: data.subscriptionName || data.customName || 'Subscription',
+            months: data.months || 1
+          });
+        }
+        if (data.waitingSubs && data.waitingSubs.length > 0) {
+          data.waitingSubs.forEach(ws => {
+            waitingEntries.push({ subscriptionId: ws.id, subscriptionName: ws.name, months: 1 });
+          });
+        }
+
         try {
           const allocations = (data.allocated && data.allocated.length > 0) ? data.allocated : [];
+
+          if (allocations.length === 0 && waitingEntries.length === 0) {
+            throw new Error('No screen was allocated for this purchase.');
+          }
 
           // Each allocation is saved with a targeted, atomic update (only touches that
           // exact account/screen) instead of overwriting the whole subscription document.
           // This is what used to cause other customers' purchase details to vanish.
           for (const allot of allocations) {
             const subIdForAllot = allot.subscriptionId || data.subscriptionId;
-            await allocateCustomer(subIdForAllot, allot.accountId, allot.screenId, customerPayload);
+            await allocateCustomer(subIdForAllot, allot.accountId, allot.screenId, customerPayload, data.purchaseId);
           }
 
-          // Work out which subscription(s) this purchase covers but for which
-          // no account/screen could be allocated right now. Rather than failing
-          // the purchase, we record a waiting-list entry per missing subscription
-          // so the admin can add the account and follow up — the customer still
-          // gets a confirmed purchase.
-          let missingSubIds = [];
-          if (data.isDeal) {
-            const requested = data.dealSubscriptionIds || [];
-            const covered = new Set(data.dealSubscriptions || []);
-            missingSubIds = requested.filter(id => !covered.has(id));
-          } else if (allocations.length === 0) {
-            missingSubIds = [data.subscriptionId];
-          }
-
-          for (const subId of missingSubIds) {
-            const subInfo = subscriptions.find(s => s.id === subId);
-            try {
-              await addWaitingCustomer({
-                subscriptionId: subId,
-                subscriptionName: (subId === data.subscriptionId && data.customName) ? data.customName : (subInfo?.name || 'Subscription'),
-                name: customerPayload.name,
-                username: customerPayload.username,
-                whatsapp: customerPayload.whatsapp,
-                email: customerPayload.email,
-                months: customerPayload.months,
-                days: customerPayload.days,
-                expiryDate: customerPayload.expiryDate,
-                purchasedAt: customerPayload.purchasedAt
-              });
-            } catch (waitErr) {
-              console.error('Failed to record waiting customer', waitErr);
-            }
+          for (const entry of waitingEntries) {
+            await addWaitingCustomer({
+              subscriptionId: entry.subscriptionId,
+              subscriptionName: entry.subscriptionName,
+              isCustomRequest: false,
+              name: data.name || '',
+              username: data.username,
+              whatsapp: data.whatsapp,
+              months: entry.months,
+              email: data.email || '',
+              paidWithCredits: !!data.paidWithCredits,
+              purchaseId: data.purchaseId,
+              purchasedAt: data.purchasedAt || new Date().toISOString()
+            });
           }
 
           const fresh = await fetchSubscriptions();
@@ -5621,24 +6271,22 @@
           resetFlow();
           navigateTo('/');
 
-          if (missingSubIds.length > 0 && allocations.length === 0) {
-            addToast('🎉 Purchase confirmed! No account is available for this subscription right now — it will be added to your portal soon. Please contact admin.', 'success');
-          } else if (missingSubIds.length > 0) {
-            addToast('🎉 Subscription confirmed! One or more items have no account available yet and will be added soon — contact admin.', 'success');
-          } else {
+          if (allocations.length > 0) {
             addToast('🎉 Subscription confirmed! Check your details.', 'success');
           }
-
           if (user) {
             // Refresh so purchaseCount is up to date (this drives the
             // unseen-purchases notification badge on the navbar).
             await refreshUser();
           }
-          if (missingSubIds.length === 0) {
+          if (allocations.length > 0) {
             addToast('Your subscription details is added to your portal, go and check it.', 'success');
           }
+          if (waitingEntries.length > 0) {
+            addToast('✅ Payment received! This subscription will be added to your portal soon — contact admin for updates.', 'success');
+          }
 
-          if (user) {
+          if (user && allocations.length > 0) {
             const found = findCustomers(user.username, fresh);
             setCustomerData(found);
             setFlowStep('customer-dash');
@@ -5724,6 +6372,23 @@
         }
       };
 
+      // Dispatches the action buttons shown inside Help/FAQ answers straight
+      // to the right part of the app, reusing the same navigation the rest
+      // of the app already uses (so behavior — like "sign up first" — stays
+      // consistent everywhere).
+      const handleHelpAction = (type) => {
+        if (type === 'subscriptions') {
+          handleGetStarted();
+        } else if (type === 'portal') {
+          handleCustomerPortal();
+        } else if (type === 'auth') {
+          navigateTo('/subscriptions');
+          setFlowStep('auth');
+        } else if (type === 'whatsapp') {
+          window.open('https://wa.me/923079163485', '_blank', 'noopener,noreferrer');
+        }
+      };
+
       const handleDealPurchase = (deal) => {
         navigateTo('/subscriptions');
         if (!user) {
@@ -5759,11 +6424,11 @@
                 <div>
                   <h4 className="footer-heading">Quick Links</h4>
                   <div className="flex flex-col gap-1">
-                    <a href="#" className="footer-link">Home</a>
-                    <a href="#" className="footer-link">Subscriptions</a>
-                    <a href="#" className="footer-link">Contact Us</a>
-                    <a href="#" className="footer-link">About Us</a>
-                    <a href="#" className="footer-link">Support</a>
+                    <a href="/" onClick={(e) => { e.preventDefault(); navigateTo('/'); }} className="footer-link">Home</a>
+                    <a href="/subscriptions" onClick={(e) => { e.preventDefault(); navigateTo('/subscriptions'); }} className="footer-link">Subscriptions</a>
+                    <a href="/help" onClick={(e) => { e.preventDefault(); navigateTo('/help'); }} className="footer-link">Help / FAQs</a>
+                    <a href="/contact" onClick={(e) => { e.preventDefault(); navigateTo('/contact'); }} className="footer-link">Contact Us</a>
+                    <a href="https://wa.me/923079163485" target="_blank" rel="noopener noreferrer" className="footer-link">Support</a>
                   </div>
                 </div>
                 <div>
@@ -5866,6 +6531,16 @@
                       </div>
                     )}
                     <SubscriptionSelection subscriptions={subscriptions} onSelect={handleSubSelect} selected={selectedSubscription} />
+                    <div className="text-center mt-8">
+                      <button onClick={() => setFlowStep('custom-request')} className="btn-neon-outline px-6 py-3 text-sm">
+                        <i className="fas fa-hand-paper mr-2"></i> Don't see what you want? Request Custom Subscription
+                      </button>
+                    </div>
+                  </div>
+                )}
+                {flowStep === 'custom-request' && (
+                  <div className="max-w-lg mx-auto">
+                    <CustomFlow onBack={() => setFlowStep('select')} onComplete={handleCustomRequestComplete} user={user} />
                   </div>
                 )}
                 {flowStep === 'flow' && <div className="max-w-lg mx-auto">{renderFlow()}</div>}
@@ -5878,6 +6553,18 @@
                   </>
                 )}
               </div>
+            </section>
+          )}
+
+          {activeTab === 'help' && (
+            <section id="help-section" className="px-4 max-w-4xl mx-auto py-16">
+              <button onClick={() => navigateTo('/')} className="text-red-400 hover:text-red-300 text-sm mb-6 inline-flex items-center"><i className="fas fa-arrow-left mr-2"></i> Back</button>
+              <div className="text-center mb-12">
+                <span className="inline-block px-4 py-1 rounded-full bg-red-500/10 border border-red-500/20 text-red-400 text-xs font-medium tracking-wider uppercase mb-3">We've Got Answers</span>
+                <h2 className="text-4xl md:text-5xl font-bold text-white neon-text">Help & FAQs</h2>
+                <p className="text-white/30 mt-3 max-w-2xl mx-auto">Common questions about signing up, buying subscriptions, credits, and more. Tap a question to see the answer.</p>
+              </div>
+              <HelpSection customFaqs={customFaqs} onAction={handleHelpAction} />
             </section>
           )}
 
