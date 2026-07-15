@@ -240,6 +240,17 @@
     const { useState, useEffect, useRef, useCallback, useMemo, createContext, useContext } = React;
 
     const API_BASE = 'https://sub-hub-he32.onrender.com';
+
+    // A fresh, unique ID generated once per purchase attempt. It's sent to
+    // the server with every step of that purchase (credit deduction,
+    // saving the allocation, adding a waiting-list entry) so the server can
+    // recognize "this is the same purchase, not a new one" and refuse to
+    // apply it twice — even if a duplicate request reaches it for any
+    // reason (double click, retry, stale cached page, etc).
+    const genPurchaseId = () => {
+      if (window.crypto && window.crypto.randomUUID) return window.crypto.randomUUID();
+      return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    };
     const ADMIN_WHATSAPP = 'https://wa.me/923079163485';
 
     // ─── API HELPERS ──────────────────────────────────────────
@@ -303,11 +314,11 @@
     // Atomically push a new customer purchase into one specific account/screen.
     // This never touches any other customer's data, so it can't wipe out
     // someone else's subscription details the way a full-document overwrite could.
-    const allocateCustomer = async (subId, accountId, screenId, customer) => {
+    const allocateCustomer = async (subId, accountId, screenId, customer, purchaseId) => {
       const res = await fetch(`${API_BASE}/api/subscriptions/${subId}/allocate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ accountId, screenId, customer }),
+        body: JSON.stringify({ accountId, screenId, customer, purchaseId }),
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({ error: 'Failed to save subscription' }));
@@ -427,11 +438,11 @@
       return data;
     };
 
-    const deductCredits = async (username, amount) => {
+    const deductCredits = async (username, amount, purchaseId) => {
       const res = await fetch(`${API_BASE}/api/users/${username}/deductCredits`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ amount }),
+        body: JSON.stringify({ amount, purchaseId }),
       });
       const data = await res.json();
       // IMPORTANT: fetch() does NOT throw on 4xx/5xx responses, so without
@@ -1747,6 +1758,7 @@
         // an earlier click that hasn't finished yet), ignore this one.
         if (isSubmittingRef.current) return;
         isSubmittingRef.current = true;
+        const purchaseId = genPurchaseId();
 
         if (!name.trim() || !whatsapp.trim()) {
           addToast('Please fill all details', 'error');
@@ -1806,7 +1818,7 @@
 
         if (useCreditsFlag) {
           try {
-            const updatedUser = await deductCredits(user.username, creditsNeeded);
+            const updatedUser = await deductCredits(user.username, creditsNeeded, purchaseId);
             setUser(updatedUser);
             addToast(`✅ ${creditsNeeded} credits deducted. Subscription activated!`, 'success');
           } catch (err) {
@@ -1832,6 +1844,7 @@
             expiryDate: expiry.toISOString().split('T')[0],
             paidWithCredits: useCreditsFlag,
             isWaiting,
+            purchaseId,
             purchasedAt: now.toISOString()
           });
           setLoading(false);
@@ -2061,6 +2074,7 @@
       const completePurchase = async (useCreditsFlag = false) => {
         if (isSubmittingRef.current) return;
         isSubmittingRef.current = true;
+        const purchaseId = genPurchaseId();
 
         if (!name.trim() || !whatsapp.trim()) {
           addToast('Please fill all details', 'error');
@@ -2102,7 +2116,7 @@
 
         if (useCreditsFlag) {
           try {
-            const updatedUser = await deductCredits(user.username, creditsNeeded);
+            const updatedUser = await deductCredits(user.username, creditsNeeded, purchaseId);
             setUser(updatedUser);
             addToast(`✅ ${creditsNeeded} credits deducted.`, 'success');
           } catch (err) {
@@ -2135,6 +2149,7 @@
             expiryDate: expiry.toISOString().split('T')[0],
             paidWithCredits: useCreditsFlag,
             isWaiting,
+            purchaseId,
             purchasedAt: now.toISOString()
           });
           setLoading(false);
@@ -2342,6 +2357,7 @@
       const completePurchase = async (useCreditsFlag = false) => {
         if (isSubmittingRef.current) return;
         isSubmittingRef.current = true;
+        const purchaseId = genPurchaseId();
 
         if (!name.trim() || !whatsapp.trim()) {
           addToast('Please fill all details', 'error');
@@ -2396,7 +2412,7 @@
 
         if (useCreditsFlag) {
           try {
-            const updatedUser = await deductCredits(user.username, creditsNeeded);
+            const updatedUser = await deductCredits(user.username, creditsNeeded, purchaseId);
             setUser(updatedUser);
             addToast(`✅ ${creditsNeeded} credits deducted.`, 'success');
           } catch (err) {
@@ -2430,6 +2446,7 @@
             expiryDate: expiry.toISOString().split('T')[0],
             paidWithCredits: useCreditsFlag,
             isWaiting,
+            purchaseId,
             purchasedAt: now.toISOString()
           });
           setLoading(false);
@@ -2620,6 +2637,7 @@
       const completePurchase = async (useCreditsFlag = false) => {
         if (isSubmittingRef.current) return;
         isSubmittingRef.current = true;
+        const purchaseId = genPurchaseId();
 
         if (!name.trim() || !whatsapp.trim()) {
           addToast('Please fill all details', 'error');
@@ -2635,7 +2653,7 @@
 
         if (useCreditsFlag) {
           try {
-            const updatedUser = await deductCredits(user.username, creditsNeeded);
+            const updatedUser = await deductCredits(user.username, creditsNeeded, purchaseId);
             setUser(updatedUser);
             addToast(`✅ ${creditsNeeded} credits deducted.`, 'success');
           } catch (err) {
@@ -2754,6 +2772,7 @@
             dealSubscriptionIds: deal.subscriptionIds || [],
             dealSubscriptions: allSubscriptions,
             waitingSubs,
+            purchaseId,
             purchasedAt: now.toISOString()
           });
           setLoading(false);
@@ -2881,6 +2900,7 @@
           return;
         }
         isSubmittingRef.current = true;
+        const purchaseId = genPurchaseId();
         setSubmitting(true);
         try {
           await onComplete({
@@ -2888,7 +2908,8 @@
             name: name.trim(),
             username: user?.username || '',
             whatsapp: whatsapp.trim(),
-            months
+            months,
+            purchaseId
           });
         } finally {
           setSubmitting(false);
@@ -4364,8 +4385,9 @@
             purchasedAt: now.toISOString()
           };
 
+          const grantPurchaseId = genPurchaseId();
           for (const slot of allocations) {
-            await allocateCustomer(sub.id, slot.account.id, slot.screen.id, customerPayload);
+            await allocateCustomer(sub.id, slot.account.id, slot.screen.id, customerPayload, grantPurchaseId);
           }
 
           await refreshData();
@@ -6166,6 +6188,7 @@
             whatsapp: data.whatsapp,
             months: data.months,
             paidWithCredits: false,
+            purchaseId: data.purchaseId,
             purchasedAt: new Date().toISOString()
           });
           addToast('✅ Request submitted! Admin will contact you soon with pricing & availability.', 'success');
@@ -6222,7 +6245,7 @@
           // This is what used to cause other customers' purchase details to vanish.
           for (const allot of allocations) {
             const subIdForAllot = allot.subscriptionId || data.subscriptionId;
-            await allocateCustomer(subIdForAllot, allot.accountId, allot.screenId, customerPayload);
+            await allocateCustomer(subIdForAllot, allot.accountId, allot.screenId, customerPayload, data.purchaseId);
           }
 
           for (const entry of waitingEntries) {
@@ -6236,6 +6259,7 @@
               months: entry.months,
               email: data.email || '',
               paidWithCredits: !!data.paidWithCredits,
+              purchaseId: data.purchaseId,
               purchasedAt: data.purchasedAt || new Date().toISOString()
             });
           }

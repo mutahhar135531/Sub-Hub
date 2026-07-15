@@ -36,6 +36,7 @@ let dealsCollection;
 let promotionsCollection;
 let waitingCollection;
 let faqsCollection;
+let processedPurchasesCollection;
 
 // ─── SUBSCRIPTION COSTS (Monthly) ──────────────────────────
 const SUBSCRIPTION_COSTS = {
@@ -65,7 +66,29 @@ async function connectDB() {
   promotionsCollection = db.collection('promotions');
   waitingCollection = db.collection('waitingCustomers');
   faqsCollection = db.collection('faqs');
+  processedPurchasesCollection = db.collection('processedPurchases');
   console.log('✅ Connected to MongoDB');
+}
+
+// ─── Idempotency guard ──────────────────────────────────────
+// Prevents the exact same purchase step (e.g. "deduct credits for purchase
+// X" or "save allocation for purchase X, account Y, screen Z") from ever
+// being applied twice, no matter what causes a duplicate request to reach
+// the server — a double-click that slipped past the frontend guard, a
+// stale cached page re-submitting, a flaky network retry, two open tabs,
+// etc. It works by trying to insert a document whose _id IS the dedup key;
+// MongoDB's built-in _id uniqueness makes the "has this already happened?"
+// check and the "claim it" step a single atomic operation — there's no
+// window for two concurrent requests to both think they're first.
+async function claimIdempotencyKey(key) {
+  if (!key) return true; // no key supplied (older client) — behave as before, always allow
+  try {
+    await processedPurchasesCollection.insertOne({ _id: key, createdAt: new Date() });
+    return true; // first time we've seen this key — go ahead
+  } catch (err) {
+    if (err.code === 11000) return false; // already claimed — this is a duplicate, skip the side effect
+    throw err;
+  }
 }
 
 // ─── Seed / Upsert subscriptions ────────────────────────────
@@ -447,10 +470,20 @@ app.delete('/api/subscriptions/:id', async (req, res) => {
 
 app.post('/api/subscriptions/:id/allocate', async (req, res) => {
   try {
-    const { accountId, screenId, customer } = req.body;
+    const { accountId, screenId, customer, purchaseId } = req.body;
     if (!accountId || !screenId || !customer || !customer.username) {
       return res.status(400).json({ error: 'accountId, screenId and customer are required' });
     }
+
+    // Same purchase step submitted twice? Don't add the customer a second
+    // time — just return the subscription as it already stands.
+    const key = purchaseId ? `allocate:${purchaseId}:${accountId}:${screenId}` : null;
+    const claimed = await claimIdempotencyKey(key);
+    if (!claimed) {
+      const existing = await subscriptionsCollection.findOne({ id: req.params.id });
+      return res.json(existing);
+    }
+
     const customerToInsert = {
       name: customer.name || '',
       username: customer.username,
@@ -664,10 +697,23 @@ app.post('/api/users/:username/addCredits', async (req, res) => {
 // balance.
 app.post('/api/users/:username/deductCredits', async (req, res) => {
   try {
-    const { amount } = req.body;
+    const { amount, purchaseId } = req.body;
     if (!amount || amount <= 0) {
       return res.status(400).json({ error: 'Invalid amount' });
     }
+
+    // If this exact purchase already deducted credits (e.g. the request
+    // arrived twice), just return the user's current data instead of
+    // deducting a second time.
+    const key = purchaseId ? `credits:${purchaseId}` : null;
+    const claimed = await claimIdempotencyKey(key);
+    if (!claimed) {
+      const existing = await usersCollection.findOne({ username: req.params.username });
+      if (!existing) return res.status(404).json({ error: 'User not found' });
+      const { password, ...rest } = existing;
+      return res.json(rest);
+    }
+
     const result = await usersCollection.findOneAndUpdate(
       { username: req.params.username, credits: { $gte: amount } },
       { $inc: { credits: -amount } },
@@ -972,11 +1018,19 @@ app.post('/api/waiting', async (req, res) => {
     const {
       subscriptionId, subscriptionName, isCustomRequest,
       name, username, whatsapp, months, email,
-      paidWithCredits, creditsAmount, purchasedAt
+      paidWithCredits, creditsAmount, purchasedAt, purchaseId
     } = req.body;
     if (!subscriptionName || !name || !whatsapp) {
       return res.status(400).json({ error: 'subscriptionName, name and whatsapp are required' });
     }
+
+    // Same waiting-request submitted twice? Don't add a duplicate entry.
+    const key = purchaseId ? `waiting:${purchaseId}:${subscriptionId || 'custom'}` : null;
+    const claimed = await claimIdempotencyKey(key);
+    if (!claimed) {
+      return res.json({ duplicate: true });
+    }
+
     const entry = {
       id: Date.now().toString(),
       subscriptionId: subscriptionId || null,
