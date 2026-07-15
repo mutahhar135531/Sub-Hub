@@ -240,17 +240,6 @@
     const { useState, useEffect, useRef, useCallback, useMemo, createContext, useContext } = React;
 
     const API_BASE = 'https://sub-hub-he32.onrender.com';
-
-    // A fresh, unique ID generated once per purchase attempt. It's sent to
-    // the server with every step of that purchase (credit deduction,
-    // saving the allocation, adding a waiting-list entry) so the server can
-    // recognize "this is the same purchase, not a new one" and refuse to
-    // apply it twice — even if a duplicate request reaches it for any
-    // reason (double click, retry, stale cached page, etc).
-    const genPurchaseId = () => {
-      if (window.crypto && window.crypto.randomUUID) return window.crypto.randomUUID();
-      return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
-    };
     const ADMIN_WHATSAPP = 'https://wa.me/923079163485';
 
     // ─── API HELPERS ──────────────────────────────────────────
@@ -314,11 +303,11 @@
     // Atomically push a new customer purchase into one specific account/screen.
     // This never touches any other customer's data, so it can't wipe out
     // someone else's subscription details the way a full-document overwrite could.
-    const allocateCustomer = async (subId, accountId, screenId, customer, purchaseId) => {
+    const allocateCustomer = async (subId, accountId, screenId, customer) => {
       const res = await fetch(`${API_BASE}/api/subscriptions/${subId}/allocate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ accountId, screenId, customer, purchaseId }),
+        body: JSON.stringify({ accountId, screenId, customer }),
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({ error: 'Failed to save subscription' }));
@@ -438,11 +427,11 @@
       return data;
     };
 
-    const deductCredits = async (username, amount, purchaseId) => {
+    const deductCredits = async (username, amount) => {
       const res = await fetch(`${API_BASE}/api/users/${username}/deductCredits`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ amount, purchaseId }),
+        body: JSON.stringify({ amount }),
       });
       const data = await res.json();
       // IMPORTANT: fetch() does NOT throw on 4xx/5xx responses, so without
@@ -552,6 +541,30 @@
       return res.json();
     };
 
+    // ─── HELP / FAQ ───────────────────────────────────────────
+    const fetchFaqs = async () => {
+      const res = await fetch(`${API_BASE}/api/faqs?t=${Date.now()}`, {
+        headers: { 'Cache-Control': 'no-cache' }
+      });
+      return res.json();
+    };
+
+    const addFaq = async (data) => {
+      const res = await fetch(`${API_BASE}/api/faqs`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+      const result = await res.json();
+      if (!res.ok) throw result;
+      return result;
+    };
+
+    const deleteFaq = async (id) => {
+      const res = await fetch(`${API_BASE}/api/faqs/${id}`, { method: 'DELETE' });
+      return res.json();
+    };
+
     // ─── PRICING ──────────────────────────────────────────────
     // Every subscription is charged using ONLY the "Selling Price (RS / mo)"
     // that the admin sets for it in the admin portal — nothing is hardcoded
@@ -651,6 +664,7 @@
       const navItems = [
         { id: 'home', label: 'Home', icon: 'fa-home' },
         { id: 'subscriptions', label: 'Subscriptions', icon: 'fa-crown' },
+        { id: 'help', label: 'Help', icon: 'fa-question-circle' },
         { id: 'contact', label: 'Contact', icon: 'fa-envelope' },
         { id: 'social', label: 'Social', icon: 'fa-share-alt' },
       ];
@@ -668,6 +682,7 @@
           window.history.pushState({ tab: id }, '', path);
         }
         if (id === 'admin') document.getElementById('admin-section')?.scrollIntoView({ behavior: 'smooth' });
+        if (id === 'help') document.getElementById('help-section')?.scrollIntoView({ behavior: 'smooth' });
         if (id === 'contact') document.getElementById('contact-section')?.scrollIntoView({ behavior: 'smooth' });
         if (id === 'social') document.getElementById('social-section')?.scrollIntoView({ behavior: 'smooth' });
       };
@@ -1732,10 +1747,6 @@
         // an earlier click that hasn't finished yet), ignore this one.
         if (isSubmittingRef.current) return;
         isSubmittingRef.current = true;
-        // One ID for this whole purchase attempt — sent with every step so
-        // the server can reject a duplicate even if this function somehow
-        // ran twice (e.g. a stale cached page double-submitting).
-        const purchaseId = genPurchaseId();
 
         if (!name.trim() || !whatsapp.trim()) {
           addToast('Please fill all details', 'error');
@@ -1795,7 +1806,7 @@
 
         if (useCreditsFlag) {
           try {
-            const updatedUser = await deductCredits(user.username, creditsNeeded, purchaseId);
+            const updatedUser = await deductCredits(user.username, creditsNeeded);
             setUser(updatedUser);
             addToast(`✅ ${creditsNeeded} credits deducted. Subscription activated!`, 'success');
           } catch (err) {
@@ -1821,7 +1832,6 @@
             expiryDate: expiry.toISOString().split('T')[0],
             paidWithCredits: useCreditsFlag,
             isWaiting,
-            purchaseId,
             purchasedAt: now.toISOString()
           });
           setLoading(false);
@@ -2051,7 +2061,6 @@
       const completePurchase = async (useCreditsFlag = false) => {
         if (isSubmittingRef.current) return;
         isSubmittingRef.current = true;
-        const purchaseId = genPurchaseId();
 
         if (!name.trim() || !whatsapp.trim()) {
           addToast('Please fill all details', 'error');
@@ -2093,7 +2102,7 @@
 
         if (useCreditsFlag) {
           try {
-            const updatedUser = await deductCredits(user.username, creditsNeeded, purchaseId);
+            const updatedUser = await deductCredits(user.username, creditsNeeded);
             setUser(updatedUser);
             addToast(`✅ ${creditsNeeded} credits deducted.`, 'success');
           } catch (err) {
@@ -2126,7 +2135,6 @@
             expiryDate: expiry.toISOString().split('T')[0],
             paidWithCredits: useCreditsFlag,
             isWaiting,
-            purchaseId,
             purchasedAt: now.toISOString()
           });
           setLoading(false);
@@ -2334,7 +2342,6 @@
       const completePurchase = async (useCreditsFlag = false) => {
         if (isSubmittingRef.current) return;
         isSubmittingRef.current = true;
-        const purchaseId = genPurchaseId();
 
         if (!name.trim() || !whatsapp.trim()) {
           addToast('Please fill all details', 'error');
@@ -2389,7 +2396,7 @@
 
         if (useCreditsFlag) {
           try {
-            const updatedUser = await deductCredits(user.username, creditsNeeded, purchaseId);
+            const updatedUser = await deductCredits(user.username, creditsNeeded);
             setUser(updatedUser);
             addToast(`✅ ${creditsNeeded} credits deducted.`, 'success');
           } catch (err) {
@@ -2423,7 +2430,6 @@
             expiryDate: expiry.toISOString().split('T')[0],
             paidWithCredits: useCreditsFlag,
             isWaiting,
-            purchaseId,
             purchasedAt: now.toISOString()
           });
           setLoading(false);
@@ -2614,7 +2620,6 @@
       const completePurchase = async (useCreditsFlag = false) => {
         if (isSubmittingRef.current) return;
         isSubmittingRef.current = true;
-        const purchaseId = genPurchaseId();
 
         if (!name.trim() || !whatsapp.trim()) {
           addToast('Please fill all details', 'error');
@@ -2630,7 +2635,7 @@
 
         if (useCreditsFlag) {
           try {
-            const updatedUser = await deductCredits(user.username, creditsNeeded, purchaseId);
+            const updatedUser = await deductCredits(user.username, creditsNeeded);
             setUser(updatedUser);
             addToast(`✅ ${creditsNeeded} credits deducted.`, 'success');
           } catch (err) {
@@ -2749,7 +2754,6 @@
             dealSubscriptionIds: deal.subscriptionIds || [],
             dealSubscriptions: allSubscriptions,
             waitingSubs,
-            purchaseId,
             purchasedAt: now.toISOString()
           });
           setLoading(false);
@@ -2884,8 +2888,7 @@
             name: name.trim(),
             username: user?.username || '',
             whatsapp: whatsapp.trim(),
-            months,
-            purchaseId: genPurchaseId()
+            months
           });
         } finally {
           setSubmitting(false);
@@ -3608,6 +3611,167 @@
       );
     }
 
+    // ─── HELP / FAQ ─────────────────────────────────────────────
+    // Built-in answers to the questions customers ask most. Each item can
+    // carry an `action` that renders a real button taking them straight to
+    // that part of the app, instead of just describing it in text.
+    // `onAction` types used below: 'subscriptions' (browse/purchase),
+    // 'auth' (sign up / sign in), 'portal' (customer dashboard), 'whatsapp'.
+    const DEFAULT_FAQS = [
+      {
+        id: 'signup', category: 'Getting Started',
+        question: 'How do I sign up?',
+        answer: "Tap \"Customer Portal\" in the navbar, choose Sign Up, and enter your WhatsApp number with a username and password. That WhatsApp number is what confirms it's really you on every purchase afterwards, so make sure it's correct.",
+        action: { label: 'Sign Up Now', type: 'auth' }
+      },
+      {
+        id: 'signin', category: 'Getting Started',
+        question: 'How do I sign in?',
+        answer: 'Tap "Customer Portal" in the navbar and enter the username and password you signed up with.',
+        action: { label: 'Sign In', type: 'auth' }
+      },
+      {
+        id: 'forgot-password', category: 'Getting Started',
+        question: 'I forgot my password. How do I recover it?',
+        answer: "For your account's security, passwords can't be recovered automatically. Message our support team on WhatsApp with your registered username and WhatsApp number — once we verify it's you, we'll reset it for you.",
+        action: { label: 'Chat on WhatsApp', type: 'whatsapp' }
+      },
+      {
+        id: 'buy-subscription', category: 'Purchases & Payments',
+        question: 'How do I buy a subscription?',
+        answer: 'Browse Subscriptions, pick the one you want, choose your plan (screens/months), and fill in your name and WhatsApp number. Then either pay with credits or request an OTP to confirm. Once confirmed, your login details show up instantly in your Customer Portal.',
+        action: { label: 'Browse Subscriptions', type: 'subscriptions' }
+      },
+      {
+        id: 'buy-credits', category: 'Purchases & Payments',
+        question: 'How do I buy or add credits?',
+        answer: "Credits are topped up by our team, not purchased inside the app directly. Message us on WhatsApp with how many credits you'd like — once your payment is confirmed, we'll add them to your account right away.",
+        action: { label: 'Chat on WhatsApp', type: 'whatsapp' }
+      },
+      {
+        id: 'pay-credits', category: 'Purchases & Payments',
+        question: 'Can I pay with credits instead of an OTP?',
+        answer: 'Yes. On any subscription\'s purchase page, if you have enough credits you\'ll see a "Pay with Credits" toggle — turn it on and your purchase completes instantly, no OTP needed.'
+      },
+      {
+        id: 'otp-issue', category: 'Purchases & Payments',
+        question: "I didn't receive my OTP. What should I do?",
+        answer: 'OTPs are sent instantly and expire after a short time. Double check your WhatsApp number exactly matches your sign-up number, then tap "Get OTP" again. Still nothing? Reach out to support and we\'ll sort it out.',
+        action: { label: 'Chat on WhatsApp', type: 'whatsapp' }
+      },
+      {
+        id: 'out-of-stock', category: 'Purchases & Payments',
+        question: 'What happens if a subscription is out of stock?',
+        answer: "You can still complete your purchase — payment goes through as normal. Instead of getting login details immediately, you're added to our waiting list and we'll deliver your account soon after, usually within 24 hours."
+      },
+      {
+        id: 'custom-request', category: 'Purchases & Payments',
+        question: "The subscription I want isn't listed. What can I do?",
+        answer: "Use \"Request Custom Subscription\" on the subscription selection page. Tell us exactly what you need and for how many months, and we'll follow up with pricing and availability.",
+        action: { label: 'Browse Subscriptions', type: 'subscriptions' }
+      },
+      {
+        id: 'deals', category: 'Purchases & Payments',
+        question: 'How do deals / bundles work?',
+        answer: "Deals bundle two or more subscriptions together at a discounted price. Fill in your details and confirm just like a normal purchase — every subscription in the bundle gets added to your portal."
+      },
+      {
+        id: 'check-purchases', category: 'Your Account',
+        question: 'How do I check my purchased subscriptions?',
+        answer: 'Open "Customer Portal" from the navbar — every active subscription you own, its login details, and its expiry date are all listed there.',
+        action: { label: 'Go to Customer Portal', type: 'portal' }
+      },
+      {
+        id: 'whatsapp-locked', category: 'Your Account',
+        question: 'Why is my WhatsApp number locked during purchase?',
+        answer: "It's locked to the number you signed up with so we can always verify a purchase is really coming from you, and reach you directly if there's ever an issue with your order."
+      },
+      {
+        id: 'refund', category: 'Support',
+        question: 'Can I get a refund?',
+        answer: "Refund eligibility depends on your specific order. Message our support team on WhatsApp with your order details and we'll help sort it out.",
+        action: { label: 'Chat on WhatsApp', type: 'whatsapp' }
+      },
+      {
+        id: 'contact-support', category: 'Support',
+        question: 'How do I contact support?',
+        answer: 'Tap the WhatsApp button visible anywhere in the app, or check the Contact page for our phone number and email.',
+        action: { label: 'Chat on WhatsApp', type: 'whatsapp' }
+      }
+    ];
+
+    function HelpSection({ customFaqs, onAction }) {
+      const [search, setSearch] = useState('');
+      const [openId, setOpenId] = useState(null);
+
+      const allFaqs = useMemo(() => {
+        return [...DEFAULT_FAQS, ...(customFaqs || []).map(f => ({ ...f, isCustom: true }))];
+      }, [customFaqs]);
+
+      const filtered = useMemo(() => {
+        const term = search.trim().toLowerCase();
+        if (!term) return allFaqs;
+        return allFaqs.filter(f =>
+          f.question.toLowerCase().includes(term) || f.answer.toLowerCase().includes(term)
+        );
+      }, [allFaqs, search]);
+
+      const grouped = useMemo(() => {
+        const g = {};
+        filtered.forEach(f => {
+          const cat = f.category || 'General';
+          if (!g[cat]) g[cat] = [];
+          g[cat].push(f);
+        });
+        return g;
+      }, [filtered]);
+
+      const toggle = (id) => setOpenId(prev => prev === id ? null : id);
+
+      return (
+        <div className="max-w-3xl mx-auto">
+          <div className="mb-8">
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="input-neon w-full"
+              placeholder="Search for a question... (e.g. password, OTP, credits)"
+            />
+          </div>
+          {Object.keys(grouped).length === 0 ? (
+            <div className="text-center py-8 text-white/30"><i className="fas fa-question-circle text-4xl mb-3 block"></i> No questions match "{search}".</div>
+          ) : (
+            Object.entries(grouped).map(([category, items]) => (
+              <div key={category} className="mb-8">
+                <h3 className="text-white/40 text-xs font-semibold tracking-wider uppercase mb-3">{category}</h3>
+                <div className="space-y-3">
+                  {items.map(item => (
+                    <div key={item.id} className="rounded-2xl border border-white/10 bg-white/5 overflow-hidden">
+                      <button onClick={() => toggle(item.id)} className="w-full flex items-center justify-between text-left px-5 py-4 hover:bg-white/5 transition">
+                        <span className="text-white font-medium pr-4">{item.question}</span>
+                        <i className={`fas fa-chevron-down text-red-400 flex-shrink-0 transition-transform ${openId === item.id ? 'rotate-180' : ''}`}></i>
+                      </button>
+                      {openId === item.id && (
+                        <div className="px-5 pb-5 pt-1 border-t border-white/5">
+                          <p className="text-white/60 text-sm leading-relaxed">{item.answer}</p>
+                          {item.action && (
+                            <button onClick={() => onAction(item.action.type)} className="btn-neon-outline text-xs mt-4">
+                              {item.action.label} <i className="fas fa-arrow-right ml-2"></i>
+                            </button>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      );
+    }
+
     // ─── ADMIN DASHBOARD ──────────────────────────────────────
     function AdminDashboard({ subscriptions, setSubscriptions, onLogout, onBack, deals, setDeals, promotions, setPromotions }) {
       const [activeTab, setActiveTab] = useState('overview');
@@ -3631,6 +3795,25 @@
       const [otpList, setOtpList] = useState([]);
       const [usersList, setUsersList] = useState([]);
       const [waitingList, setWaitingList] = useState([]);
+      const [faqsList, setFaqsList] = useState([]);
+      const [newFaqQuestion, setNewFaqQuestion] = useState('');
+      const [newFaqAnswer, setNewFaqAnswer] = useState('');
+      const [newFaqCategory, setNewFaqCategory] = useState('General');
+      // Section-specific search (filters the already-loaded Customers /
+      // Users tables). Search only applies once the button is clicked or
+      // Enter is pressed — typing alone doesn't filter, to match a real
+      // "search" action rather than live-filtering as you type.
+      const [customerSearchInput, setCustomerSearchInput] = useState('');
+      const [customerSearch, setCustomerSearch] = useState('');
+      const [userSearchInput, setUserSearchInput] = useState('');
+      const [userSearch, setUserSearch] = useState('');
+      // General search: looks across registered users, every subscription's
+      // customer records, and the waiting-customers list all at once — for
+      // when you only know a little about the customer (e.g. just a number).
+      const [globalSearchInput, setGlobalSearchInput] = useState('');
+      const [globalSearchTerm, setGlobalSearchTerm] = useState('');
+      const [globalSearchResults, setGlobalSearchResults] = useState(null);
+      const [globalSearching, setGlobalSearching] = useState(false);
       const [addCreditsAmount, setAddCreditsAmount] = useState(0);
       const [deductCreditsAmount, setDeductCreditsAmount] = useState(0);
       const [selectedUserForCredits, setSelectedUserForCredits] = useState(null);
@@ -3753,6 +3936,90 @@
         }
       };
 
+      const loadFaqs = async () => {
+        try {
+          const data = await fetchFaqs();
+          setFaqsList(data);
+        } catch (err) { console.error(err); }
+      };
+
+      const handleAddFaq = async () => {
+        if (!newFaqQuestion.trim() || !newFaqAnswer.trim()) {
+          addToast('Please fill in both the question and the answer', 'error');
+          return;
+        }
+        try {
+          const entry = await addFaq({
+            question: newFaqQuestion.trim(),
+            answer: newFaqAnswer.trim(),
+            category: newFaqCategory.trim() || 'General'
+          });
+          setFaqsList(prev => [...prev, entry]);
+          setNewFaqQuestion('');
+          setNewFaqAnswer('');
+          setNewFaqCategory('General');
+          addToast('Question added to Help & FAQs.', 'success');
+        } catch (err) {
+          addToast('Failed to add question: ' + (err?.error || 'unknown error'), 'error');
+        }
+      };
+
+      const handleDeleteFaq = async (id) => {
+        try {
+          await deleteFaq(id);
+          setFaqsList(prev => prev.filter(f => f.id !== id));
+          addToast('Question removed.', 'success');
+        } catch (err) {
+          addToast('Failed to remove question', 'error');
+        }
+      };
+
+      // Searches everything at once: registered accounts, every
+      // subscription's active customer records, and the waiting-customers
+      // list — so admin only needs one piece of info (name, username, or
+      // number) to find out everything about a customer.
+      const handleGlobalSearch = async () => {
+        const term = globalSearchInput.trim();
+        if (!term) {
+          addToast('Enter a name, username, or WhatsApp number to search', 'error');
+          return;
+        }
+        setGlobalSearchTerm(term);
+        setGlobalSearching(true);
+        try {
+          const [freshUsers, freshWaiting] = await Promise.all([
+            fetchAllUsers().catch(() => usersList),
+            fetchWaitingList().catch(() => waitingList)
+          ]);
+          setUsersList(freshUsers);
+          setWaitingList(freshWaiting);
+
+          const userMatches = freshUsers.filter(u =>
+            matchesSearch([u.username, u.whatsapp], term)
+          );
+
+          const subscriptionMatches = [];
+          subscriptions.forEach(sub => {
+            getCustomerRecords(sub).forEach(r => {
+              if (matchesSearch([r.customer?.name, r.customer?.username, r.customer?.whatsapp, r.customer?.email], term)) {
+                subscriptionMatches.push({ sub, record: r });
+              }
+            });
+          });
+
+          const waitingMatches = freshWaiting.filter(w =>
+            matchesSearch([w.name, w.username, w.whatsapp, w.subscriptionName], term)
+          );
+
+          setGlobalSearchResults({ userMatches, subscriptionMatches, waitingMatches });
+        } catch (err) {
+          console.error('Global search failed:', err);
+          addToast('Search failed. Please try again.', 'error');
+        } finally {
+          setGlobalSearching(false);
+        }
+      };
+
       const loadIncome = async (period = 'all', customStart, customEnd) => {
         setIncomeLoading(true);
         try {
@@ -3789,6 +4056,7 @@
         if (activeTab === 'deals') loadDeals();
         if (activeTab === 'promotions') loadPromotions();
         if (activeTab === 'waiting') loadWaiting();
+        if (activeTab === 'faqs') loadFaqs();
         if (activeTab === 'overview' || activeTab === 'income') {
           if (incomePeriod !== 'custom') loadIncome(incomePeriod);
         }
@@ -4096,9 +4364,8 @@
             purchasedAt: now.toISOString()
           };
 
-          const grantPurchaseId = genPurchaseId();
           for (const slot of allocations) {
-            await allocateCustomer(sub.id, slot.account.id, slot.screen.id, customerPayload, grantPurchaseId);
+            await allocateCustomer(sub.id, slot.account.id, slot.screen.id, customerPayload);
           }
 
           await refreshData();
@@ -4386,6 +4653,15 @@
           addToast(err.message || 'Failed to update customer.', 'error');
           await refreshData();
         }
+      };
+
+      // Simple case-insensitive "does any of these fields contain the
+      // search term" helper, shared by the Customers/Users filters and the
+      // general search below. Empty term = everything matches.
+      const matchesSearch = (fields, term) => {
+        const t = (term || '').trim().toLowerCase();
+        if (!t) return true;
+        return fields.some(f => (f || '').toString().toLowerCase().includes(t));
       };
 
       const getCustomerRecords = (sub) => {
@@ -4723,13 +4999,14 @@
           )}
 
           <div className="flex flex-wrap gap-2 border-b border-white/5 pb-3">
-            {['overview', 'subscriptions', 'customers', 'waiting', 'income', 'users', 'deals', 'promotions', 'otp'].map(tab => (
+            {['overview', 'search', 'subscriptions', 'customers', 'waiting', 'income', 'users', 'deals', 'promotions', 'faqs', 'otp'].map(tab => (
               <button key={tab} onClick={() => {
                 setActiveTab(tab);
                 if (tab === 'users') markUsersSeen();
                 if (tab === 'customers') markCustomersSeen();
               }} className={`tab-btn ${activeTab === tab ? 'active' : ''}`}>
                 {tab === 'overview' && <><i className="fas fa-chart-pie mr-2"></i> Overview</>}
+                {tab === 'search' && <><i className="fas fa-search mr-2"></i> Search</>}
                 {tab === 'subscriptions' && <><i className="fas fa-crown mr-2"></i> Subscriptions</>}
                 {tab === 'customers' && <><i className="fas fa-users mr-2"></i> Customers{unseenCustomersCount > 0 && <span className="notif-badge">{unseenCustomersCount}</span>}</>}
                 {tab === 'waiting' && <><i className="fas fa-clock mr-2"></i> Waiting Customers{waitingList.length > 0 && <span className="notif-badge">{waitingList.length}</span>}</>}
@@ -4737,10 +5014,118 @@
                 {tab === 'users' && <><i className="fas fa-user-friends mr-2"></i> Users{unseenUsersCount > 0 && <span className="notif-badge">{unseenUsersCount}</span>}</>}
                 {tab === 'deals' && <><i className="fas fa-fire mr-2"></i> Deals</>}
                 {tab === 'promotions' && <><i className="fas fa-film mr-2"></i> Promotions</>}
+                {tab === 'faqs' && <><i className="fas fa-question-circle mr-2"></i> Help & FAQs</>}
                 {tab === 'otp' && <><i className="fas fa-key mr-2"></i> OTP Logs</>}
               </button>
             ))}
           </div>
+
+          {activeTab === 'search' && (
+            <div className="space-y-4">
+              <div className="glass-panel">
+                <h3 className="text-lg font-bold text-white mb-1"><i className="fas fa-search mr-2 text-red-400"></i> Search Everything</h3>
+                <p className="text-white/40 text-sm mb-4">Only know a little about the customer — a name, a username, or just their WhatsApp number? Search once here and see their registered account, every active subscription, and whether they're on the waiting list.</p>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={globalSearchInput}
+                    onChange={(e) => setGlobalSearchInput(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === 'Enter') handleGlobalSearch(); }}
+                    className="input-neon flex-1"
+                    placeholder="Search by name, username, or WhatsApp number..."
+                  />
+                  <button onClick={handleGlobalSearch} disabled={globalSearching} className="btn-neon px-6">
+                    {globalSearching ? <span className="spinner"></span> : <><i className="fas fa-search mr-2"></i> Search</>}
+                  </button>
+                </div>
+              </div>
+
+              {globalSearchResults && (
+                <>
+                  {globalSearchResults.userMatches.length === 0 && globalSearchResults.subscriptionMatches.length === 0 && globalSearchResults.waitingMatches.length === 0 ? (
+                    <div className="glass-panel text-center py-8 text-white/30">
+                      <i className="fas fa-search text-4xl mb-3 block"></i> No results found for "{globalSearchTerm}".
+                    </div>
+                  ) : (
+                    <>
+                      {globalSearchResults.userMatches.length > 0 && (
+                        <div className="glass-panel">
+                          <h4 className="text-white font-semibold mb-3"><i className="fas fa-user-friends mr-2 text-red-400"></i> Registered Account ({globalSearchResults.userMatches.length})</h4>
+                          <div className="overflow-x-auto">
+                            <table className="admin-table text-sm">
+                              <thead><tr><th>Username</th><th>WhatsApp</th><th>Credits</th><th>Purchases</th></tr></thead>
+                              <tbody>
+                                {globalSearchResults.userMatches.map(u => (
+                                  <tr key={u.username}>
+                                    <td className="font-mono">{u.username}</td>
+                                    <td>{u.whatsapp}</td>
+                                    <td><span className="badge badge-green">{u.credits || 0}</span></td>
+                                    <td>{u.purchaseCount || 0}</td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+                      )}
+
+                      {globalSearchResults.subscriptionMatches.length > 0 && (
+                        <div className="glass-panel">
+                          <h4 className="text-white font-semibold mb-3"><i className="fas fa-crown mr-2 text-red-400"></i> Active Subscriptions ({globalSearchResults.subscriptionMatches.length})</h4>
+                          <div className="overflow-x-auto">
+                            <table className="admin-table text-sm">
+                              <thead><tr><th>Subscription</th><th>Name</th><th>Username</th><th>WhatsApp</th><th>Screen</th><th>Expiry</th><th>Status</th></tr></thead>
+                              <tbody>
+                                {globalSearchResults.subscriptionMatches.map((m, idx) => {
+                                  const status = checkExpiry(m.record.expiry);
+                                  const statusColors = { expired: 'badge-red', today: 'badge-yellow', tomorrow: 'badge-yellow', soon: 'badge-yellow', active: 'badge-green', unknown: 'badge-red-light' };
+                                  const statusLabels = { expired: 'Expired', today: 'Today', tomorrow: 'Tomorrow', soon: 'Soon', active: 'Active', unknown: 'N/A' };
+                                  return (
+                                    <tr key={idx}>
+                                      <td className="font-semibold">{m.sub.name}</td>
+                                      <td>{m.record.customer.name || 'N/A'}</td>
+                                      <td className="font-mono text-xs">{m.record.customer.username}</td>
+                                      <td>{m.record.customer.whatsapp}</td>
+                                      <td>{m.record.screenName}</td>
+                                      <td>{m.record.expiry}</td>
+                                      <td><span className={`badge ${statusColors[status] || 'badge-red-light'}`}>{statusLabels[status] || 'N/A'}</span></td>
+                                    </tr>
+                                  );
+                                })}
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+                      )}
+
+                      {globalSearchResults.waitingMatches.length > 0 && (
+                        <div className="glass-panel">
+                          <h4 className="text-white font-semibold mb-3"><i className="fas fa-clock mr-2 text-yellow-400"></i> Waiting List ({globalSearchResults.waitingMatches.length})</h4>
+                          <div className="overflow-x-auto">
+                            <table className="admin-table text-sm">
+                              <thead><tr><th>Subscription Needed</th><th>Name</th><th>Username</th><th>WhatsApp</th><th>Months</th><th>Type</th></tr></thead>
+                              <tbody>
+                                {globalSearchResults.waitingMatches.map(w => (
+                                  <tr key={w.id}>
+                                    <td className="font-semibold">{w.subscriptionName}</td>
+                                    <td>{w.name || 'N/A'}</td>
+                                    <td className="font-mono text-xs">{w.username || 'N/A'}</td>
+                                    <td>{w.whatsapp}</td>
+                                    <td>{w.months}</td>
+                                    <td>{w.isCustomRequest ? <span className="badge badge-yellow text-xs">Custom Request</span> : <span className="badge badge-green text-xs">{w.paidWithCredits ? 'Paid (Credits)' : 'Paid (OTP)'}</span>}</td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+                      )}
+                    </>
+                  )}
+                </>
+              )}
+            </div>
+          )}
 
           {activeTab === 'overview' && (
             <div className="space-y-4">
@@ -4936,8 +5321,27 @@
 
           {activeTab === 'customers' && (
             <div className="space-y-4">
+              <div className="glass-panel">
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={customerSearchInput}
+                    onChange={(e) => setCustomerSearchInput(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === 'Enter') setCustomerSearch(customerSearchInput.trim()); }}
+                    className="input-neon flex-1"
+                    placeholder="Search customers by name, username, or WhatsApp number..."
+                  />
+                  <button onClick={() => setCustomerSearch(customerSearchInput.trim())} className="btn-neon px-6"><i className="fas fa-search mr-2"></i> Search</button>
+                  {customerSearch && (
+                    <button onClick={() => { setCustomerSearchInput(''); setCustomerSearch(''); }} className="btn-neon-outline px-4"><i className="fas fa-times"></i></button>
+                  )}
+                </div>
+              </div>
               {subscriptions.map(sub => {
-                const records = getCustomerRecords(sub);
+                const allRecords = getCustomerRecords(sub);
+                const records = customerSearch
+                  ? allRecords.filter(r => matchesSearch([r.customer?.name, r.customer?.username, r.customer?.whatsapp], customerSearch))
+                  : allRecords;
                 if (records.length === 0) return null;
                 return (
                   <div key={sub.id} className="glass-panel">
@@ -4987,8 +5391,17 @@
                   </div>
                 );
               })}
-              {subscriptions.every(s => getCustomerRecords(s).length === 0) && (
-                <div className="text-center py-8 text-white/30"><i className="fas fa-users text-4xl mb-3 block"></i> No customers yet.</div>
+              {subscriptions.every(s => {
+                const allRecords = getCustomerRecords(s);
+                const records = customerSearch
+                  ? allRecords.filter(r => matchesSearch([r.customer?.name, r.customer?.username, r.customer?.whatsapp], customerSearch))
+                  : allRecords;
+                return records.length === 0;
+              }) && (
+                <div className="text-center py-8 text-white/30">
+                  <i className="fas fa-users text-4xl mb-3 block"></i>
+                  {customerSearch ? `No customers match "${customerSearch}".` : 'No customers yet.'}
+                </div>
               )}
             </div>
           )}
@@ -5135,37 +5548,62 @@
                 <h3 className="text-lg font-semibold text-white"><i className="fas fa-user-friends mr-2 text-red-400"></i> Registered Users</h3>
                 <button onClick={openAddUserModal} className="btn-neon text-sm"><i className="fas fa-user-plus mr-2"></i> Add User</button>
               </div>
-              {usersList.length === 0 ? (
-                <div className="text-center py-8 text-white/30"><i className="fas fa-user-slash text-3xl mb-3 block"></i> No users registered yet.</div>
-              ) : (
-                <div className="overflow-x-auto">
-                  <table className="admin-table text-sm">
-                    <thead><tr><th>Username</th><th>WhatsApp</th><th>Credits</th><th>Purchases</th><th>Actions</th></tr></thead>
-                    <tbody>
-                      {usersList.map(u => (
-                        <tr key={u.username}>
-                          <td className="font-mono">{u.username}</td>
-                          <td>{u.whatsapp}</td>
-                          <td><span className="badge badge-green">{u.credits || 0}</span></td>
-                          <td>{u.purchaseCount || 0}</td>
-                          <td>
-                            <div className="flex flex-wrap gap-2 items-center">
-                              <input type="number" className="input-neon w-20 py-1 px-2 text-sm" placeholder="+" value={selectedUserForCredits === u.username ? addCreditsAmount : ''} onChange={(e) => { setSelectedUserForCredits(u.username); setAddCreditsAmount(Number(e.target.value)); }} />
-                              <button onClick={() => handleAddCredits(u.username)} className="btn-success text-xs"><i className="fas fa-plus mr-1"></i> Add</button>
-                              <input type="number" className="input-neon w-20 py-1 px-2 text-sm" placeholder="-" value={selectedUserForCredits === u.username ? deductCreditsAmount : ''} onChange={(e) => { setSelectedUserForCredits(u.username); setDeductCreditsAmount(Number(e.target.value)); }} />
-                              <button onClick={() => handleDeductCredits(u.username)} className="btn-danger text-xs"><i className="fas fa-minus mr-1"></i> Deduct</button>
-                              <button onClick={() => openUserEditModal(u)} className="btn-warning text-xs"><i className="fas fa-pen mr-1"></i> Edit</button>
-                              <button onClick={() => openGrantModal(u)} className="btn-neon-sm"><i className="fas fa-gift mr-1"></i> Grant Sub</button>
-                              <button onClick={() => handleViewCredentials(u.username)} disabled={credsLoading} className="btn-neon-outline text-xs"><i className="fas fa-eye mr-1"></i> Creds</button>
-                              <button onClick={() => handleDeleteUser(u.username)} className="btn-danger text-xs"><i className="fas fa-trash mr-1"></i> Delete</button>
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
+              <div className="flex gap-2 mb-4">
+                <input
+                  type="text"
+                  value={userSearchInput}
+                  onChange={(e) => setUserSearchInput(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') setUserSearch(userSearchInput.trim()); }}
+                  className="input-neon flex-1"
+                  placeholder="Search users by username or WhatsApp number..."
+                />
+                <button onClick={() => setUserSearch(userSearchInput.trim())} className="btn-neon px-6"><i className="fas fa-search mr-2"></i> Search</button>
+                {userSearch && (
+                  <button onClick={() => { setUserSearchInput(''); setUserSearch(''); }} className="btn-neon-outline px-4"><i className="fas fa-times"></i></button>
+                )}
+              </div>
+              {(() => {
+                const filteredUsers = userSearch
+                  ? usersList.filter(u => matchesSearch([u.username, u.whatsapp], userSearch))
+                  : usersList;
+                if (filteredUsers.length === 0) {
+                  return (
+                    <div className="text-center py-8 text-white/30">
+                      <i className="fas fa-user-slash text-3xl mb-3 block"></i>
+                      {userSearch ? `No users match "${userSearch}".` : 'No users registered yet.'}
+                    </div>
+                  );
+                }
+                return (
+                  <div className="overflow-x-auto">
+                    <table className="admin-table text-sm">
+                      <thead><tr><th>Username</th><th>WhatsApp</th><th>Credits</th><th>Purchases</th><th>Actions</th></tr></thead>
+                      <tbody>
+                        {filteredUsers.map(u => (
+                          <tr key={u.username}>
+                            <td className="font-mono">{u.username}</td>
+                            <td>{u.whatsapp}</td>
+                            <td><span className="badge badge-green">{u.credits || 0}</span></td>
+                            <td>{u.purchaseCount || 0}</td>
+                            <td>
+                              <div className="flex flex-wrap gap-2 items-center">
+                                <input type="number" className="input-neon w-20 py-1 px-2 text-sm" placeholder="+" value={selectedUserForCredits === u.username ? addCreditsAmount : ''} onChange={(e) => { setSelectedUserForCredits(u.username); setAddCreditsAmount(Number(e.target.value)); }} />
+                                <button onClick={() => handleAddCredits(u.username)} className="btn-success text-xs"><i className="fas fa-plus mr-1"></i> Add</button>
+                                <input type="number" className="input-neon w-20 py-1 px-2 text-sm" placeholder="-" value={selectedUserForCredits === u.username ? deductCreditsAmount : ''} onChange={(e) => { setSelectedUserForCredits(u.username); setDeductCreditsAmount(Number(e.target.value)); }} />
+                                <button onClick={() => handleDeductCredits(u.username)} className="btn-danger text-xs"><i className="fas fa-minus mr-1"></i> Deduct</button>
+                                <button onClick={() => openUserEditModal(u)} className="btn-warning text-xs"><i className="fas fa-pen mr-1"></i> Edit</button>
+                                <button onClick={() => openGrantModal(u)} className="btn-neon-sm"><i className="fas fa-gift mr-1"></i> Grant Sub</button>
+                                <button onClick={() => handleViewCredentials(u.username)} disabled={credsLoading} className="btn-neon-outline text-xs"><i className="fas fa-eye mr-1"></i> Creds</button>
+                                <button onClick={() => handleDeleteUser(u.username)} className="btn-danger text-xs"><i className="fas fa-trash mr-1"></i> Delete</button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                );
+              })()}
             </div>
           )}
 
@@ -5241,6 +5679,52 @@
                   </table>
                 </div>
               )}
+            </div>
+          )}
+
+          {activeTab === 'faqs' && (
+            <div className="space-y-4">
+              <div className="glass-panel">
+                <h3 className="text-lg font-bold text-white mb-1"><i className="fas fa-question-circle mr-2 text-red-400"></i> Add a Question</h3>
+                <p className="text-white/40 text-sm mb-4">This gets added to the Help & FAQs page customers see, alongside the built-in questions. It won't show its answer until the customer taps the question.</p>
+                <div className="space-y-3">
+                  <div>
+                    <label className="text-white/50 text-sm font-medium">Question</label>
+                    <input type="text" value={newFaqQuestion} onChange={(e) => setNewFaqQuestion(e.target.value)} className="input-neon mt-1" placeholder="e.g. Do you offer student discounts?" />
+                  </div>
+                  <div>
+                    <label className="text-white/50 text-sm font-medium">Answer</label>
+                    <textarea value={newFaqAnswer} onChange={(e) => setNewFaqAnswer(e.target.value)} className="input-neon mt-1" rows="3" placeholder="Write the full answer here..."></textarea>
+                  </div>
+                  <div>
+                    <label className="text-white/50 text-sm font-medium">Category (groups it with similar questions — optional)</label>
+                    <input type="text" value={newFaqCategory} onChange={(e) => setNewFaqCategory(e.target.value)} className="input-neon mt-1" placeholder="e.g. Getting Started, Purchases & Payments, Support" />
+                  </div>
+                  <button onClick={handleAddFaq} className="btn-neon px-6 py-2"><i className="fas fa-plus mr-2"></i> Add Question</button>
+                </div>
+              </div>
+
+              <div className="glass-panel">
+                <h3 className="text-lg font-bold text-white mb-4">Your Added Questions ({faqsList.length})</h3>
+                {faqsList.length === 0 ? (
+                  <div className="text-center py-8 text-white/30"><i className="fas fa-comment-slash text-3xl mb-3 block"></i> You haven't added any custom questions yet.</div>
+                ) : (
+                  <div className="space-y-3">
+                    {faqsList.map(f => (
+                      <div key={f.id} className="rounded-xl border border-white/10 bg-white/5 p-4">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="flex-1">
+                            <span className="badge badge-yellow text-xs mb-2 inline-block">{f.category || 'General'}</span>
+                            <p className="text-white font-semibold">{f.question}</p>
+                            <p className="text-white/50 text-sm mt-1">{f.answer}</p>
+                          </div>
+                          <button onClick={() => handleDeleteFaq(f.id)} className="btn-danger text-xs flex-shrink-0"><i className="fas fa-trash"></i></button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
           )}
 
@@ -5532,6 +6016,7 @@
       const [subscriptions, setSubscriptions] = useState([]);
       const [deals, setDeals] = useState([]);
       const [promotions, setPromotions] = useState([]);
+      const [customFaqs, setCustomFaqs] = useState([]);
       const [isAdmin, setIsAdmin] = useState(false);
       const [customerData, setCustomerData] = useState(null);
       const [flowStep, setFlowStep] = useState('welcome');
@@ -5545,10 +6030,11 @@
       useEffect(() => {
         const loadData = async (silent = false) => {
           try {
-            const [subs, dealsData, promos] = await Promise.all([fetchSubscriptions(), fetchDeals(), fetchPromotions()]);
+            const [subs, dealsData, promos, faqsData] = await Promise.all([fetchSubscriptions(), fetchDeals(), fetchPromotions(), fetchFaqs().catch(() => [])]);
             setSubscriptions(subs);
             setDeals(dealsData);
             setPromotions(promos);
+            setCustomFaqs(faqsData);
           } catch (err) {
             console.error('Failed to load data', err);
             if (!silent) addToast('Could not load data. Is the backend running?', 'error');
@@ -5585,6 +6071,9 @@
         } else if (path === '/subscriptions' || path === '/subscription') {
           setActiveTab('subscriptions');
           setShowSubscriptions(true);
+        } else if (path === '/help') {
+          setActiveTab('help');
+          setShowSubscriptions(false);
         } else if (path === '/contact') {
           setActiveTab('contact');
           setShowSubscriptions(false);
@@ -5677,7 +6166,6 @@
             whatsapp: data.whatsapp,
             months: data.months,
             paidWithCredits: false,
-            purchaseId: data.purchaseId,
             purchasedAt: new Date().toISOString()
           });
           addToast('✅ Request submitted! Admin will contact you soon with pricing & availability.', 'success');
@@ -5734,7 +6222,7 @@
           // This is what used to cause other customers' purchase details to vanish.
           for (const allot of allocations) {
             const subIdForAllot = allot.subscriptionId || data.subscriptionId;
-            await allocateCustomer(subIdForAllot, allot.accountId, allot.screenId, customerPayload, data.purchaseId);
+            await allocateCustomer(subIdForAllot, allot.accountId, allot.screenId, customerPayload);
           }
 
           for (const entry of waitingEntries) {
@@ -5748,7 +6236,6 @@
               months: entry.months,
               email: data.email || '',
               paidWithCredits: !!data.paidWithCredits,
-              purchaseId: data.purchaseId,
               purchasedAt: data.purchasedAt || new Date().toISOString()
             });
           }
@@ -5861,6 +6348,23 @@
         }
       };
 
+      // Dispatches the action buttons shown inside Help/FAQ answers straight
+      // to the right part of the app, reusing the same navigation the rest
+      // of the app already uses (so behavior — like "sign up first" — stays
+      // consistent everywhere).
+      const handleHelpAction = (type) => {
+        if (type === 'subscriptions') {
+          handleGetStarted();
+        } else if (type === 'portal') {
+          handleCustomerPortal();
+        } else if (type === 'auth') {
+          navigateTo('/subscriptions');
+          setFlowStep('auth');
+        } else if (type === 'whatsapp') {
+          window.open('https://wa.me/923079163485', '_blank', 'noopener,noreferrer');
+        }
+      };
+
       const handleDealPurchase = (deal) => {
         navigateTo('/subscriptions');
         if (!user) {
@@ -5896,11 +6400,11 @@
                 <div>
                   <h4 className="footer-heading">Quick Links</h4>
                   <div className="flex flex-col gap-1">
-                    <a href="#" className="footer-link">Home</a>
-                    <a href="#" className="footer-link">Subscriptions</a>
-                    <a href="#" className="footer-link">Contact Us</a>
-                    <a href="#" className="footer-link">About Us</a>
-                    <a href="#" className="footer-link">Support</a>
+                    <a href="/" onClick={(e) => { e.preventDefault(); navigateTo('/'); }} className="footer-link">Home</a>
+                    <a href="/subscriptions" onClick={(e) => { e.preventDefault(); navigateTo('/subscriptions'); }} className="footer-link">Subscriptions</a>
+                    <a href="/help" onClick={(e) => { e.preventDefault(); navigateTo('/help'); }} className="footer-link">Help / FAQs</a>
+                    <a href="/contact" onClick={(e) => { e.preventDefault(); navigateTo('/contact'); }} className="footer-link">Contact Us</a>
+                    <a href="https://wa.me/923079163485" target="_blank" rel="noopener noreferrer" className="footer-link">Support</a>
                   </div>
                 </div>
                 <div>
@@ -6025,6 +6529,18 @@
                   </>
                 )}
               </div>
+            </section>
+          )}
+
+          {activeTab === 'help' && (
+            <section id="help-section" className="px-4 max-w-4xl mx-auto py-16">
+              <button onClick={() => navigateTo('/')} className="text-red-400 hover:text-red-300 text-sm mb-6 inline-flex items-center"><i className="fas fa-arrow-left mr-2"></i> Back</button>
+              <div className="text-center mb-12">
+                <span className="inline-block px-4 py-1 rounded-full bg-red-500/10 border border-red-500/20 text-red-400 text-xs font-medium tracking-wider uppercase mb-3">We've Got Answers</span>
+                <h2 className="text-4xl md:text-5xl font-bold text-white neon-text">Help & FAQs</h2>
+                <p className="text-white/30 mt-3 max-w-2xl mx-auto">Common questions about signing up, buying subscriptions, credits, and more. Tap a question to see the answer.</p>
+              </div>
+              <HelpSection customFaqs={customFaqs} onAction={handleHelpAction} />
             </section>
           )}
 

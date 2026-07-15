@@ -35,7 +35,7 @@ let usersCollection;
 let dealsCollection;
 let promotionsCollection;
 let waitingCollection;
-let processedPurchasesCollection;
+let faqsCollection;
 
 // ─── SUBSCRIPTION COSTS (Monthly) ──────────────────────────
 const SUBSCRIPTION_COSTS = {
@@ -64,29 +64,8 @@ async function connectDB() {
   dealsCollection = db.collection('deals');
   promotionsCollection = db.collection('promotions');
   waitingCollection = db.collection('waitingCustomers');
-  processedPurchasesCollection = db.collection('processedPurchases');
+  faqsCollection = db.collection('faqs');
   console.log('✅ Connected to MongoDB');
-}
-
-// ─── Idempotency guard ──────────────────────────────────────
-// Prevents the exact same purchase step (e.g. "deduct credits for purchase
-// X" or "save allocation for purchase X, account Y, screen Z") from ever
-// being applied twice, no matter what causes a duplicate request to reach
-// the server — a double-click that slipped past the frontend guard, a
-// stale cached page re-submitting, a flaky network retry, two open tabs,
-// etc. It works by trying to insert a document whose _id IS the dedup key;
-// MongoDB's built-in _id uniqueness makes the "has this already happened?"
-// check and the "claim it" step a single atomic operation — there's no
-// window for two concurrent requests to both think they're first.
-async function claimIdempotencyKey(key) {
-  if (!key) return true; // no key supplied (older client) — behave as before, always allow
-  try {
-    await processedPurchasesCollection.insertOne({ _id: key, createdAt: new Date() });
-    return true; // first time we've seen this key — go ahead
-  } catch (err) {
-    if (err.code === 11000) return false; // already claimed — this is a duplicate, skip the side effect
-    throw err;
-  }
 }
 
 // ─── Seed / Upsert subscriptions ────────────────────────────
@@ -468,20 +447,10 @@ app.delete('/api/subscriptions/:id', async (req, res) => {
 
 app.post('/api/subscriptions/:id/allocate', async (req, res) => {
   try {
-    const { accountId, screenId, customer, purchaseId } = req.body;
+    const { accountId, screenId, customer } = req.body;
     if (!accountId || !screenId || !customer || !customer.username) {
       return res.status(400).json({ error: 'accountId, screenId and customer are required' });
     }
-
-    // Same purchase step submitted twice? Don't add the customer a second
-    // time — just return the subscription as it already stands.
-    const key = purchaseId ? `allocate:${purchaseId}:${accountId}:${screenId}` : null;
-    const claimed = await claimIdempotencyKey(key);
-    if (!claimed) {
-      const existing = await subscriptionsCollection.findOne({ id: req.params.id });
-      return res.json(existing);
-    }
-
     const customerToInsert = {
       name: customer.name || '',
       username: customer.username,
@@ -695,23 +664,10 @@ app.post('/api/users/:username/addCredits', async (req, res) => {
 // balance.
 app.post('/api/users/:username/deductCredits', async (req, res) => {
   try {
-    const { amount, purchaseId } = req.body;
+    const { amount } = req.body;
     if (!amount || amount <= 0) {
       return res.status(400).json({ error: 'Invalid amount' });
     }
-
-    // If this exact purchase already deducted credits (e.g. the request
-    // arrived twice), just return the user's current data instead of
-    // deducting a second time.
-    const key = purchaseId ? `credits:${purchaseId}` : null;
-    const claimed = await claimIdempotencyKey(key);
-    if (!claimed) {
-      const existing = await usersCollection.findOne({ username: req.params.username });
-      if (!existing) return res.status(404).json({ error: 'User not found' });
-      const { password, ...rest } = existing;
-      return res.json(rest);
-    }
-
     const result = await usersCollection.findOneAndUpdate(
       { username: req.params.username, credits: { $gte: amount } },
       { $inc: { credits: -amount } },
@@ -1016,19 +972,11 @@ app.post('/api/waiting', async (req, res) => {
     const {
       subscriptionId, subscriptionName, isCustomRequest,
       name, username, whatsapp, months, email,
-      paidWithCredits, creditsAmount, purchasedAt, purchaseId
+      paidWithCredits, creditsAmount, purchasedAt
     } = req.body;
     if (!subscriptionName || !name || !whatsapp) {
       return res.status(400).json({ error: 'subscriptionName, name and whatsapp are required' });
     }
-
-    // Same waiting-request submitted twice? Don't add a duplicate entry.
-    const key = purchaseId ? `waiting:${purchaseId}:${subscriptionId || 'custom'}` : null;
-    const claimed = await claimIdempotencyKey(key);
-    if (!claimed) {
-      return res.json({ duplicate: true });
-    }
-
     const entry = {
       id: Date.now().toString(),
       subscriptionId: subscriptionId || null,
@@ -1057,6 +1005,48 @@ app.delete('/api/waiting/:id', async (req, res) => {
     const result = await waitingCollection.deleteOne({ id: req.params.id });
     if (result.deletedCount === 0) {
       return res.status(404).json({ error: 'Waiting entry not found' });
+    }
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ---- Help / FAQ (admin-added, on top of the built-in ones in the UI) ----
+app.get('/api/faqs', async (req, res) => {
+  try {
+    const list = await faqsCollection.find({}).sort({ createdAt: 1 }).toArray();
+    res.json(list);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/faqs', async (req, res) => {
+  try {
+    const { question, answer, category } = req.body;
+    if (!question || !answer) {
+      return res.status(400).json({ error: 'question and answer are required' });
+    }
+    const entry = {
+      id: Date.now().toString(),
+      question,
+      answer,
+      category: category || 'General',
+      createdAt: new Date()
+    };
+    await faqsCollection.insertOne(entry);
+    res.json(entry);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.delete('/api/faqs/:id', async (req, res) => {
+  try {
+    const result = await faqsCollection.deleteOne({ id: req.params.id });
+    if (result.deletedCount === 0) {
+      return res.status(404).json({ error: 'FAQ not found' });
     }
     res.json({ success: true });
   } catch (err) {
