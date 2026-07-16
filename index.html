@@ -1061,7 +1061,9 @@
                       <div className="absolute top-2 left-2 text-white/10 text-3xl font-black select-none pointer-events-none" style={{ fontFamily: 'Georgia, serif', transform: 'rotate(-8deg)' }}>Z</div>
                       <div className="flex-1">
                         <div className="flex items-center gap-2 mb-1">
-                          {isNetflix ? (
+                          {firstSub?.logo ? (
+                            <img src={firstSub.logo} alt={firstSub.name} style={{ width: '1.6rem', height: '1.6rem', objectFit: 'contain', borderRadius: '6px', flexShrink: 0 }} />
+                          ) : isNetflix ? (
                             <span className="netflix-logo">
                               <svg viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
                                 <path d="M5.5 2.5v19.5l5-2.5V5l-5 2.5zM12 2.5v19.5l5-2.5V5L12 2.5z" />
@@ -1081,7 +1083,9 @@
                           <div className="deal-sub-badges">
                             {deal.subscriptions.map(sub => (
                               <span key={sub.id} className="deal-sub-badge">
-                                {sub.type === 'netflix' ? (
+                                {sub.logo ? (
+                                  <img src={sub.logo} alt={sub.name} style={{ width: '0.9rem', height: '0.9rem', objectFit: 'contain', borderRadius: '3px', flexShrink: 0 }} />
+                                ) : sub.type === 'netflix' ? (
                                   <span className="netflix-logo" style={{ fontSize: '0.6rem' }}>N</span>
                                 ) : (
                                   <i className={`fab ${icons[sub.type] || 'fa-crown'}`} style={{ color: colors[sub.type] || '#ef4444' }}></i>
@@ -3125,7 +3129,9 @@
                 <div className="flex flex-wrap gap-2 mt-2">
                   {dealSubs.map(sub => (
                     <span key={sub.id} className="deal-sub-badge">
-                      {sub.type === 'netflix' ? (
+                      {sub.logo ? (
+                        <img src={sub.logo} alt={sub.name} style={{ width: '0.9rem', height: '0.9rem', objectFit: 'contain', borderRadius: '3px', flexShrink: 0 }} />
+                      ) : sub.type === 'netflix' ? (
                         <span className="netflix-logo" style={{ fontSize: '0.6rem' }}>N</span>
                       ) : (
                         <i className={`fab ${sub.type === 'netflix' ? 'fa-netflix' : sub.type === 'amazon' ? 'fa-amazon' : sub.type === 'youtube' ? 'fa-youtube' : sub.type === 'spotify' ? 'fa-spotify' : sub.type === 'chatgpt' ? 'fa-robot' : sub.type === 'canva' ? 'fa-paint-brush' : sub.type === 'capcut' ? 'fa-video' : sub.type === 'hbomax' ? 'fa-tv' : sub.type === 'crunchyroll' ? 'fa-play' : sub.type === 'chaupal' ? 'fa-film' : 'fa-crown'}`} style={{ color: sub.type === 'netflix' ? '#e50914' : sub.type === 'amazon' ? '#ff9900' : sub.type === 'youtube' ? '#ff0000' : sub.type === 'spotify' ? '#1db954' : sub.type === 'chatgpt' ? '#10a37f' : sub.type === 'canva' ? '#00c4cc' : sub.type === 'capcut' ? '#00d4ff' : sub.type === 'hbomax' ? '#5822b4' : sub.type === 'crunchyroll' ? '#f47521' : sub.type === 'chaupal' ? '#e74c3c' : '#ef4444' }}></i>
@@ -6071,11 +6077,22 @@
                     <thead><tr><th>Title</th><th>Subscriptions</th><th>Original</th><th>Discount</th><th>Status</th><th>Actions</th></tr></thead>
                     <tbody>
                       {deals.map(deal => {
-                        const subNames = (deal.subscriptionIds || []).map(id => subscriptions.find(s => s.id === id)).filter(Boolean).map(s => s.name).join(', ');
+                        const linkedSubs = (deal.subscriptionIds || []).map(id => subscriptions.find(s => s.id === id)).filter(Boolean);
                         return (
                           <tr key={deal.id}>
                             <td className="font-semibold">{deal.title}</td>
-                            <td className="text-xs text-white/40">{subNames || 'N/A'}</td>
+                            <td className="text-xs text-white/40">
+                              {linkedSubs.length === 0 ? 'N/A' : (
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  {linkedSubs.map(s => (
+                                    <span key={s.id} className="flex items-center gap-1">
+                                      {s.logo ? <img src={s.logo} alt={s.name} style={{ width: '1rem', height: '1rem', objectFit: 'contain', borderRadius: '3px' }} /> : <i className="fas fa-crown text-red-400" style={{ fontSize: '0.7rem' }}></i>}
+                                      {s.name}
+                                    </span>
+                                  ))}
+                                </div>
+                              )}
+                            </td>
                             <td className="text-white/40">RS {deal.actualPrice}</td>
                             <td className="text-green-400 font-bold">RS {deal.discountPrice}</td>
                             <td><span className={`badge ${deal.active ? 'badge-green' : 'badge-gray'}`}>{deal.active ? 'Active' : 'Inactive'}</span></td>
@@ -6226,7 +6243,9 @@
                       {subscriptions.map(sub => (
                         <label key={sub.id} className="flex items-center gap-3 text-white/70 text-sm cursor-pointer hover:text-white">
                           <input type="checkbox" checked={(dealForm.subscriptionIds || []).includes(sub.id)} onChange={() => toggleSubscriptionInDeal(sub.id)} className="w-4 h-4 accent-red-500" />
-                          {sub.type === 'netflix' ? (
+                          {sub.logo ? (
+                            <img src={sub.logo} alt={sub.name} style={{ width: '1.2rem', height: '1.2rem', objectFit: 'contain', borderRadius: '4px', flexShrink: 0 }} />
+                          ) : sub.type === 'netflix' ? (
                             <span className="netflix-logo" style={{ fontSize: '0.8rem' }}>N</span>
                           ) : (
                             <i className={`fab ${sub.type === 'netflix' ? 'fa-netflix' : sub.type === 'amazon' ? 'fa-amazon' : sub.type === 'youtube' ? 'fa-youtube' : sub.type === 'spotify' ? 'fa-spotify' : sub.type === 'chatgpt' ? 'fa-robot' : sub.type === 'canva' ? 'fa-paint-brush' : sub.type === 'capcut' ? 'fa-video' : sub.type === 'hbomax' ? 'fa-tv' : sub.type === 'crunchyroll' ? 'fa-play' : sub.type === 'chaupal' ? 'fa-film' : 'fa-crown'}`} style={{ color: sub.type === 'netflix' ? '#e50914' : sub.type === 'amazon' ? '#ff9900' : sub.type === 'youtube' ? '#ff0000' : sub.type === 'spotify' ? '#1db954' : sub.type === 'chatgpt' ? '#10a37f' : sub.type === 'canva' ? '#00c4cc' : sub.type === 'capcut' ? '#00d4ff' : sub.type === 'hbomax' ? '#5822b4' : sub.type === 'crunchyroll' ? '#f47521' : sub.type === 'chaupal' ? '#e74c3c' : '#ef4444' }}></i>
