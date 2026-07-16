@@ -1778,6 +1778,63 @@
     };
 
     // ─── SMART ALLOCATION ALGORITHM ──────────────────────────
+    // ─── Smart screen allocation ────────────────────────────────
+    // Always hands the customer the account/screen with the MOST room left
+    // (fewest people already on it) — so load spreads out evenly instead of
+    // stacking everyone onto screen 1 first. When two or more options are
+    // exactly tied for "most room", ties are broken randomly — EXCEPT for
+    // the very first customer(s) ever on a completely empty subscription,
+    // where it just fills in plain, predictable order (account 1's screen
+    // 1, then screen 2, and so on) so the initial layout is easy to follow.
+    // `maxPerScreen` is 3 for Netflix, Infinity for Amazon (unlimited people
+    // per screen, but never the same customer twice on one screen).
+    const pickAccountThenScreen = (availableSlots, username, whatsapp, maxPerScreen, excludeScreenIds = []) => {
+      const eligible = availableSlots.filter(slot => {
+        if (excludeScreenIds.includes(slot.screen.id)) return false;
+        const customers = slot.screen.customers || [];
+        if (customers.some(c => c.username === username)) return false;
+        if (customers.some(c => c.whatsapp === whatsapp)) return false;
+        const count = customers.length;
+        if (maxPerScreen !== Infinity && count >= maxPerScreen) return false;
+        return true;
+      });
+      if (eligible.length === 0) return null;
+
+      // Nobody has ever been placed anywhere in this subscription yet?
+      // Then we're filling from scratch — keep it simple and predictable.
+      const totalCustomersEverywhere = availableSlots.reduce((sum, slot) => sum + (slot.screen.customers ? slot.screen.customers.length : 0), 0);
+      const isVirgin = totalCustomersEverywhere === 0;
+
+      // Higher = more room. For unlimited-capacity screens (Amazon) there's
+      // no true "empty slots" number, so we use "fewer people on it" as the
+      // equivalent — same idea, same comparison, just no hard ceiling.
+      const roomLeft = (slot) => {
+        const count = slot.screen.customers ? slot.screen.customers.length : 0;
+        return maxPerScreen === Infinity ? -count : (maxPerScreen - count);
+      };
+
+      const pickMostRoom = (list, valueFn) => {
+        const best = Math.max(...list.map(valueFn));
+        const tied = list.filter(item => valueFn(item) === best);
+        if (tied.length === 1) return tied[0];
+        // Tie: plain order while the subscription is still brand new,
+        // otherwise spread the load fairly with a random pick.
+        return isVirgin ? tied[0] : tied[Math.floor(Math.random() * tied.length)];
+      };
+
+      const byAccount = {};
+      eligible.forEach(slot => {
+        const accId = slot.account.id;
+        if (!byAccount[accId]) byAccount[accId] = [];
+        byAccount[accId].push(slot);
+      });
+      const accountGroups = Object.values(byAccount);
+      const accountRoomLeft = (group) => group.reduce((sum, slot) => sum + roomLeft(slot), 0);
+      const chosenAccountSlots = pickMostRoom(accountGroups, accountRoomLeft);
+
+      return pickMostRoom(chosenAccountSlots, roomLeft);
+    };
+
     const allocateScreens = (availableSlots, count, username, whatsapp, requestedScreenId = null) => {
       const notUsedByUser = availableSlots.filter(slot => {
         const customers = slot.screen.customers || [];
@@ -1786,75 +1843,40 @@
         return true;
       });
 
+      let allocated = [];
+      const excludeIds = [];
+
+      // A customer asking for one specific screen still gets it, as long as
+      // it actually has room — the smart picker only kicks in for any
+      // additional screens beyond that one (when count > 1) and as the
+      // automatic fallback if the requested screen isn't usable.
       if (requestedScreenId) {
         const target = notUsedByUser.find(slot => slot.screen.id === requestedScreenId);
-        if (!target) {
-          const autoResult = allocateBestSlots(notUsedByUser, count);
-          if (autoResult) return autoResult;
-          return { error: 'not_enough' };
-        }
-        const currentCount = target.screen.customers ? target.screen.customers.length : 0;
-        if (currentCount >= 3) {
-          const autoResult = allocateBestSlots(notUsedByUser, count);
-          if (autoResult) return autoResult;
-          return { error: 'full' };
-        }
-        const allocated = [target];
-        const remaining = count - 1;
-        if (remaining > 0) {
-          const remainingSlots = notUsedByUser.filter(slot => slot.screen.id !== requestedScreenId);
-          const otherAllocated = allocateBestSlots(remainingSlots, remaining);
-          if (!otherAllocated) return { error: 'not_enough' };
-          allocated.push(...otherAllocated);
-        }
-        return allocated;
-      }
-
-      const result = allocateBestSlots(notUsedByUser, count);
-      if (result) return result;
-      return { error: 'not_enough' };
-    };
-
-    const allocateBestSlots = (slots, count) => {
-      const accountMap = {};
-      slots.forEach(slot => {
-        const accId = slot.account.id;
-        if (!accountMap[accId]) {
-          accountMap[accId] = { account: slot.account, slots: [], totalFree: 0 };
-        }
-        const currentCount = slot.screen.customers ? slot.screen.customers.length : 0;
-        const free = 3 - currentCount;
-        if (free > 0) {
-          accountMap[accId].slots.push({ ...slot, free });
-          accountMap[accId].totalFree += free;
-        }
-      });
-      const sortedAccounts = Object.values(accountMap).sort((a, b) => b.totalFree - a.totalFree);
-      let allocated = [];
-      let remaining = count;
-      for (const acc of sortedAccounts) {
-        if (remaining === 0) break;
-        const sortedSlots = acc.slots.sort((a, b) => b.free - a.free);
-        for (const slot of sortedSlots) {
-          if (remaining === 0) break;
-          allocated.push(slot);
-          remaining--;
+        const currentCount = target && target.screen.customers ? target.screen.customers.length : 0;
+        if (target && currentCount < 3) {
+          allocated.push(target);
+          excludeIds.push(target.screen.id);
+        } else {
+          return { error: target ? 'full' : 'not_found' };
         }
       }
-      if (remaining > 0) return null;
+
+      while (allocated.length < count) {
+        const pick = pickAccountThenScreen(availableSlots, username, whatsapp, 3, excludeIds);
+        if (!pick) break;
+        allocated.push(pick);
+        excludeIds.push(pick.screen.id);
+      }
+
+      if (allocated.length < count) return { error: 'not_enough' };
       return allocated;
     };
 
-    const allocateAmazonScreen = (availableSlots, username, whatsapp, purchaseCount) => {
-      const screenIndex = (purchaseCount % 6) + 1;
-      const targetSlot = availableSlots.find(slot => {
-        const num = parseInt(slot.screen.name.split(' ')[1]);
-        return num === screenIndex;
-      });
-      if (!targetSlot) {
-        return availableSlots[0] || null;
-      }
-      return targetSlot;
+    const allocateAmazonScreen = (availableSlots, username, whatsapp) => {
+      // Unlimited people per screen, but never the same customer twice on
+      // the same screen — the load-balancer naturally spreads people across
+      // screens/accounts evenly instead of always picking "screen 1".
+      return pickAccountThenScreen(availableSlots, username, whatsapp, Infinity);
     };
 
     const allocateSimpleScreen = (subscription, username, whatsapp) => {
