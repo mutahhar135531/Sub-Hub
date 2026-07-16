@@ -831,6 +831,14 @@
       const lastMoveTime = useRef(0);
       const lastMoveX = useRef(0);
       const momentumId = useRef(null);
+      // Tracks the very first touch point and, once enough movement has
+      // happened, whether the gesture is a horizontal carousel swipe or a
+      // vertical page scroll — so a swipe that starts on the carousel but
+      // moves mostly up/down is handed straight to the browser instead of
+      // being swallowed by the drag handler.
+      const touchStartX = useRef(0);
+      const touchStartY = useRef(0);
+      const touchIntent = useRef(null); // null | 'horizontal' | 'vertical'
 
       const icons = { netflix: 'fa-netflix', amazon: 'fa-amazon', youtube: 'fa-youtube', spotify: 'fa-spotify',
         chatgpt: 'fa-robot', canva: 'fa-paint-brush', capcut: 'fa-video', hbomax: 'fa-tv', crunchyroll: 'fa-play',
@@ -990,14 +998,36 @@
 
       const onTouchStart = (e) => {
         const touch = e.touches[0];
-        handleDragStart(touch.clientX);
+        touchStartX.current = touch.clientX;
+        touchStartY.current = touch.clientY;
+        touchIntent.current = null;
       };
       const onTouchMove = (e) => {
-        e.preventDefault();
         const touch = e.touches[0];
+        if (touchIntent.current === null) {
+          const dx = touch.clientX - touchStartX.current;
+          const dy = touch.clientY - touchStartY.current;
+          if (Math.abs(dx) < 6 && Math.abs(dy) < 6) return; // too small to tell yet
+          if (Math.abs(dy) > Math.abs(dx)) {
+            // Mostly vertical — this is a page scroll, not a carousel swipe.
+            // Leave it alone (no preventDefault, no drag) so the browser's
+            // native vertical scroll takes over immediately, first try.
+            touchIntent.current = 'vertical';
+            return;
+          }
+          // Mostly horizontal — this is a carousel swipe, start dragging from
+          // the original touch point (not the current one) so there's no jump.
+          touchIntent.current = 'horizontal';
+          handleDragStart(touchStartX.current);
+        }
+        if (touchIntent.current !== 'horizontal') return;
+        e.preventDefault();
         handleDragMove(touch.clientX);
       };
-      const onTouchEnd = () => { handleDragEnd(); };
+      const onTouchEnd = () => {
+        if (touchIntent.current === 'horizontal') handleDragEnd();
+        touchIntent.current = null;
+      };
 
       const onMouseDown = (e) => {
         if (e.button !== 0) return;
@@ -1045,7 +1075,7 @@
             <h2 className="text-xl font-bold text-white">🔥 Hot Deals!</h2>
             <span className="text-white/30 text-xs ml-2">Limited time offers</span>
           </div>
-          <div className={`carousel-container ${isPaused ? 'paused' : ''}`} ref={containerRef} onMouseEnter={handlePause} onMouseLeave={handleResume} onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd} onMouseDown={onMouseDown} style={{ touchAction: 'none' }}>
+          <div className={`carousel-container ${isPaused ? 'paused' : ''}`} ref={containerRef} onMouseEnter={handlePause} onMouseLeave={handleResume} onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd} onMouseDown={onMouseDown} style={{ touchAction: 'pan-y' }}>
             <div className="carousel-track" ref={trackRef} style={{ transform: `translateX(-${offset}px)`, transition: isDragging ? 'none' : 'none', gap: `${gap}px` }}>
               {repeatedDeals.map((deal, idx) => {
                 const firstSub = deal.subscriptions[0];
@@ -1148,6 +1178,14 @@
       const lastMoveTime = useRef(0);
       const lastMoveX = useRef(0);
       const momentumId = useRef(null);
+      // Tracks the very first touch point and, once enough movement has
+      // happened, whether the gesture is a horizontal carousel swipe or a
+      // vertical page scroll — so a swipe that starts on the carousel but
+      // moves mostly up/down is handed straight to the browser instead of
+      // being swallowed by the drag handler.
+      const touchStartX = useRef(0);
+      const touchStartY = useRef(0);
+      const touchIntent = useRef(null); // null | 'horizontal' | 'vertical'
 
       // Fallback icon/color for subscription types that don't have a custom
       // uploaded logo. Mirrors the maps used on the purchase page
@@ -1329,14 +1367,36 @@
 
       const onTouchStart = (e) => {
         const touch = e.touches[0];
-        handleDragStart(touch.clientX);
+        touchStartX.current = touch.clientX;
+        touchStartY.current = touch.clientY;
+        touchIntent.current = null;
       };
       const onTouchMove = (e) => {
-        e.preventDefault();
         const touch = e.touches[0];
+        if (touchIntent.current === null) {
+          const dx = touch.clientX - touchStartX.current;
+          const dy = touch.clientY - touchStartY.current;
+          if (Math.abs(dx) < 6 && Math.abs(dy) < 6) return; // too small to tell yet
+          if (Math.abs(dy) > Math.abs(dx)) {
+            // Mostly vertical — this is a page scroll, not a carousel swipe.
+            // Leave it alone (no preventDefault, no drag) so the browser's
+            // native vertical scroll takes over immediately, first try.
+            touchIntent.current = 'vertical';
+            return;
+          }
+          // Mostly horizontal — this is a carousel swipe, start dragging from
+          // the original touch point (not the current one) so there's no jump.
+          touchIntent.current = 'horizontal';
+          handleDragStart(touchStartX.current);
+        }
+        if (touchIntent.current !== 'horizontal') return;
+        e.preventDefault();
         handleDragMove(touch.clientX);
       };
-      const onTouchEnd = () => { handleDragEnd(); };
+      const onTouchEnd = () => {
+        if (touchIntent.current === 'horizontal') handleDragEnd();
+        touchIntent.current = null;
+      };
 
       const onMouseDown = (e) => {
         if (e.button !== 0) return;
@@ -1386,7 +1446,7 @@
               <h2 className="text-xl font-bold text-white">What We Provide</h2>
               <span className="text-white/30 text-xs ml-2">Premium services</span>
             </div>
-            <div className={`carousel-container ${isPaused ? 'paused' : ''}`} ref={containerRef} onMouseEnter={handlePause} onMouseLeave={handleResume} onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd} onMouseDown={onMouseDown} style={{ touchAction: 'none' }}>
+            <div className={`carousel-container ${isPaused ? 'paused' : ''}`} ref={containerRef} onMouseEnter={handlePause} onMouseLeave={handleResume} onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd} onMouseDown={onMouseDown} style={{ touchAction: 'pan-y' }}>
               <div className="carousel-track" ref={trackRef} style={{ transform: `translateX(-${offset}px)`, transition: isDragging ? 'none' : 'none', gap: `${gap}px` }}>
                 {repeatedItems.map((sub, idx) => (
                   <div key={idx} className="carousel-slide" style={{ width: slideWidth }}>
@@ -3772,6 +3832,14 @@
       const lastMoveTime = useRef(0);
       const lastMoveX = useRef(0);
       const momentumId = useRef(null);
+      // Tracks the very first touch point and, once enough movement has
+      // happened, whether the gesture is a horizontal carousel swipe or a
+      // vertical page scroll — so a swipe that starts on the carousel but
+      // moves mostly up/down is handed straight to the browser instead of
+      // being swallowed by the drag handler.
+      const touchStartX = useRef(0);
+      const touchStartY = useRef(0);
+      const touchIntent = useRef(null); // null | 'horizontal' | 'vertical'
 
       const activePromos = useMemo(() => {
         return promotions.filter(p => p.active !== false);
@@ -3919,14 +3987,36 @@
 
       const onTouchStart = (e) => {
         const touch = e.touches[0];
-        handleDragStart(touch.clientX);
+        touchStartX.current = touch.clientX;
+        touchStartY.current = touch.clientY;
+        touchIntent.current = null;
       };
       const onTouchMove = (e) => {
-        e.preventDefault();
         const touch = e.touches[0];
+        if (touchIntent.current === null) {
+          const dx = touch.clientX - touchStartX.current;
+          const dy = touch.clientY - touchStartY.current;
+          if (Math.abs(dx) < 6 && Math.abs(dy) < 6) return; // too small to tell yet
+          if (Math.abs(dy) > Math.abs(dx)) {
+            // Mostly vertical — this is a page scroll, not a carousel swipe.
+            // Leave it alone (no preventDefault, no drag) so the browser's
+            // native vertical scroll takes over immediately, first try.
+            touchIntent.current = 'vertical';
+            return;
+          }
+          // Mostly horizontal — this is a carousel swipe, start dragging from
+          // the original touch point (not the current one) so there's no jump.
+          touchIntent.current = 'horizontal';
+          handleDragStart(touchStartX.current);
+        }
+        if (touchIntent.current !== 'horizontal') return;
+        e.preventDefault();
         handleDragMove(touch.clientX);
       };
-      const onTouchEnd = () => { handleDragEnd(); };
+      const onTouchEnd = () => {
+        if (touchIntent.current === 'horizontal') handleDragEnd();
+        touchIntent.current = null;
+      };
 
       const onMouseDown = (e) => {
         if (e.button !== 0) return;
@@ -3974,7 +4064,7 @@
             <h2 className="text-xl font-bold text-white">📺 Trending Now</h2>
             <span className="text-white/30 text-xs ml-2">What's hot</span>
           </div>
-          <div className={`carousel-container ${isPaused ? 'paused' : ''}`} ref={containerRef} onMouseEnter={handlePause} onMouseLeave={handleResume} onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd} onMouseDown={onMouseDown} style={{ touchAction: 'none' }}>
+          <div className={`carousel-container ${isPaused ? 'paused' : ''}`} ref={containerRef} onMouseEnter={handlePause} onMouseLeave={handleResume} onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd} onMouseDown={onMouseDown} style={{ touchAction: 'pan-y' }}>
             <div className="carousel-track" ref={trackRef} style={{ transform: `translateX(-${offset}px)`, transition: isDragging ? 'none' : 'none', gap: `${gap}px` }}>
               {repeatedItems.map((promo, idx) => (
                 <div key={promo.id + '-' + idx} className="carousel-slide" style={{ width: slideWidth }}>
