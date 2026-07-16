@@ -37,6 +37,7 @@ let promotionsCollection;
 let waitingCollection;
 let faqsCollection;
 let processedPurchasesCollection;
+let creditHistoryCollection;
 
 // ─── SUBSCRIPTION COSTS (Monthly) ──────────────────────────
 const SUBSCRIPTION_COSTS = {
@@ -67,6 +68,7 @@ async function connectDB() {
   waitingCollection = db.collection('waitingCustomers');
   faqsCollection = db.collection('faqs');
   processedPurchasesCollection = db.collection('processedPurchases');
+  creditHistoryCollection = db.collection('creditHistory');
   console.log('✅ Connected to MongoDB');
 }
 
@@ -668,19 +670,46 @@ app.put('/api/users/:username/incrementPurchase', async (req, res) => {
 
 app.post('/api/users/:username/addCredits', async (req, res) => {
   try {
-    const { amount } = req.body;
+    const { amount, reason } = req.body;
     if (!amount || amount <= 0) {
       return res.status(400).json({ error: 'Invalid amount' });
     }
-    const result = await usersCollection.updateOne(
+    const result = await usersCollection.findOneAndUpdate(
       { username: req.params.username },
-      { $inc: { credits: amount } }
+      { $inc: { credits: amount } },
+      { returnDocument: 'after' }
     );
-    if (result.matchedCount === 0) {
+    const updated = result && result.value !== undefined ? result.value : result;
+    if (!updated) {
       return res.status(404).json({ error: 'User not found' });
     }
-    const updated = await usersCollection.findOne({ username: req.params.username });
+    // Keep a record of every credit change so the customer (and admin) can
+    // see a full history: when credits were added, when they were used,
+    // and on what.
+    await creditHistoryCollection.insertOne({
+      id: crypto.randomUUID(),
+      username: req.params.username,
+      type: 'credit',
+      amount: amount,
+      reason: reason || 'Credits added by admin',
+      balanceAfter: updated.credits,
+      createdAt: new Date()
+    });
     res.json(updated);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Full credit history for a customer: every add and every spend, with the
+// date/time and what it was for, newest first.
+app.get('/api/users/:username/credit-history', async (req, res) => {
+  try {
+    const list = await creditHistoryCollection
+      .find({ username: req.params.username })
+      .sort({ createdAt: -1 })
+      .toArray();
+    res.json(list);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -697,7 +726,7 @@ app.post('/api/users/:username/addCredits', async (req, res) => {
 // balance.
 app.post('/api/users/:username/deductCredits', async (req, res) => {
   try {
-    const { amount, purchaseId } = req.body;
+    const { amount, purchaseId, reason } = req.body;
     if (!amount || amount <= 0) {
       return res.status(400).json({ error: 'Invalid amount' });
     }
@@ -725,6 +754,16 @@ app.post('/api/users/:username/deductCredits', async (req, res) => {
       if (!user) return res.status(404).json({ error: 'User not found' });
       return res.status(400).json({ error: 'Insufficient credits' });
     }
+    await creditHistoryCollection.insertOne({
+      id: crypto.randomUUID(),
+      username: req.params.username,
+      type: 'debit',
+      amount: amount,
+      reason: reason || 'Credits used for a purchase',
+      purchaseId: purchaseId || null,
+      balanceAfter: updated.credits,
+      createdAt: new Date()
+    });
     res.json(updated);
   } catch (err) {
     res.status(500).json({ error: err.message });

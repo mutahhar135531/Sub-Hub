@@ -434,22 +434,22 @@
       return res.json();
     };
 
-    const addCredits = async (username, amount) => {
+    const addCredits = async (username, amount, reason) => {
       const res = await fetch(`${API_BASE}/api/users/${username}/addCredits`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ amount }),
+        body: JSON.stringify({ amount, reason }),
       });
       const data = await res.json();
       if (!res.ok) throw data; // e.g. { error: 'User not found' }
       return data;
     };
 
-    const deductCredits = async (username, amount, purchaseId) => {
+    const deductCredits = async (username, amount, purchaseId, reason) => {
       const res = await fetch(`${API_BASE}/api/users/${username}/deductCredits`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ amount, purchaseId }),
+        body: JSON.stringify({ amount, purchaseId, reason }),
       });
       const data = await res.json();
       // IMPORTANT: fetch() does NOT throw on 4xx/5xx responses, so without
@@ -458,6 +458,15 @@
       // the caller's try/catch and the purchase would go through for free.
       if (!res.ok) throw data; // e.g. { error: 'Insufficient credits' }
       return data;
+    };
+
+    // Every add / spend of a customer's credits, newest first — used by the
+    // "Credits" button on the customer portal and by the admin panel.
+    const fetchCreditHistory = async (username) => {
+      const res = await fetch(`${API_BASE}/api/users/${username}/credit-history?t=${Date.now()}`, {
+        headers: { 'Cache-Control': 'no-cache' }
+      });
+      return res.json();
     };
 
     const fetchDeals = async () => {
@@ -2097,7 +2106,7 @@
 
         if (useCreditsFlag) {
           try {
-            const updatedUser = await deductCredits(user.username, creditsNeeded, purchaseId);
+            const updatedUser = await deductCredits(user.username, creditsNeeded, purchaseId, `Purchased ${subscription.name}`);
             setUser(updatedUser);
             addToast(`✅ ${creditsNeeded} credits deducted. Subscription activated!`, 'success');
           } catch (err) {
@@ -2397,7 +2406,7 @@
 
         if (useCreditsFlag) {
           try {
-            const updatedUser = await deductCredits(user.username, creditsNeeded, purchaseId);
+            const updatedUser = await deductCredits(user.username, creditsNeeded, purchaseId, `Purchased ${subscription.name}`);
             setUser(updatedUser);
             addToast(`✅ ${creditsNeeded} credits deducted.`, 'success');
           } catch (err) {
@@ -2698,7 +2707,7 @@
 
         if (useCreditsFlag) {
           try {
-            const updatedUser = await deductCredits(user.username, creditsNeeded, purchaseId);
+            const updatedUser = await deductCredits(user.username, creditsNeeded, purchaseId, `Purchased ${subscription.name}`);
             setUser(updatedUser);
             addToast(`✅ ${creditsNeeded} credits deducted.`, 'success');
           } catch (err) {
@@ -2943,7 +2952,7 @@
 
         if (useCreditsFlag) {
           try {
-            const updatedUser = await deductCredits(user.username, creditsNeeded, purchaseId);
+            const updatedUser = await deductCredits(user.username, creditsNeeded, purchaseId, `Purchased ${deal.title}`);
             setUser(updatedUser);
             addToast(`✅ ${creditsNeeded} credits deducted.`, 'success');
           } catch (err) {
@@ -3456,10 +3465,60 @@
     }
 
     // ─── CUSTOMER DASHBOARD ──────────────────────────────────
+    // ─── CREDIT HISTORY (customer portal "Credits" button) ─────
+    // Shows every time credits were added to the account and every time
+    // they were spent — what it was for, and the exact date/time.
+    function CreditHistoryModal({ open, onClose, username }) {
+      const [history, setHistory] = useState([]);
+      const [loading, setLoading] = useState(true);
+
+      useEffect(() => {
+        if (open && username) {
+          setLoading(true);
+          fetchCreditHistory(username)
+            .then(data => setHistory(Array.isArray(data) ? data : []))
+            .catch(() => setHistory([]))
+            .finally(() => setLoading(false));
+        }
+      }, [open, username]);
+
+      if (!open) return null;
+
+      return (
+        <div className="modal-overlay" onClick={onClose}>
+          <div className="modal-content glass-panel" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-xl font-bold text-white mb-2"><i className="fas fa-coins text-red-400 mr-2"></i> Credit History</h3>
+            <p className="text-white/40 text-sm mb-5">Every time credits were added or used on your account, with the date and time.</p>
+            {loading ? (
+              <div className="text-center py-10"><span className="spinner"></span></div>
+            ) : history.length === 0 ? (
+              <div className="text-center py-10 text-white/30"><i className="fas fa-inbox text-3xl mb-3 block"></i> No credit activity yet.</div>
+            ) : (
+              <div className="space-y-2 max-h-96 overflow-y-auto">
+                {history.map(h => (
+                  <div key={h.id || h._id} className={`flex items-center justify-between rounded-xl px-4 py-3 border ${h.type === 'credit' ? 'bg-green-500/5 border-green-500/15' : 'bg-red-500/5 border-red-500/15'}`}>
+                    <div className="min-w-0 pr-3">
+                      <p className="text-white/80 text-sm font-medium truncate">{h.reason || (h.type === 'credit' ? 'Credits added' : 'Credits used')}</p>
+                      <p className="text-white/30 text-xs mt-0.5"><i className="far fa-clock mr-1"></i> {new Date(h.createdAt).toLocaleString()}</p>
+                    </div>
+                    <div className={`text-sm font-bold whitespace-nowrap ${h.type === 'credit' ? 'text-green-400' : 'text-red-400'}`}>
+                      {h.type === 'credit' ? '+' : '-'}{h.amount}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+            <button onClick={onClose} className="btn-neon-outline w-full py-3 mt-5">Close</button>
+          </div>
+        </div>
+      );
+    }
+
     function CustomerDashboard({ customerData, onLogout, onBack, deals, onDealPurchase, subscriptions }) {
       const { addToast } = useContext(AppContext);
       const { user, refreshUser } = useContext(UserContext);
       const [userCredits, setUserCredits] = useState(user?.credits || 0);
+      const [showCreditHistory, setShowCreditHistory] = useState(false);
 
       useEffect(() => {
         if (user) {
@@ -3523,7 +3582,10 @@
               <div className="mb-6">
                 <h2 className="text-2xl font-bold text-white"><span className="brand-z brand-z-sm">Z</span> {displayName}</h2>
                 <p className="text-white/30 text-sm"><i className="fab fa-whatsapp mr-1"></i> {displayWhatsapp}</p>
-                <p className="text-white/30 text-sm"><i className="fas fa-coins mr-1"></i> Credits: {userCredits}</p>
+                <button onClick={() => setShowCreditHistory(true)} className="text-white/30 text-sm hover:text-red-400 transition inline-flex items-center gap-1">
+                  <i className="fas fa-coins mr-1"></i> Credits: {userCredits} <i className="fas fa-chevron-right text-[10px] ml-1 opacity-60"></i>
+                </button>
+                <CreditHistoryModal open={showCreditHistory} onClose={() => setShowCreditHistory(false)} username={user?.username} />
               </div>
               <div className="text-center py-8 text-white/40">
                 <i className="fas fa-inbox text-4xl mb-3 block"></i>
@@ -3544,7 +3606,10 @@
               <div className="mb-6">
                 <h2 className="text-2xl font-bold text-white"><span className="brand-z brand-z-sm">Z</span> {displayName}</h2>
                 <p className="text-white/30 text-sm"><i className="fab fa-whatsapp mr-1"></i> {displayWhatsapp}</p>
-                <p className="text-white/30 text-sm"><i className="fas fa-coins mr-1"></i> Credits: {userCredits}</p>
+                <button onClick={() => setShowCreditHistory(true)} className="text-white/30 text-sm hover:text-red-400 transition inline-flex items-center gap-1">
+                  <i className="fas fa-coins mr-1"></i> Credits: {userCredits} <i className="fas fa-chevron-right text-[10px] ml-1 opacity-60"></i>
+                </button>
+                <CreditHistoryModal open={showCreditHistory} onClose={() => setShowCreditHistory(false)} username={user?.username} />
               </div>
               <div className="text-center py-8 text-white/40">
                 <i className="fas fa-exclamation-circle text-4xl text-yellow-400 mb-3 block"></i>
@@ -3564,7 +3629,10 @@
             <div className="mb-6">
               <h2 className="text-2xl font-bold text-white"><span className="brand-z brand-z-sm">Z</span> {displayName}</h2>
               <p className="text-white/30 text-sm"><i className="fab fa-whatsapp mr-1"></i> {displayWhatsapp}</p>
-              <p className="text-white/30 text-sm"><i className="fas fa-coins mr-1"></i> Credits: {userCredits}</p>
+              <button onClick={() => setShowCreditHistory(true)} className="text-white/30 text-sm hover:text-red-400 transition inline-flex items-center gap-1">
+                <i className="fas fa-coins mr-1"></i> Credits: {userCredits} <i className="fas fa-chevron-right text-[10px] ml-1 opacity-60"></i>
+              </button>
+              <CreditHistoryModal open={showCreditHistory} onClose={() => setShowCreditHistory(false)} username={user?.username} />
             </div>
             {expiringSoon && (
               <div className="mb-4 p-3 rounded-xl bg-yellow-500/10 border border-yellow-500/20">
@@ -4509,7 +4577,7 @@
           return;
         }
         try {
-          const updated = await addCredits(username, addCreditsAmount);
+          const updated = await addCredits(username, addCreditsAmount, 'Added by admin');
           if (updated) {
             addToast(`Added ${addCreditsAmount} credits to ${username}`, 'success');
             setAddCreditsAmount(0);
@@ -4530,7 +4598,7 @@
           return;
         }
         try {
-          const updated = await deductCredits(username, deductCreditsAmount);
+          const updated = await deductCredits(username, deductCreditsAmount, null, 'Deducted by admin');
           if (updated) {
             addToast(`Deducted ${deductCreditsAmount} credits from ${username}`, 'success');
             setDeductCreditsAmount(0);
@@ -4607,8 +4675,8 @@
           const desiredCredits = Number(addUserForm.credits);
           if (!isNaN(desiredCredits) && desiredCredits !== 50) {
             const diff = desiredCredits - 50;
-            if (diff > 0) await addCredits(username, diff);
-            else if (diff < 0) await deductCredits(username, Math.abs(diff)).catch(() => {});
+            if (diff > 0) await addCredits(username, diff, 'Balance corrected by admin');
+            else if (diff < 0) await deductCredits(username, Math.abs(diff), null, 'Balance corrected by admin').catch(() => {});
           }
           addToast(`User "${username}" created.`, 'success');
           closeAddUserModal();
@@ -5406,12 +5474,13 @@
                           <h4 className="text-white font-semibold mb-3"><i className="fas fa-user-friends mr-2 text-red-400"></i> Registered Account ({globalSearchResults.userMatches.length})</h4>
                           <div className="overflow-x-auto">
                             <table className="admin-table text-sm">
-                              <thead><tr><th>Username</th><th>WhatsApp</th><th>Credits</th><th>Purchases</th></tr></thead>
+                              <thead><tr><th>Username</th><th>WhatsApp</th><th>Registered</th><th>Credits</th><th>Purchases</th></tr></thead>
                               <tbody>
                                 {globalSearchResults.userMatches.map(u => (
                                   <tr key={u.username}>
                                     <td className="font-mono">{u.username}</td>
                                     <td>{u.whatsapp}</td>
+                                    <td className="text-xs text-white/40">{u.createdAt ? new Date(u.createdAt).toLocaleString() : 'N/A'}</td>
                                     <td><span className="badge badge-green">{u.credits || 0}</span></td>
                                     <td>{u.purchaseCount || 0}</td>
                                   </tr>
@@ -5427,7 +5496,7 @@
                           <h4 className="text-white font-semibold mb-3"><i className="fas fa-crown mr-2 text-red-400"></i> Active Subscriptions ({globalSearchResults.subscriptionMatches.length})</h4>
                           <div className="overflow-x-auto">
                             <table className="admin-table text-sm">
-                              <thead><tr><th>Subscription</th><th>Name</th><th>Username</th><th>WhatsApp</th><th>Screen</th><th>Expiry</th><th>Status</th></tr></thead>
+                              <thead><tr><th>Subscription</th><th>Name</th><th>Username</th><th>WhatsApp</th><th>Screen</th><th>Purchased</th><th>Expiry</th><th>Status</th></tr></thead>
                               <tbody>
                                 {globalSearchResults.subscriptionMatches.map((m, idx) => {
                                   const status = checkExpiry(m.record.expiry);
@@ -5440,6 +5509,7 @@
                                       <td className="font-mono text-xs">{m.record.customer.username}</td>
                                       <td>{m.record.customer.whatsapp}</td>
                                       <td>{m.record.screenName}</td>
+                                      <td className="text-xs text-white/40">{m.record.purchasedAt ? new Date(m.record.purchasedAt).toLocaleString() : 'N/A'}</td>
                                       <td>{m.record.expiry}</td>
                                       <td><span className={`badge ${statusColors[status] || 'badge-red-light'}`}>{statusLabels[status] || 'N/A'}</span></td>
                                     </tr>
@@ -5642,7 +5712,7 @@
                         <p className="text-white/40 text-xs mb-2"><i className="fas fa-users mr-1"></i> {records.length} customer(s)</p>
                         <div className="overflow-x-auto">
                           <table className="admin-table text-sm">
-                            <thead><tr><th>Name</th><th>Username</th><th>WhatsApp</th><th>Screen</th><th>Account</th><th>Expiry</th><th>Status</th><th>Actions</th></tr></thead>
+                            <thead><tr><th>Name</th><th>Username</th><th>WhatsApp</th><th>Screen</th><th>Account</th><th>Purchased</th><th>Expiry</th><th>Status</th><th>Actions</th></tr></thead>
                             <tbody>
                               {records.map((r, idx) => {
                                 const status = checkExpiry(r.expiry);
@@ -5655,6 +5725,7 @@
                                     <td>{r.customer.whatsapp}</td>
                                     <td>{r.screenName}</td>
                                     <td className="text-xs text-white/40">{r.accountEmail}</td>
+                                    <td className="text-xs text-white/40">{r.purchasedAt ? new Date(r.purchasedAt).toLocaleString() : 'N/A'}</td>
                                     <td>{r.expiry}</td>
                                     <td><span className={`badge ${statusColors[status] || 'badge-red-light'}`}>{statusLabels[status] || 'N/A'}</span></td>
                                     <td>
@@ -5719,7 +5790,7 @@
                     </h4>
                     <div className="overflow-x-auto">
                       <table className="admin-table text-sm">
-                        <thead><tr><th>Name</th><th>Username</th><th>WhatsApp</th><th>Screen</th><th>Account</th><th>Expiry</th><th>Status</th><th>Actions</th></tr></thead>
+                        <thead><tr><th>Name</th><th>Username</th><th>WhatsApp</th><th>Screen</th><th>Account</th><th>Purchased</th><th>Expiry</th><th>Status</th><th>Actions</th></tr></thead>
                         <tbody>
                           {records.map((r, idx) => {
                             const status = checkExpiry(r.expiry);
@@ -5732,6 +5803,7 @@
                                 <td>{r.customer.whatsapp}</td>
                                 <td>{r.screenName}</td>
                                 <td className="text-xs text-white/40">{r.accountEmail}</td>
+                                <td className="text-xs text-white/40">{r.purchasedAt ? new Date(r.purchasedAt).toLocaleString() : 'N/A'}</td>
                                 <td>{r.expiry}</td>
                                 <td><span className={`badge ${statusColors[status] || 'badge-red-light'}`}>{statusLabels[status] || 'N/A'}</span></td>
                                 <td>
@@ -5935,12 +6007,13 @@
                 return (
                   <div className="overflow-x-auto">
                     <table className="admin-table text-sm">
-                      <thead><tr><th>Username</th><th>WhatsApp</th><th>Credits</th><th>Purchases</th><th>Actions</th></tr></thead>
+                      <thead><tr><th>Username</th><th>WhatsApp</th><th>Registered</th><th>Credits</th><th>Purchases</th><th>Actions</th></tr></thead>
                       <tbody>
                         {filteredUsers.map(u => (
                           <tr key={u.username}>
                             <td className="font-mono">{u.username}</td>
                             <td>{u.whatsapp}</td>
+                            <td className="text-xs text-white/40">{u.createdAt ? new Date(u.createdAt).toLocaleString() : 'N/A'}</td>
                             <td><span className="badge badge-green">{u.credits || 0}</span></td>
                             <td>{u.purchaseCount || 0}</td>
                             <td>
