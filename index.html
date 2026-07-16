@@ -7093,7 +7093,7 @@
     (async function bootApp() {
       const sourceEl = document.getElementById('app-source');
       const source = sourceEl.textContent;
-      const CACHE_PREFIX = 'compiledApp_v1_';
+      const CACHE_PREFIX = 'compiledApp_v2_';
       let code = null;
 
       try {
@@ -7103,7 +7103,13 @@
         code = localStorage.getItem(cacheKey);
 
         if (!code) {
-          code = Babel.transform(source, { presets: ['react'] }).code;
+          // IMPORTANT: runtime must be 'classic'. Babel's default/"automatic"
+          // JSX runtime injects `import { jsx as _jsx } from "react/jsx-runtime"`
+          // at the top of the compiled output, which breaks immediately when
+          // run as a plain (non-module) <script> — "classic" instead compiles
+          // JSX to plain React.createElement(...) calls using the global
+          // `React` this app already relies on, with no import statements.
+          code = Babel.transform(source, { presets: [['react', { runtime: 'classic' }]] }).code;
           try {
             // Drop any older cached build first so we don't accumulate
             // stale compiled bundles (and their storage space) forever.
@@ -7120,7 +7126,7 @@
         // SubtleCrypto unavailable (e.g. very old browser) - fall back to
         // compiling without caching. The app still works, just without
         // the repeat-visit speed-up.
-        code = Babel.transform(source, { presets: ['react'] }).code;
+        code = Babel.transform(source, { presets: [['react', { runtime: 'classic' }]] }).code;
       }
 
       const runScript = document.createElement('script');
