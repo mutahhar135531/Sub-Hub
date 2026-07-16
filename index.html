@@ -3485,8 +3485,9 @@
       if (!open) return null;
 
       return (
-        <div className="modal-overlay" onClick={onClose}>
-          <div className="modal-content glass-panel" onClick={(e) => e.stopPropagation()}>
+        <div className="modal-overlay" style={{ alignItems: 'flex-start', overflowY: 'auto' }} onClick={onClose}>
+          <div className="modal-content glass-panel" style={{ marginTop: '80px', marginBottom: '40px' }} onClick={(e) => e.stopPropagation()}>
+            <button onClick={onClose} className="text-red-400 hover:text-red-300 text-sm mb-4 inline-flex items-center"><i className="fas fa-arrow-left mr-2"></i> Back</button>
             <h3 className="text-xl font-bold text-white mb-2"><i className="fas fa-coins text-red-400 mr-2"></i> Credit History</h3>
             <p className="text-white/40 text-sm mb-5">Every time credits were added or used on your account, with the date and time.</p>
             {loading ? (
