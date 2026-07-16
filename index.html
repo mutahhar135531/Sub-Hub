@@ -3,12 +3,15 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
-  <meta http-equiv="Pragma" content="no-cache" />
-  <meta http-equiv="Expires" content="0" />
   <title>Zetlify - Unlimited Subscriptions</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><text y='14' font-size='14'>⚡</text></svg>" />
-  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Warm up connections to the API and CDNs as early as possible so the
+       actual requests that follow don't pay the DNS/TLS setup cost. -->
+  <link rel="preconnect" href="https://sub-hub-he32.onrender.com" />
+  <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin />
+  <link rel="preconnect" href="https://unpkg.com" crossorigin />
+  <link rel="dns-prefetch" href="https://cdn.tailwindcss.com" />
+  <script src="https://cdn.tailwindcss.com" defer></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
   <style>
     /* ===== RED/BLACK NEON THEME ===== */
@@ -243,7 +246,7 @@
   <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
-  <script type="text/babel">
+  <script type="text/plain" id="app-source">
     const { useState, useEffect, useRef, useCallback, useMemo, createContext, useContext } = React;
 
     const API_BASE = 'https://sub-hub-he32.onrender.com';
@@ -6440,15 +6443,31 @@
       );
     }
 
+    // Read a cached, previously-fetched value so the very first render
+    // already has real content instead of an empty list — the fresh data
+    // still gets fetched right away in the background and replaces this
+    // the moment it arrives, but the user never has to stare at nothing.
+    const readCache = (key) => {
+      try {
+        const raw = localStorage.getItem('cache_' + key);
+        return raw ? JSON.parse(raw) : [];
+      } catch (e) {
+        return [];
+      }
+    };
+    const writeCache = (key, value) => {
+      try { localStorage.setItem('cache_' + key, JSON.stringify(value)); } catch (e) { /* storage full/unavailable - skip */ }
+    };
+
     // ─── MAIN APP ──────────────────────────────────────────────
     function App() {
       const [activeTab, setActiveTab] = useState('home');
       const [showSubscriptions, setShowSubscriptions] = useState(false);
       const [selectedSubscription, setSelectedSubscription] = useState(null);
-      const [subscriptions, setSubscriptions] = useState([]);
-      const [deals, setDeals] = useState([]);
-      const [promotions, setPromotions] = useState([]);
-      const [customFaqs, setCustomFaqs] = useState([]);
+      const [subscriptions, setSubscriptions] = useState(() => readCache('subscriptions'));
+      const [deals, setDeals] = useState(() => readCache('deals'));
+      const [promotions, setPromotions] = useState(() => readCache('promotions'));
+      const [customFaqs, setCustomFaqs] = useState(() => readCache('faqs'));
       const [isAdmin, setIsAdmin] = useState(false);
       const [customerData, setCustomerData] = useState(null);
       const [flowStep, setFlowStep] = useState('welcome');
@@ -6456,24 +6475,39 @@
       const [showAuth, setShowAuth] = useState(false);
       const [showComplaintModal, setShowComplaintModal] = useState(false);
       const [selectedDeal, setSelectedDeal] = useState(null);
-      const [loadingData, setLoadingData] = useState(true);
+      // Only block the page with a spinner when we truly have nothing to
+      // show yet (first-ever visit, empty cache). Once anything is
+      // cached, later visits render instantly and refresh quietly.
+      const [loadingData, setLoadingData] = useState(() => readCache('subscriptions').length === 0);
       const { addToast } = useContext(AppContext);
       const { user, setUser, refreshUser } = useContext(UserContext);
 
       useEffect(() => {
         const loadData = async (silent = false) => {
           try {
-            const [subs, dealsData, promos, faqsData] = await Promise.all([fetchSubscriptions(), fetchDeals(), fetchPromotions(), fetchFaqs().catch(() => [])]);
+            // Subscriptions/deals/promotions are what the home page and
+            // subscription flow actually need, so they're the only things
+            // the (rare, cache-empty) loading screen waits on. FAQs are
+            // fetched separately below so a slow Help-content fetch never
+            // holds up the parts of the page people see first.
+            const [subs, dealsData, promos] = await Promise.all([fetchSubscriptions(), fetchDeals(), fetchPromotions()]);
             setSubscriptions(subs);
             setDeals(dealsData);
             setPromotions(promos);
-            setCustomFaqs(faqsData);
+            writeCache('subscriptions', subs);
+            writeCache('deals', dealsData);
+            writeCache('promotions', promos);
           } catch (err) {
             console.error('Failed to load data', err);
             if (!silent) addToast('Could not load data. Is the backend running?', 'error');
           } finally {
             if (!silent) setLoadingData(false);
           }
+
+          fetchFaqs().then(faqsData => {
+            setCustomFaqs(faqsData);
+            writeCache('faqs', faqsData);
+          }).catch(() => {});
         };
         loadData();
 
@@ -6868,12 +6902,20 @@
         );
       }
 
+      // Only the very first visit (nothing cached yet) ever sees this, and
+      // even then only the hero/subscriptions area waits — the navbar and
+      // page chrome render immediately either way so the site never feels
+      // like it's just sitting there doing nothing.
       if (loadingData) {
         return (
-          <div className="min-h-screen pt-16 flex items-center justify-center">
-            <div className="glass-panel text-center">
-              <div className="spinner mx-auto mb-4"></div>
-              <p className="text-white/40">Loading deals & subscriptions...</p>
+          <div className="min-h-screen pt-16">
+            <Navbar activeTab={activeTab} setActiveTab={setActiveTab} showSubscriptions={showSubscriptions} setShowSubscriptions={setShowSubscriptions} onCustomerPortal={handleCustomerPortal} onLogout={handleLogout} onOpenComplaint={() => setShowComplaintModal(true)} />
+            <ToastContainer />
+            <div className="flex items-center justify-center" style={{ minHeight: 'calc(100vh - 64px)' }}>
+              <div className="glass-panel text-center">
+                <div className="spinner mx-auto mb-4"></div>
+                <p className="text-white/40">Loading deals & subscriptions...</p>
+              </div>
             </div>
           </div>
         );
@@ -7037,6 +7079,54 @@
         <App />
       </AppProvider>
     );
+  </script>
+
+  <script>
+    // ─── FAST BOOT: cache the compiled app so repeat visits skip Babel ──
+    // The app above is ~7000 lines of JSX. Normally the browser has to
+    // re-run Babel's JIT compiler on all of it on *every single visit*,
+    // which is one of the biggest costs to "opening the site" feeling
+    // slow. Since the source only changes when we ship an update, we
+    // compile it once, cache the plain-JS result in localStorage keyed
+    // by a hash of the source, and on every later visit (same version)
+    // just run the cached JS directly — no compilation needed at all.
+    (async function bootApp() {
+      const sourceEl = document.getElementById('app-source');
+      const source = sourceEl.textContent;
+      const CACHE_PREFIX = 'compiledApp_v1_';
+      let code = null;
+
+      try {
+        const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(source));
+        const hash = Array.from(new Uint8Array(digest)).map(b => b.toString(16).padStart(2, '0')).join('');
+        const cacheKey = CACHE_PREFIX + hash;
+        code = localStorage.getItem(cacheKey);
+
+        if (!code) {
+          code = Babel.transform(source, { presets: ['react'] }).code;
+          try {
+            // Drop any older cached build first so we don't accumulate
+            // stale compiled bundles (and their storage space) forever.
+            for (let i = localStorage.length - 1; i >= 0; i--) {
+              const k = localStorage.key(i);
+              if (k && k.indexOf(CACHE_PREFIX) === 0 && k !== cacheKey) localStorage.removeItem(k);
+            }
+            localStorage.setItem(cacheKey, code);
+          } catch (e) {
+            // Storage full/unavailable - not a problem, we just recompile next time.
+          }
+        }
+      } catch (e) {
+        // SubtleCrypto unavailable (e.g. very old browser) - fall back to
+        // compiling without caching. The app still works, just without
+        // the repeat-visit speed-up.
+        code = Babel.transform(source, { presets: ['react'] }).code;
+      }
+
+      const runScript = document.createElement('script');
+      runScript.textContent = code;
+      document.body.appendChild(runScript);
+    })();
   </script>
 </body>
 </html>
