@@ -1873,6 +1873,29 @@
       return { account: firstAcc, screen: firstAcc.screens[0] };
     };
 
+    // A full click-blocking overlay shown over the purchase card while a
+    // purchase is submitting. The isSubmittingRef guard already stops a
+    // second click from starting a second purchase, but this adds a
+    // visible, physical layer on top of it — while it's up, there is
+    // literally nothing to click, tap, or double-tap through to.
+    function ProcessingOverlay({ show }) {
+      if (!show) return null;
+      return (
+        <div
+          className="absolute inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm rounded-2xl"
+          style={{ cursor: 'not-allowed' }}
+          onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}
+          onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); }}
+          onTouchStart={(e) => { e.preventDefault(); e.stopPropagation(); }}
+        >
+          <div className="text-center px-6">
+            <span className="spinner" style={{ width: 36, height: 36, borderWidth: 4 }}></span>
+            <p className="text-white/80 text-sm mt-4 font-medium">Processing your purchase — please wait, don't click again.</p>
+          </div>
+        </div>
+      );
+    }
+
     // ─── NETFLIX FLOW ────────────────────────────────────────
     function NetflixFlow({ subscription, onBack, onComplete, user }) {
       const [screens, setScreens] = useState(1);
@@ -2100,7 +2123,8 @@
 
       if (step === 'plan') {
         return (
-          <div className="space-y-6">
+          <div className="space-y-6 relative">
+            <ProcessingOverlay show={loading} />
             <button onClick={onBack} className="text-red-400 hover:text-red-300 text-sm"><i className="fas fa-arrow-left mr-2"></i> Back</button>
             <h2 className="text-2xl font-bold text-white">
               <span className="netflix-logo" style={{ fontSize: '2rem' }}>
@@ -2204,7 +2228,8 @@
 
       if (step === 'details') {
         return (
-          <div className="space-y-6">
+          <div className="space-y-6 relative">
+            <ProcessingOverlay show={loading} />
             <button onClick={() => setStep('otp')} className="text-red-400 hover:text-red-300 text-sm"><i className="fas fa-arrow-left mr-2"></i> Back</button>
             <h2 className="text-2xl font-bold text-white"><i className="fas fa-user-check text-red-400 mr-3"></i> Confirm Details</h2>
             <div className="bg-red-500/5 rounded-xl p-4 border border-red-500/10 space-y-2">
@@ -2405,7 +2430,8 @@
 
       if (step === 'plan') {
         return (
-          <div className="space-y-6">
+          <div className="space-y-6 relative">
+            <ProcessingOverlay show={loading} />
             <button onClick={onBack} className="text-red-400 hover:text-red-300 text-sm"><i className="fas fa-arrow-left mr-2"></i> Back</button>
             <h2 className="text-2xl font-bold text-white"><i className="fab fa-amazon text-yellow-400 mr-3"></i> Amazon Prime</h2>
             <div><label className="text-white/50 text-sm font-medium">Duration</label>
@@ -2479,7 +2505,8 @@
 
       if (step === 'details') {
         return (
-          <div className="space-y-6">
+          <div className="space-y-6 relative">
+            <ProcessingOverlay show={loading} />
             <button onClick={() => setStep('otp')} className="text-red-400 hover:text-red-300 text-sm"><i className="fas fa-arrow-left mr-2"></i> Back</button>
             <h2 className="text-2xl font-bold text-white"><i className="fas fa-user-check text-red-400 mr-3"></i> Confirm Details</h2>
             <div className="bg-red-500/5 rounded-xl p-4 border border-red-500/10 space-y-2">
@@ -2577,14 +2604,17 @@
       };
 
       const handleVerifyOtp = async () => {
+        if (isSubmittingRef.current) return;
         const entered = otp.join('');
         if (entered.length !== 4) { setOtpError('Enter all 4 digits'); return; }
+        setLoading(true);
         const verified = await verifyOTPAPI(entered);
         if (verified) {
           setOtpError('');
           completePurchase(false);
         } else {
           setOtpError('Invalid OTP');
+          setLoading(false);
         }
       };
 
@@ -2708,7 +2738,8 @@
         const subDisplayName = isCustom ? 'Custom Subscription' : subscription.name;
         const desc = subscription.description || '';
         return (
-          <div className="space-y-6">
+          <div className="space-y-6 relative">
+            <ProcessingOverlay show={loading} />
             <button onClick={onBack} className="text-red-400 hover:text-red-300 text-sm"><i className="fas fa-arrow-left mr-2"></i> Back</button>
             <h2 className="text-2xl font-bold text-white"><i className="fas fa-plus-circle text-red-400 mr-3"></i> {subDisplayName}</h2>
             {desc && <p className="text-white/40 text-sm -mt-2">{desc}</p>}
@@ -2781,7 +2812,8 @@
 
       if (step === 'otp') {
         return (
-          <div className="space-y-6">
+          <div className="space-y-6 relative">
+            <ProcessingOverlay show={loading} />
             <button onClick={() => setStep('plan')} className="text-red-400 hover:text-red-300 text-sm"><i className="fas fa-arrow-left mr-2"></i> Back</button>
             <h2 className="text-2xl font-bold text-white">Enter OTP</h2>
             <p className="text-white/40 text-sm">Enter the 4-digit OTP. Expires in {otpTimer}s</p>
@@ -2857,17 +2889,19 @@
       };
 
       const handleVerifyOtp = async () => {
+        if (isSubmittingRef.current) return;
         const entered = otp.join('');
         if (entered.length !== 4) { setOtpError('Enter all 4 digits'); return; }
+        setLoading(true);
         const verified = await verifyOTPAPI(entered);
         if (verified) {
           setOtpError('');
           completePurchase(false);
         } else {
           setOtpError('Invalid OTP');
+          setLoading(false);
         }
       };
-
       const completePurchase = async (useCreditsFlag = false) => {
         if (isSubmittingRef.current) return;
         isSubmittingRef.current = true;
@@ -3032,7 +3066,8 @@
 
       if (step === 'plan') {
         return (
-          <div className="space-y-6">
+          <div className="space-y-6 relative">
+            <ProcessingOverlay show={loading} />
             <button onClick={onBack} className="text-red-400 hover:text-red-300 text-sm"><i className="fas fa-arrow-left mr-2"></i> Back</button>
             <div className="bg-red-500/5 rounded-xl p-4 border border-red-500/10">
               <h3 className="text-xl font-bold text-white">{deal.title}</h3>
@@ -3091,7 +3126,8 @@
 
       if (step === 'otp') {
         return (
-          <div className="space-y-6">
+          <div className="space-y-6 relative">
+            <ProcessingOverlay show={loading} />
             <button onClick={() => setStep('plan')} className="text-red-400 hover:text-red-300 text-sm"><i className="fas fa-arrow-left mr-2"></i> Back</button>
             <h2 className="text-2xl font-bold text-white">Enter OTP</h2>
             <p className="text-white/40 text-sm">Enter the 4-digit OTP. Expires in {otpTimer}s</p>
