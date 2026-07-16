@@ -149,6 +149,11 @@
     .tab-btn.active { background:rgba(239,68,68,0.12); color:#fca5a5; border-color:rgba(239,68,68,0.20); }
     .tab-btn:hover { color:#e0e0e0; background:rgba(239,68,68,0.06); }
     .notif-badge { display:inline-flex; align-items:center; justify-content:center; min-width:18px; height:18px; padding:0 5px; border-radius:999px; background:#ef4444; color:#fff; font-size:.65rem; font-weight:700; line-height:1; margin-left:6px; box-shadow:0 0 8px rgba(239,68,68,0.5); vertical-align:middle; animation:notif-pop .3s ease; }
+    /* A screen whose customer's subscription expired but whose PIN hasn't
+       been reset yet — visually impossible to miss so it never gets
+       forgotten. Clears itself the moment the admin hits "Gen PIN". */
+    .screen-needs-reset { background:rgba(239,68,68,0.30) !important; border:1.5px solid #ef4444 !important; animation:screen-blink 1.1s ease-in-out infinite; }
+    @keyframes screen-blink { 0%, 100% { background:rgba(239,68,68,0.18); box-shadow:0 0 6px rgba(239,68,68,0.35); } 50% { background:rgba(239,68,68,0.55); box-shadow:0 0 18px rgba(239,68,68,0.95); } }
     @keyframes notif-pop { from { transform:scale(0.5); opacity:0; } to { transform:scale(1); opacity:1; } }
 
     /* ─── MODALS ────────────────────────────────────────────── */
@@ -4154,6 +4159,25 @@
         return allCustomerRecords.filter(c => c.purchasedAt && new Date(c.purchasedAt) > new Date(seenCustomersAt)).length;
       }, [allCustomerRecords, seenCustomersAt]);
 
+      // How many screens have an expired customer whose PIN hasn't been
+      // reset yet — shown as a badge on the Subscriptions tab so it's
+      // impossible to miss even without scrolling through every card.
+      const expiredScreensCount = useMemo(() => {
+        const now = new Date();
+        let count = 0;
+        (subscriptions || []).forEach(sub => (sub.accounts || []).forEach(acc => (acc.screens || []).forEach(screen => {
+          const needsReset = (screen.customers || []).some(c => {
+            if (!c.expiryDate) return false;
+            const exp = new Date(c.expiryDate);
+            if (isNaN(exp.getTime()) || exp >= now) return false;
+            if (screen.pinResetAt && new Date(screen.pinResetAt) > exp) return false;
+            return true;
+          });
+          if (needsReset) count++;
+        })));
+        return count;
+      }, [subscriptions]);
+
       // ─── Load functions ──────────────────────────────────────────
       const loadOTPs = async () => {
         try {
@@ -5105,6 +5129,23 @@
         addToast('New password generated!', 'success');
       };
 
+      // A screen needs attention when a customer allocated to it has
+      // expired but the PIN hasn't been changed since — meaning that
+      // customer could still be using it. Once the admin hits "Gen PIN",
+      // pinResetAt moves to "now", which is after the expiry, so it stops
+      // flagging automatically — no manual dismissal needed.
+      const screenNeedsReset = (screen) => {
+        if (!screen.customers || screen.customers.length === 0) return false;
+        const now = new Date();
+        return screen.customers.some(c => {
+          if (!c.expiryDate) return false;
+          const exp = new Date(c.expiryDate);
+          if (isNaN(exp.getTime()) || exp >= now) return false;
+          if (screen.pinResetAt && new Date(screen.pinResetAt) > exp) return false;
+          return true;
+        });
+      };
+
       const handleGeneratePin = async (subId, accId, screenId) => {
         const newPin = generatePin();
         const sub = subscriptions.find(s => s.id === subId);
@@ -5115,6 +5156,9 @@
         const screen = acc.screens.find(s => s.id === screenId);
         if (!screen) return;
         screen.pin = newPin;
+        // Marks this screen as "handled" — this is what turns the blinking
+        // reminder off, since it means access was just revoked/reset.
+        screen.pinResetAt = new Date().toISOString();
         setSubscriptions(prev => prev.map(s => s.id === subId ? updatedSub : s));
         await updateSubscription(subId, updatedSub);
         addToast('New PIN generated!', 'success');
@@ -5258,7 +5302,7 @@
               }} className={`tab-btn ${activeTab === tab ? 'active' : ''}`}>
                 {tab === 'overview' && <><i className="fas fa-chart-pie mr-2"></i> Overview</>}
                 {tab === 'search' && <><i className="fas fa-search mr-2"></i> Search</>}
-                {tab === 'subscriptions' && <><i className="fas fa-crown mr-2"></i> Subscriptions</>}
+                {tab === 'subscriptions' && <><i className="fas fa-crown mr-2"></i> Subscriptions{expiredScreensCount > 0 && <span className="notif-badge" title="Screens with an expired customer still waiting on a PIN reset">{expiredScreensCount}</span>}</>}
                 {tab === 'customers' && <><i className="fas fa-users mr-2"></i> Customers{unseenCustomersCount > 0 && <span className="notif-badge">{unseenCustomersCount}</span>}</>}
                 {tab === 'waiting' && <><i className="fas fa-clock mr-2"></i> Waiting Customers{waitingList.length > 0 && <span className="notif-badge">{waitingList.length}</span>}</>}
                 {tab === 'income' && <><i className="fas fa-coins mr-2"></i> Income</>}
@@ -5488,9 +5532,14 @@
                                       <p className="text-xs text-white/40 mb-1">Screens:</p>
                                       <div className="flex flex-wrap gap-2">
                                         {acc.screens.map(screen => (
-                                          <div key={screen.id} className="flex items-center gap-2 bg-red-500/10 px-3 py-1 rounded-full text-xs">
+                                          <div key={screen.id} className={`flex items-center gap-2 px-3 py-1 rounded-full text-xs ${screenNeedsReset(screen) ? 'screen-needs-reset' : 'bg-red-500/10'}`}>
                                             <span className="text-white/70">{screen.name}</span>
                                             <span className="text-white/30">PIN: {screen.pin || 'N/A'}</span>
+                                            {screenNeedsReset(screen) && (
+                                              <span className="text-red-300 font-semibold" title="A customer's subscription expired on this screen — reset the PIN to revoke their access">
+                                                <i className="fas fa-triangle-exclamation mr-1"></i>Expired — reset PIN
+                                              </span>
+                                            )}
                                             <button onClick={() => openEditScreen(sub.id, acc.id, screen.id, screen.name, screen.pin)} className="btn-warning text-xs"><i className="fas fa-edit"></i></button>
                                             <button onClick={() => handleGeneratePin(sub.id, acc.id, screen.id)} className="btn-red text-xs"><i className="fas fa-shield-alt"></i> Gen PIN</button>
                                           </div>
