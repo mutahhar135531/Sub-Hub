@@ -5988,7 +5988,7 @@
                 <div className="glass-panel text-center py-10 text-white/30"><i className="fas fa-tv text-3xl mb-3 block"></i> No Netflix subscriptions yet.</div>
               )}
               {subscriptions.filter(s => s.type === 'netflix').map(sub => {
-                const capacity = sub.slots || 3;
+                const capacity = 3; // every Netflix screen has exactly 3 slots, always
                 return (
                   <div key={sub.id} className="glass-panel">
                     <h4 className="text-white font-semibold mb-4 flex items-center gap-2">
@@ -6069,7 +6069,7 @@
                               <span className="text-white/30 text-xs">PIN: {screen.pin || 'N/A'}</span>
                             </div>
                             <div className="space-y-1.5">
-                              {Array.from({ length: sub.slots || 3 }).map((_, i) => {
+                              {Array.from({ length: 3 }).map((_, i) => {
                                 const cust = (screen.customers || [])[i];
                                 if (!cust) {
                                   return (
