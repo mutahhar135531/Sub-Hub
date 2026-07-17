@@ -4387,6 +4387,7 @@
       const [showAddSub, setShowAddSub] = useState(false);
       const [showEditSub, setShowEditSub] = useState(null);
       const [showAddAccount, setShowAddAccount] = useState(null);
+      const [gridDetailAccount, setGridDetailAccount] = useState(null); // { subId, accId } for the Account Grid tab's detail modal
       const [newSubName, setNewSubName] = useState('');
       const [newSubType, setNewSubType] = useState('custom');
       const [newSubCost, setNewSubCost] = useState(0);
@@ -5648,7 +5649,7 @@
           )}
 
           <div className="flex flex-wrap gap-2 border-b border-white/5 pb-3">
-            {['overview', 'search', 'subscriptions', 'customers', 'waiting', 'income', 'users', 'deals', 'promotions', 'faqs', 'otp'].map(tab => (
+            {['overview', 'search', 'subscriptions', 'grid', 'customers', 'waiting', 'income', 'users', 'deals', 'promotions', 'faqs', 'otp'].map(tab => (
               <button key={tab} onClick={() => {
                 setActiveTab(tab);
                 if (tab === 'users') markUsersSeen();
@@ -5657,6 +5658,7 @@
                 {tab === 'overview' && <><i className="fas fa-chart-pie mr-2"></i> Overview</>}
                 {tab === 'search' && <><i className="fas fa-search mr-2"></i> Search</>}
                 {tab === 'subscriptions' && <><i className="fas fa-crown mr-2"></i> Subscriptions{expiredScreensCount > 0 && <span className="notif-badge" title="Screens with an expired customer still waiting on a PIN reset">{expiredScreensCount}</span>}</>}
+                {tab === 'grid' && <><i className="fas fa-th-large mr-2"></i> Account Grid</>}
                 {tab === 'customers' && <><i className="fas fa-users mr-2"></i> Customers{unseenCustomersCount > 0 && <span className="notif-badge">{unseenCustomersCount}</span>}</>}
                 {tab === 'waiting' && <><i className="fas fa-clock mr-2"></i> Waiting Customers{waitingList.length > 0 && <span className="notif-badge">{waitingList.length}</span>}</>}
                 {tab === 'income' && <><i className="fas fa-coins mr-2"></i> Income</>}
@@ -5973,6 +5975,131 @@
                   </div>
                 );
               })}
+            </div>
+          )}
+
+          {activeTab === 'grid' && (
+            <div className="space-y-6">
+              <div className="glass-panel">
+                <h3 className="text-lg font-bold text-white mb-1"><i className="fas fa-th-large mr-2 text-red-400"></i> Account Grid</h3>
+                <p className="text-white/40 text-sm">A top-down view of every Netflix account: each screen underneath it, and a box for every slot on that screen — filled if someone's using it, empty if it's free. Click an email for the full breakdown.</p>
+              </div>
+              {subscriptions.filter(s => s.type === 'netflix').length === 0 && (
+                <div className="glass-panel text-center py-10 text-white/30"><i className="fas fa-tv text-3xl mb-3 block"></i> No Netflix subscriptions yet.</div>
+              )}
+              {subscriptions.filter(s => s.type === 'netflix').map(sub => {
+                const capacity = sub.slots || 3;
+                return (
+                  <div key={sub.id} className="glass-panel">
+                    <h4 className="text-white font-semibold mb-4 flex items-center gap-2">
+                      <span className="netflix-logo" style={{ fontSize: '1rem' }}>
+                        <svg viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg" style={{ width: '1.2rem', height: '1.2rem' }}>
+                          <path d="M5.5 2.5v19.5l5-2.5V5l-5 2.5zM12 2.5v19.5l5-2.5V5L12 2.5z" />
+                          <path d="M18.5 2.5v19.5l5-2.5V5l-5 2.5z" />
+                        </svg>
+                      </span>
+                      {sub.name}
+                    </h4>
+                    {sub.accounts.length === 0 ? (
+                      <p className="text-white/30 text-sm">No accounts added yet.</p>
+                    ) : (
+                      <div className="space-y-5">
+                        {sub.accounts.map(acc => {
+                          const totalSlotsInAcc = acc.screens.length * capacity;
+                          const filledSlotsInAcc = acc.screens.reduce((sum, s) => sum + (s.customers?.length || 0), 0);
+                          return (
+                            <div key={acc.id} className="p-4 rounded-xl bg-white/[0.03] border border-white/10">
+                              <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+                                <button onClick={() => setGridDetailAccount({ subId: sub.id, accId: acc.id })} className="text-white font-medium text-sm hover:text-red-400 transition inline-flex items-center gap-2">
+                                  <i className="fas fa-envelope text-red-400/70"></i> {acc.email}
+                                  <i className="fas fa-chevron-right text-[10px] opacity-50"></i>
+                                </button>
+                                <span className={`badge ${filledSlotsInAcc >= totalSlotsInAcc ? 'badge-red' : filledSlotsInAcc > 0 ? 'badge-yellow' : 'badge-green'}`}>
+                                  {filledSlotsInAcc} / {totalSlotsInAcc} filled
+                                </span>
+                              </div>
+                              <div className="flex flex-wrap gap-4">
+                                {acc.screens.map(screen => {
+                                  const used = screen.customers?.length || 0;
+                                  return (
+                                    <div key={screen.id} className="flex flex-col items-center gap-1.5">
+                                      <span className="text-white/40 text-[11px]">{screen.name} <span className="text-white/20">({used}/{capacity})</span></span>
+                                      <div className="flex gap-1.5">
+                                        {Array.from({ length: capacity }).map((_, i) => {
+                                          const filled = i < used;
+                                          const cust = filled ? screen.customers[i] : null;
+                                          return (
+                                            <div
+                                              key={i}
+                                              title={filled ? `${cust.name || cust.username} (${cust.whatsapp || 'no number'})` : 'Empty slot'}
+                                              className={`w-9 h-9 rounded-lg flex items-center justify-center text-xs font-bold border-2 ${filled ? 'bg-red-500/20 border-red-500/50 text-red-300' : 'border-dashed border-white/15 text-white/15'}`}
+                                            >
+                                              {filled ? <i className="fas fa-user"></i> : <i className="fas fa-plus"></i>}
+                                            </div>
+                                          );
+                                        })}
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+              {gridDetailAccount && (() => {
+                const sub = subscriptions.find(s => s.id === gridDetailAccount.subId);
+                const acc = sub?.accounts.find(a => a.id === gridDetailAccount.accId);
+                if (!sub || !acc) return null;
+                return (
+                  <div className="modal-overlay" onClick={() => setGridDetailAccount(null)}>
+                    <div className="modal-content glass-panel" onClick={(e) => e.stopPropagation()}>
+                      <button onClick={() => setGridDetailAccount(null)} className="text-red-400 hover:text-red-300 text-sm mb-4 inline-flex items-center"><i className="fas fa-arrow-left mr-2"></i> Back</button>
+                      <h3 className="text-xl font-bold text-white mb-1"><i className="fas fa-envelope text-red-400 mr-2"></i> {acc.email}</h3>
+                      <p className="text-white/30 text-xs mb-5">Password: <span className="font-mono text-white/50">{acc.password || '••••••••'}</span> • {sub.name}</p>
+                      <div className="space-y-4">
+                        {acc.screens.map(screen => (
+                          <div key={screen.id} className="p-3 rounded-xl bg-white/[0.03] border border-white/10">
+                            <div className="flex items-center justify-between mb-2">
+                              <span className="text-white font-medium text-sm">{screen.name}</span>
+                              <span className="text-white/30 text-xs">PIN: {screen.pin || 'N/A'}</span>
+                            </div>
+                            <div className="space-y-1.5">
+                              {Array.from({ length: sub.slots || 3 }).map((_, i) => {
+                                const cust = (screen.customers || [])[i];
+                                if (!cust) {
+                                  return (
+                                    <div key={i} className="flex items-center gap-2 text-xs text-white/25 px-3 py-2 rounded-lg border border-dashed border-white/10">
+                                      <i className="fas fa-plus"></i> Empty slot
+                                    </div>
+                                  );
+                                }
+                                const status = checkExpiry(cust.expiryDate);
+                                const statusColors = { expired: 'badge-red', today: 'badge-yellow', tomorrow: 'badge-yellow', soon: 'badge-yellow', active: 'badge-green', unknown: 'badge-red-light' };
+                                const statusLabels = { expired: 'Expired', today: 'Today', tomorrow: 'Tomorrow', soon: 'Soon', active: 'Active', unknown: 'N/A' };
+                                return (
+                                  <div key={i} className="flex items-center justify-between gap-2 text-xs px-3 py-2 rounded-lg bg-red-500/5 border border-red-500/15">
+                                    <div className="min-w-0">
+                                      <p className="text-white/80 font-medium truncate">{cust.name || 'N/A'} <span className="text-white/30 font-mono">({cust.username})</span></p>
+                                      <p className="text-white/30 mt-0.5">{cust.whatsapp} • Expires {cust.expiryDate || 'N/A'}</p>
+                                    </div>
+                                    <span className={`badge ${statusColors[status] || 'badge-red-light'}`}>{statusLabels[status] || 'N/A'}</span>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                      <button onClick={() => setGridDetailAccount(null)} className="btn-neon-outline w-full py-3 mt-5">Close</button>
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
           )}
 
