@@ -3349,16 +3349,19 @@
       { key: 'diffFromUsername', label: 'Different from your username', test: (p, u) => p.length > 0 && p !== u },
     ];
 
-    function CriteriaChecklist({ items }) {
+    function CriteriaChecklist({ title, items }) {
       return (
-        <ul className="mt-2 mb-1 space-y-1">
-          {items.map((item) => (
-            <li key={item.key} className={`flex items-center gap-2 text-xs transition-colors ${item.met ? 'text-green-400' : 'text-white/35'}`}>
-              <i className={`fas ${item.met ? 'fa-check-circle' : 'fa-circle'}`} style={{ fontSize: item.met ? '0.75rem' : '0.4rem' }}></i>
-              {item.label}
-            </li>
-          ))}
-        </ul>
+        <div className="mt-2 mb-1 rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2">
+          <p className="text-white/45 text-[11px] font-semibold uppercase tracking-wide mb-1.5">{title}</p>
+          <ul className="space-y-1.5">
+            {items.map((item) => (
+              <li key={item.key} className={`flex items-center gap-2 text-xs transition-colors ${item.met ? 'text-green-400' : 'text-white/55'}`}>
+                <i className={`fas ${item.met ? 'fa-check-circle' : 'fa-circle'} w-3 text-center`} style={{ fontSize: item.met ? '0.8rem' : '0.5rem' }}></i>
+                {item.label}
+              </li>
+            ))}
+          </ul>
+        </div>
       );
     }
 
@@ -3572,7 +3575,7 @@
           <div className="space-y-4">
             <div><label className="text-white/50 text-sm font-medium">Username</label>
               <input type="text" value={username} onChange={(e) => setUsername(e.target.value)} className="input-neon mt-1" placeholder="Choose a username" />
-              {isSignUp && <CriteriaChecklist items={usernameChecklist} />}
+              {isSignUp && <CriteriaChecklist title="Username requirements" items={usernameChecklist} />}
             </div>
             <div><label className="text-white/50 text-sm font-medium">Password</label>
               <div className="relative">
@@ -3581,7 +3584,7 @@
                   <i className={`fas ${showPassword ? 'fa-eye-slash' : 'fa-eye'}`}></i>
                 </button>
               </div>
-              {isSignUp && <CriteriaChecklist items={passwordChecklist} />}
+              {isSignUp && <CriteriaChecklist title="Password requirements" items={passwordChecklist} />}
             </div>
             {isSignUp && (
               <div><label className="text-white/50 text-sm font-medium">WhatsApp Number</label>
