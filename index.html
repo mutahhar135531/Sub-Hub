@@ -5853,7 +5853,11 @@
                           </div>
                         </div>
                         <div className="mt-1 text-xs text-white/30">
-                          Cost: RS {sub.costPerMonth || 0} / mo | Selling: RS {sub.sellingPrice || sub.costPerMonth || 0} / mo | Slots: {sub.slots || 'N/A'}
+                          {sub.accounts.length > 0 ? (
+                            <>Cost: RS {sub.costPerMonth || 0} / mo | Selling: RS {sub.sellingPrice || sub.costPerMonth || 0} / mo | Slots: {sub.slots || 'N/A'}</>
+                          ) : (
+                            <>No accounts yet — cost isn't counted until one's added | Selling: RS {sub.sellingPrice || sub.costPerMonth || 0} / mo | Slots: {sub.slots || 'N/A'}</>
+                          )}
                         </div>
                         <p className="text-white/30 text-xs">{sub.accounts.length} accounts • {totalSlots} slots • {totalCust} customers</p>
                       </div>

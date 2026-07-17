@@ -1203,6 +1203,10 @@ app.get('/api/income', async (req, res) => {
     let revenueByType = {}, costByType = {}, profitByType = {};
 
     subs.forEach(sub => {
+      // No accounts on this subscription at all -> nothing to have cost you
+      // money for, so it's skipped entirely and never counted.
+      if (!sub.accounts || sub.accounts.length === 0) return;
+
       const costPerMonth = sub.costPerMonth || 0;
       const sellingPrice = sub.sellingPrice || 0;
       sub.accounts.forEach(acc => {
