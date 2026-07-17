@@ -3374,6 +3374,11 @@
       const [loading, setLoading] = useState(false);
       const { addToast } = useContext(AppContext);
 
+      // Which field (if any) is currently focused — the requirements box
+      // for a field only shows while that field is focused, and hides again
+      // the moment focus moves elsewhere (blur, or the other field).
+      const [focusedField, setFocusedField] = useState(null); // null | 'username' | 'password'
+
       // Forgot-password flow. mode: null (not active) | 'verify' | 'reset' | 'failed'
       const [forgotMode, setForgotMode] = useState(null);
       const [fpUsername, setFpUsername] = useState('');
@@ -3574,17 +3579,33 @@
           <p className="text-white/40 text-sm mb-6">{isSignUp ? 'Create your account to start subscribing.' : 'Login to your account.'}</p>
           <div className="space-y-4">
             <div><label className="text-white/50 text-sm font-medium">Username</label>
-              <input type="text" value={username} onChange={(e) => setUsername(e.target.value)} className="input-neon mt-1" placeholder="Choose a username" />
-              {isSignUp && <CriteriaChecklist title="Username requirements" items={usernameChecklist} />}
+              <input
+                type="text"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                onFocus={() => setFocusedField('username')}
+                onBlur={() => setFocusedField((f) => (f === 'username' ? null : f))}
+                className="input-neon mt-1"
+                placeholder="Choose a username"
+              />
+              {isSignUp && focusedField === 'username' && <CriteriaChecklist title="Username requirements" items={usernameChecklist} />}
             </div>
             <div><label className="text-white/50 text-sm font-medium">Password</label>
               <div className="relative">
-                <input type={showPassword ? 'text' : 'password'} value={password} onChange={(e) => setPassword(e.target.value)} className="input-neon mt-1 pr-10" placeholder="••••••••" />
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  onFocus={() => setFocusedField('password')}
+                  onBlur={() => setFocusedField((f) => (f === 'password' ? null : f))}
+                  className="input-neon mt-1 pr-10"
+                  placeholder="••••••••"
+                />
                 <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-white/30 hover:text-white/60">
                   <i className={`fas ${showPassword ? 'fa-eye-slash' : 'fa-eye'}`}></i>
                 </button>
               </div>
-              {isSignUp && <CriteriaChecklist title="Password requirements" items={passwordChecklist} />}
+              {isSignUp && focusedField === 'password' && <CriteriaChecklist title="Password requirements" items={passwordChecklist} />}
             </div>
             {isSignUp && (
               <div><label className="text-white/50 text-sm font-medium">WhatsApp Number</label>
