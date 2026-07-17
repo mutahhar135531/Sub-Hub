@@ -162,6 +162,31 @@
        forgotten. Clears itself the moment the admin hits "Gen PIN". */
     .screen-needs-reset { background:rgba(239,68,68,0.30) !important; border:1.5px solid #ef4444 !important; animation:screen-blink 1.1s ease-in-out infinite; }
     @keyframes screen-blink { 0%, 100% { background:rgba(239,68,68,0.18); box-shadow:0 0 6px rgba(239,68,68,0.35); } 50% { background:rgba(239,68,68,0.55); box-shadow:0 0 18px rgba(239,68,68,0.95); } }
+
+    /* ─── Purchase loading animation: a little red runner chasing after
+       a couple of bouncy bags/boxes, looping while the purchase saves ─── */
+    .chase-scene { position:relative; width:220px; height:70px; margin:0 auto; overflow:hidden; }
+    .chaser { position:absolute; bottom:12px; left:-46px; width:38px; height:38px; border-radius:50%;
+      background:linear-gradient(145deg, #ef4444, #b91c1c); box-shadow:0 4px 14px rgba(239,68,68,.55);
+      animation:chase-run 1.6s linear infinite; }
+    .chaser-face { position:absolute; top:9px; left:0; right:0; display:flex; justify-content:center; gap:7px; }
+    .chaser-eye { width:5px; height:5px; background:#fff; border-radius:50%; display:inline-block; }
+    .chaser-mouth { position:absolute; bottom:9px; left:50%; transform:translateX(-50%); width:12px; height:6px;
+      border-bottom:2px solid #fff; border-radius:0 0 10px 10px; }
+    .chaser-hand { position:absolute; right:-9px; top:12px; color:#fecaca; font-size:12px;
+      animation:hand-reach .5s ease-in-out infinite alternate; }
+    .chaser-leg { position:absolute; bottom:-5px; width:4px; height:10px; background:#7f1d1d; border-radius:2px; }
+    .chaser-leg-l { left:9px; animation:leg-kick .28s linear infinite; }
+    .chaser-leg-r { right:9px; animation:leg-kick .28s linear infinite reverse; }
+    .fleeing-item { position:absolute; bottom:16px; left:20px; width:24px; height:24px; border-radius:6px;
+      display:flex; align-items:center; justify-content:center; color:#fff; font-size:12px;
+      background:linear-gradient(145deg, #f59e0b, #d97706); box-shadow:0 3px 10px rgba(245,158,11,.5);
+      animation:chase-flee 1.6s linear infinite; }
+    .fleeing-item-2 { animation-delay:.45s; opacity:.85; }
+    @keyframes chase-run { 0% { left:-46px; } 100% { left:220px; } }
+    @keyframes chase-flee { 0% { left:20px; } 100% { left:290px; } }
+    @keyframes leg-kick { 0%, 100% { transform:rotate(-22deg); } 50% { transform:rotate(22deg); } }
+    @keyframes hand-reach { 0% { transform:translateX(0); } 100% { transform:translateX(4px); } }
     @keyframes notif-pop { from { transform:scale(0.5); opacity:0; } to { transform:scale(1); opacity:1; } }
 
     /* ─── MODALS ────────────────────────────────────────────── */
@@ -1997,15 +2022,29 @@
       if (!show) return null;
       return (
         <div
-          className="absolute inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm rounded-2xl"
+          className="absolute inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm rounded-2xl"
           style={{ cursor: 'not-allowed' }}
           onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}
           onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); }}
           onTouchStart={(e) => { e.preventDefault(); e.stopPropagation(); }}
         >
           <div className="text-center px-6">
-            <span className="spinner" style={{ width: 36, height: 36, borderWidth: 4 }}></span>
-            <p className="text-white/80 text-sm mt-4 font-medium">Processing your purchase — please wait, don't click again.</p>
+            <div className="chase-scene">
+              <div className="chaser">
+                <span className="chaser-hand"><i className="fas fa-hand-paper"></i></span>
+                <div className="chaser-face">
+                  <span className="chaser-eye"></span>
+                  <span className="chaser-eye"></span>
+                </div>
+                <span className="chaser-mouth"></span>
+                <span className="chaser-leg chaser-leg-l"></span>
+                <span className="chaser-leg chaser-leg-r"></span>
+              </div>
+              <div className="fleeing-item fleeing-item-1"><i className="fas fa-shopping-bag"></i></div>
+              <div className="fleeing-item fleeing-item-2"><i className="fas fa-box"></i></div>
+            </div>
+            <p className="text-white/80 text-sm mt-4 font-medium">Processing your purchase — hang tight!</p>
+            <p className="text-white/40 text-xs mt-1">Please don't click again.</p>
           </div>
         </div>
       );
@@ -2201,7 +2240,6 @@
           }
         }
 
-        setTimeout(() => {
           onComplete({
             subscriptionId: subscription.id,
             subscriptionName: subscription.name,
@@ -2221,7 +2259,6 @@
           });
           setLoading(false);
           isSubmittingRef.current = false;
-        }, 1200);
       };
 
       const handlePayWithCredits = async () => {
@@ -2508,7 +2545,6 @@
           console.error('Failed to increment purchase count', err);
         }
 
-        setTimeout(() => {
           onComplete({
             subscriptionId: subscription.id,
             subscriptionName: subscription.name,
@@ -2528,7 +2564,6 @@
           });
           setLoading(false);
           isSubmittingRef.current = false;
-        }, 1200);
       };
 
       const handlePayWithCredits = async () => {
@@ -2808,7 +2843,6 @@
           console.error('Failed to increment purchase count', err);
         }
 
-        setTimeout(() => {
           onComplete({
             subscriptionId: subscription.id,
             subscriptionName: isCustom ? customSubName.trim() : subscription.name,
@@ -2830,7 +2864,6 @@
           });
           setLoading(false);
           isSubmittingRef.current = false;
-        }, 1200);
       };
 
       const handlePayWithCredits = async () => {
@@ -3137,7 +3170,6 @@
           console.error('Failed to increment purchase count', err);
         }
 
-        setTimeout(() => {
           onComplete({
             subscriptionId: deal.subscriptionIds?.[0] || 'deal',
             screens: 1,
@@ -3160,7 +3192,6 @@
           });
           setLoading(false);
           isSubmittingRef.current = false;
-        }, 1200);
       };
 
       const handlePayWithCredits = async () => {
@@ -6878,6 +6909,37 @@
         }
       };
 
+      // Builds the exact same shape findCustomers() would return, straight
+      // from the purchase result we already have in memory — no need to
+      // wait for a fresh full subscriptions fetch just to show the
+      // customer their own new purchase.
+      const buildLocalCustomerData = (data, allocations) => {
+        return allocations.map(allot => {
+          const subId = allot.subscriptionId || data.subscriptionId;
+          const sub = subscriptions.find(s => s.id === subId);
+          return {
+            name: data.name || '',
+            username: data.username,
+            password: data.password,
+            whatsapp: data.whatsapp,
+            expiryDate: data.expiryDate,
+            screens: data.screens || 1,
+            months: data.months || 0,
+            days: data.days || 0,
+            subscriptionName: allot.subscriptionName || data.subscriptionName || (sub && sub.name) || 'Subscription',
+            accountEmail: allot.accountEmail,
+            accountPassword: allot.accountPassword,
+            screenName: allot.screenName,
+            screenPin: allot.screenPin,
+            subscriptionId: subId,
+            accountId: allot.accountId,
+            screenId: allot.screenId,
+            email: data.email || '',
+            purchasedAt: data.purchasedAt || null
+          };
+        });
+      };
+
       const handleSubComplete = async (data) => {
         const customerPayload = {
           name: data.name || '',
@@ -6921,55 +6983,58 @@
           // Each allocation is saved with a targeted, atomic update (only touches that
           // exact account/screen) instead of overwriting the whole subscription document.
           // This is what used to cause other customers' purchase details to vanish.
-          for (const allot of allocations) {
+          // They touch different accounts/screens, so it's safe to save them all at
+          // once instead of one-by-one — this is the only step the customer actually
+          // has to wait on, so keeping it fast matters most here.
+          await Promise.all(allocations.map(allot => {
             const subIdForAllot = allot.subscriptionId || data.subscriptionId;
-            await allocateCustomer(subIdForAllot, allot.accountId, allot.screenId, customerPayload, data.purchaseId);
-          }
+            return allocateCustomer(subIdForAllot, allot.accountId, allot.screenId, customerPayload, data.purchaseId);
+          }));
 
-          for (const entry of waitingEntries) {
-            await addWaitingCustomer({
-              subscriptionId: entry.subscriptionId,
-              subscriptionName: entry.subscriptionName,
-              isCustomRequest: false,
-              name: data.name || '',
-              username: data.username,
-              whatsapp: data.whatsapp,
-              months: entry.months,
-              email: data.email || '',
-              paidWithCredits: !!data.paidWithCredits,
-              purchaseId: data.purchaseId,
-              purchasedAt: data.purchasedAt || new Date().toISOString()
-            });
-          }
+          await Promise.all(waitingEntries.map(entry => addWaitingCustomer({
+            subscriptionId: entry.subscriptionId,
+            subscriptionName: entry.subscriptionName,
+            isCustomRequest: false,
+            name: data.name || '',
+            username: data.username,
+            whatsapp: data.whatsapp,
+            months: entry.months,
+            email: data.email || '',
+            paidWithCredits: !!data.paidWithCredits,
+            purchaseId: data.purchaseId,
+            purchasedAt: data.purchasedAt || new Date().toISOString()
+          })));
 
-          const fresh = await fetchSubscriptions();
-          setSubscriptions(fresh);
-          const dealsData = await fetchDeals();
-          setDeals(dealsData);
           resetFlow();
-          navigateTo('/');
 
           if (allocations.length > 0) {
             addToast('🎉 Subscription confirmed! Check your details.', 'success');
-          }
-          if (user) {
-            // Refresh so purchaseCount is up to date (this drives the
-            // unseen-purchases notification badge on the navbar).
-            await refreshUser();
-          }
-          if (allocations.length > 0) {
             addToast('Your subscription details is added to your portal, go and check it.', 'success');
           }
           if (waitingEntries.length > 0) {
             addToast('✅ Payment received! This subscription will be added to your portal soon — contact admin for updates.', 'success');
           }
 
+          // The purchase is saved — get the customer to their result right
+          // now, built from data we already have. Nothing below this line
+          // needs to finish before they see it.
           if (user && allocations.length > 0) {
-            const found = findCustomers(user.username, fresh);
-            setCustomerData(found);
+            setCustomerData(buildLocalCustomerData(data, allocations));
             setFlowStep('customer-dash');
             navigateTo('/subscriptions');
+          } else {
+            navigateTo('/');
           }
+
+          // Everything else (the full subscriptions list, deals, and the
+          // user's own record for the notification badge) refreshes quietly
+          // in the background — run together instead of one after another,
+          // and none of it blocks what the customer already sees.
+          Promise.all([
+            fetchSubscriptions().then(setSubscriptions),
+            fetchDeals().then(setDeals),
+            user ? refreshUser() : Promise.resolve()
+          ]).catch(err => console.error('Background refresh after purchase failed:', err));
         } catch (err) {
           console.error('Failed to save subscription:', err);
           addToast('Payment went through but saving your subscription failed. Please contact support so we can fix this manually.', 'error');
