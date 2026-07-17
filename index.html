@@ -3334,6 +3334,34 @@
     }
 
     // ─── AUTH PAGE ─────────────────────────────────────────────
+    // Password/username rules for sign-up. Each `test` runs against the
+    // current username/password so the checklist can tick off live as the
+    // person types, and the same rules gate the submit button itself.
+    const USERNAME_CHECKS = [
+      { key: 'noSpaces', label: 'No spaces', test: (u) => u.length > 0 && !/\s/.test(u) },
+      { key: 'noSpecial', label: 'Letters and numbers only (no special characters)', test: (u) => u.length > 0 && /^[A-Za-z0-9]+$/.test(u) },
+    ];
+    const PASSWORD_CHECKS = [
+      { key: 'len', label: 'At least 8 characters', test: (p) => p.length >= 8 },
+      { key: 'capital', label: 'Starts with a capital letter', test: (p) => /^[A-Z]/.test(p) },
+      { key: 'number', label: 'Contains at least 1 number', test: (p) => /[0-9]/.test(p) },
+      { key: 'special', label: 'Contains at least 1 special character', test: (p) => /[^A-Za-z0-9]/.test(p) },
+      { key: 'diffFromUsername', label: 'Different from your username', test: (p, u) => p.length > 0 && p !== u },
+    ];
+
+    function CriteriaChecklist({ items }) {
+      return (
+        <ul className="mt-2 mb-1 space-y-1">
+          {items.map((item) => (
+            <li key={item.key} className={`flex items-center gap-2 text-xs transition-colors ${item.met ? 'text-green-400' : 'text-white/35'}`}>
+              <i className={`fas ${item.met ? 'fa-check-circle' : 'fa-circle'}`} style={{ fontSize: item.met ? '0.75rem' : '0.4rem' }}></i>
+              {item.label}
+            </li>
+          ))}
+        </ul>
+      );
+    }
+
     function AuthPage({ onLogin, onSignup, onBack }) {
       const [isSignUp, setIsSignUp] = useState(false);
       const [username, setUsername] = useState('');
@@ -3352,6 +3380,20 @@
       const [fpShowNewPassword, setFpShowNewPassword] = useState(false);
       const [fpLoading, setFpLoading] = useState(false);
 
+      // Live checklist state — recomputed on every keystroke so ticks
+      // appear the moment a rule is satisfied.
+      const usernameChecklist = useMemo(
+        () => USERNAME_CHECKS.map(c => ({ ...c, met: c.test(username.trim()) })),
+        [username]
+      );
+      const passwordChecklist = useMemo(
+        () => PASSWORD_CHECKS.map(c => ({ ...c, met: c.test(password, username.trim()) })),
+        [password, username]
+      );
+      const signupRequirementsMet = isSignUp
+        ? usernameChecklist.every(c => c.met) && passwordChecklist.every(c => c.met)
+        : true;
+
       const handleSubmit = async () => {
         if (!username.trim() || !password.trim()) {
           addToast('Username and password required', 'error');
@@ -3360,6 +3402,18 @@
         if (isSignUp && !whatsapp.trim()) {
           addToast('WhatsApp number required', 'error');
           return;
+        }
+        if (isSignUp) {
+          const failedUsername = USERNAME_CHECKS.find(c => !c.test(username.trim()));
+          if (failedUsername) {
+            addToast(`Username: ${failedUsername.label}`, 'error');
+            return;
+          }
+          const failedPassword = PASSWORD_CHECKS.find(c => !c.test(password, username.trim()));
+          if (failedPassword) {
+            addToast(`Password: ${failedPassword.label}`, 'error');
+            return;
+          }
         }
         setLoading(true);
         if (isSignUp) {
@@ -3518,6 +3572,7 @@
           <div className="space-y-4">
             <div><label className="text-white/50 text-sm font-medium">Username</label>
               <input type="text" value={username} onChange={(e) => setUsername(e.target.value)} className="input-neon mt-1" placeholder="Choose a username" />
+              {isSignUp && <CriteriaChecklist items={usernameChecklist} />}
             </div>
             <div><label className="text-white/50 text-sm font-medium">Password</label>
               <div className="relative">
@@ -3526,6 +3581,7 @@
                   <i className={`fas ${showPassword ? 'fa-eye-slash' : 'fa-eye'}`}></i>
                 </button>
               </div>
+              {isSignUp && <CriteriaChecklist items={passwordChecklist} />}
             </div>
             {isSignUp && (
               <div><label className="text-white/50 text-sm font-medium">WhatsApp Number</label>
@@ -3537,7 +3593,7 @@
                 <button onClick={openForgotPassword} className="text-red-400 hover:text-red-300 text-sm underline">Forgot Password?</button>
               </div>
             )}
-            <button onClick={handleSubmit} disabled={loading} className="btn-neon w-full py-3">
+            <button onClick={handleSubmit} disabled={loading || !signupRequirementsMet} className={`btn-neon w-full py-3 ${!signupRequirementsMet ? 'opacity-50 cursor-not-allowed' : ''}`}>
               {loading ? <span className="spinner"></span> : (isSignUp ? <><i className="fas fa-user-plus mr-2"></i> Create Account</> : <><i className="fas fa-sign-in-alt mr-2"></i> Sign In</>)}
             </button>
           </div>

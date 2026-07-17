@@ -576,6 +576,26 @@ app.post('/api/users/signup', async (req, res) => {
     if (!username || !password || !whatsapp) {
       return res.status(400).json({ error: 'All fields required' });
     }
+    // Mirrors the checklist shown on the sign-up form — enforced here too
+    // since a request can always bypass the client-side UI.
+    if (/\s/.test(username) || !/^[A-Za-z0-9]+$/.test(username)) {
+      return res.status(400).json({ error: 'Username must not contain spaces or special characters' });
+    }
+    if (password.length < 8) {
+      return res.status(400).json({ error: 'Password must be at least 8 characters' });
+    }
+    if (!/^[A-Z]/.test(password)) {
+      return res.status(400).json({ error: 'Password must start with a capital letter' });
+    }
+    if (!/[0-9]/.test(password)) {
+      return res.status(400).json({ error: 'Password must contain at least 1 number' });
+    }
+    if (!/[^A-Za-z0-9]/.test(password)) {
+      return res.status(400).json({ error: 'Password must contain at least 1 special character' });
+    }
+    if (password === username) {
+      return res.status(400).json({ error: 'Password must be different from username' });
+    }
     const existing = await usersCollection.findOne({ username });
     if (existing) {
       return res.status(400).json({ error: 'Username already exists' });
