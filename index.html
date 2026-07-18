@@ -468,6 +468,38 @@
       return res.json();
     };
 
+    // Admin password + recovery number live on the server (a single shared
+    // record) instead of only in each browser's localStorage, so a change
+    // made on one device takes effect everywhere.
+    const fetchAdminSettings = async () => {
+      const res = await fetch(`${API_BASE}/api/admin/settings?t=${Date.now()}`, {
+        headers: { 'Cache-Control': 'no-cache' }
+      });
+      return res.json();
+    };
+
+    const updateAdminSettings = async (data) => {
+      const res = await fetch(`${API_BASE}/api/admin/settings`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+      const result = await res.json();
+      if (!res.ok) throw result;
+      return result;
+    };
+
+    const recoverAdminPassword = async (recoveryNumber, newPassword) => {
+      const res = await fetch(`${API_BASE}/api/admin/recover`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ recoveryNumber, newPassword }),
+      });
+      const result = await res.json();
+      if (!res.ok) throw result;
+      return result;
+    };
+
     const incrementPurchase = async (username) => {
       const res = await fetch(`${API_BASE}/api/users/${username}/incrementPurchase`, {
         method: 'PUT',
@@ -663,6 +695,9 @@
         const saved = localStorage.getItem('adminPassword');
         return saved || 'admin123';
       });
+      const [recoveryNumber, setRecoveryNumber] = useState(() => {
+        return localStorage.getItem('adminRecoveryNumber') || null;
+      });
       const [user, setUser] = useState(() => {
         const saved = localStorage.getItem('user');
         return saved ? JSON.parse(saved) : null;
@@ -701,10 +736,25 @@
       };
 
       useEffect(() => { localStorage.setItem('adminPassword', adminPassword); }, [adminPassword]);
+      useEffect(() => { if (recoveryNumber) localStorage.setItem('adminRecoveryNumber', recoveryNumber); }, [recoveryNumber]);
       useEffect(() => { localStorage.setItem('user', JSON.stringify(user)); }, [user]);
 
+      // Pull the real, shared admin password/recovery number from the
+      // server as soon as the app loads — the localStorage values above are
+      // just a fast, offline-friendly starting point until this resolves.
+      const syncAdminSettings = async () => {
+        try {
+          const settings = await fetchAdminSettings();
+          if (settings && settings.password) setAdminPassword(settings.password);
+          if (settings && settings.recoveryNumber) setRecoveryNumber(settings.recoveryNumber);
+        } catch (err) {
+          console.error('Failed to sync admin settings:', err);
+        }
+      };
+      useEffect(() => { syncAdminSettings(); }, []);
+
       return (
-        <AppContext.Provider value={{ toasts, addToast, removeToast, loading, setLoading, isAdmin, setIsAdmin, adminPassword, setAdminPassword }}>
+        <AppContext.Provider value={{ toasts, addToast, removeToast, loading, setLoading, isAdmin, setIsAdmin, adminPassword, setAdminPassword, recoveryNumber, setRecoveryNumber, syncAdminSettings }}>
           <UserContext.Provider value={{ user, setUser, refreshUser }}>
             {children}
           </UserContext.Provider>
@@ -3904,7 +3954,16 @@
       const [password, setPassword] = useState('');
       const [error, setError] = useState('');
       const [loading, setLoading] = useState(false);
-      const { addToast, adminPassword } = useContext(AppContext);
+      const { addToast, adminPassword, setAdminPassword } = useContext(AppContext);
+
+      // "Forgot password" recovery flow — verified entirely server-side
+      // against the stored recovery number, so it works even if this
+      // browser's password got out of sync or was never known.
+      const [showRecover, setShowRecover] = useState(false);
+      const [recoverNumber, setRecoverNumber] = useState('');
+      const [recoverNewPassword, setRecoverNewPassword] = useState('');
+      const [recoverConfirmPassword, setRecoverConfirmPassword] = useState('');
+      const [recoverLoading, setRecoverLoading] = useState(false);
 
       const handleSubmit = () => {
         if (!password) { setError('Enter password'); return; }
@@ -3919,6 +3978,63 @@
         setLoading(false);
       };
 
+      const handleRecover = async () => {
+        if (!/^\d{4,8}$/.test(recoverNumber.trim())) {
+          addToast('Enter your recovery number', 'error');
+          return;
+        }
+        if (!recoverNewPassword.trim() || recoverNewPassword.trim().length < 4) {
+          addToast('New password must be at least 4 characters', 'error');
+          return;
+        }
+        if (recoverNewPassword !== recoverConfirmPassword) {
+          addToast('Passwords do not match', 'error');
+          return;
+        }
+        setRecoverLoading(true);
+        try {
+          await recoverAdminPassword(recoverNumber.trim(), recoverNewPassword.trim());
+          setAdminPassword(recoverNewPassword.trim());
+          addToast('Password reset! You can log in now.', 'success');
+          setShowRecover(false);
+          setRecoverNumber('');
+          setRecoverNewPassword('');
+          setRecoverConfirmPassword('');
+          setPassword('');
+        } catch (err) {
+          addToast(err?.error || 'Recovery failed', 'error');
+        } finally {
+          setRecoverLoading(false);
+        }
+      };
+
+      if (showRecover) {
+        return (
+          <div className="glass-panel max-w-sm mx-auto">
+            <div className="text-center mb-6">
+              <i className="fas fa-key text-5xl text-yellow-400 neon-text"></i>
+              <h2 className="text-2xl font-bold text-white mt-3">Recover Password</h2>
+              <p className="text-white/40 text-sm">Enter your recovery number to set a new password.</p>
+            </div>
+            <div className="space-y-3">
+              <div><label className="text-white/50 text-sm">Recovery Number</label>
+                <input type="text" inputMode="numeric" value={recoverNumber} onChange={(e) => setRecoverNumber(e.target.value.replace(/\D/g, ''))} maxLength={8} className="input-neon mt-1" placeholder="6-digit recovery number" />
+              </div>
+              <div><label className="text-white/50 text-sm">New Password</label>
+                <input type="password" value={recoverNewPassword} onChange={(e) => setRecoverNewPassword(e.target.value)} className="input-neon mt-1" placeholder="Enter new password" />
+              </div>
+              <div><label className="text-white/50 text-sm">Confirm New Password</label>
+                <input type="password" value={recoverConfirmPassword} onChange={(e) => setRecoverConfirmPassword(e.target.value)} className="input-neon mt-1" placeholder="Confirm new password" onKeyDown={(e) => e.key === 'Enter' && handleRecover()} />
+              </div>
+              <button onClick={handleRecover} disabled={recoverLoading} className="btn-neon w-full py-3 mt-2">
+                {recoverLoading ? <span className="spinner"></span> : <><i className="fas fa-unlock-alt mr-2"></i> Reset Password</>}
+              </button>
+              <button onClick={() => setShowRecover(false)} className="btn-neon-outline w-full">Back to Login</button>
+            </div>
+          </div>
+        );
+      }
+
       return (
         <div className="glass-panel max-w-sm mx-auto">
           <div className="text-center mb-6">
@@ -3931,6 +4047,9 @@
             {error && <p className="text-red-400 text-sm mt-2">{error}</p>}
             <button onClick={handleSubmit} disabled={loading} className="btn-neon w-full py-3 mt-4">
               {loading ? <span className="spinner"></span> : <><i className="fas fa-lock-open mr-2"></i> Login</>}
+            </button>
+            <button onClick={() => setShowRecover(true)} className="text-white/40 hover:text-red-300 text-sm mt-4 block mx-auto transition">
+              Forgot password?
             </button>
           </div>
         </div>
@@ -4412,6 +4531,7 @@
       const [showAdminSettings, setShowAdminSettings] = useState(false);
       const [newAdminPassword, setNewAdminPassword] = useState('');
       const [confirmAdminPassword, setConfirmAdminPassword] = useState('');
+      const [newRecoveryNumber, setNewRecoveryNumber] = useState('');
       const [otpList, setOtpList] = useState([]);
       const [usersList, setUsersList] = useState([]);
       const [waitingList, setWaitingList] = useState([]);
@@ -4455,7 +4575,7 @@
       const [incomeCustomStart, setIncomeCustomStart] = useState('');
       const [incomeCustomEnd, setIncomeCustomEnd] = useState('');
       const [incomeLoading, setIncomeLoading] = useState(false);
-      const { addToast, adminPassword, setAdminPassword } = useContext(AppContext);
+      const { addToast, adminPassword, setAdminPassword, recoveryNumber, setRecoveryNumber } = useContext(AppContext);
       const { user, setUser, refreshUser } = useContext(UserContext);
 
       // ─── Promotions state ────────────────────────────────────────
@@ -5213,7 +5333,7 @@
       };
 
       // ─── Other admin helpers (accounts, customers, etc.) ──────
-      const handleChangeAdminPassword = () => {
+      const handleChangeAdminPassword = async () => {
         if (!newAdminPassword.trim() || newAdminPassword.trim().length < 4) {
           addToast('Password must be at least 4 characters', 'error');
           return;
@@ -5222,11 +5342,35 @@
           addToast('Passwords do not match', 'error');
           return;
         }
-        setAdminPassword(newAdminPassword.trim());
-        addToast('Admin password updated!', 'success');
-        setNewAdminPassword('');
-        setConfirmAdminPassword('');
-        setShowAdminSettings(false);
+        try {
+          // Saved to the server (not just this browser's localStorage) so
+          // the change takes effect on every device immediately, not just
+          // the one used to make it.
+          await updateAdminSettings({ password: newAdminPassword.trim() });
+          setAdminPassword(newAdminPassword.trim());
+          addToast('Admin password updated on all devices!', 'success');
+          setNewAdminPassword('');
+          setConfirmAdminPassword('');
+          setShowAdminSettings(false);
+        } catch (err) {
+          addToast('Failed to update password: ' + (err?.error || 'unknown error'), 'error');
+        }
+      };
+
+      const handleSaveRecoveryNumber = async () => {
+        const num = newRecoveryNumber.trim();
+        if (!/^\d{4,8}$/.test(num)) {
+          addToast('Recovery number must be 4-8 digits', 'error');
+          return;
+        }
+        try {
+          await updateAdminSettings({ recoveryNumber: num });
+          setRecoveryNumber(num);
+          addToast('Recovery number saved!', 'success');
+          setNewRecoveryNumber('');
+        } catch (err) {
+          addToast('Failed to save recovery number: ' + (err?.error || 'unknown error'), 'error');
+        }
       };
 
       const deleteAccount = async (subId, accId) => {
@@ -5581,6 +5725,21 @@
                 <div className="flex gap-3 mt-2">
                   <button onClick={handleChangeAdminPassword} className="btn-neon"><i className="fas fa-save mr-2"></i> Update Password</button>
                   <button onClick={() => { setShowAdminSettings(false); setNewAdminPassword(''); setConfirmAdminPassword(''); }} className="btn-neon-outline">Cancel</button>
+                </div>
+              </div>
+
+              <div className="border-t border-white/10 mt-6 pt-5">
+                <h3 className="text-lg font-semibold text-white mb-1"><i className="fas fa-key text-yellow-400 mr-2"></i> Recovery Number</h3>
+                <p className="text-white/40 text-sm mb-4">
+                  {recoveryNumber
+                    ? <>If you ever forget your admin password, use this number on the login screen to reset it. Currently set to: <span className="text-white font-semibold">{recoveryNumber}</span></>
+                    : 'Set a recovery number now, so if you ever forget your admin password you can reset it from the login screen instead of getting locked out.'}
+                </p>
+                <div className="space-y-3">
+                  <div><label className="text-white/50 text-sm">{recoveryNumber ? 'Change Recovery Number' : 'Set Recovery Number'}</label>
+                    <input type="text" inputMode="numeric" value={newRecoveryNumber} onChange={(e) => setNewRecoveryNumber(e.target.value.replace(/\D/g, ''))} maxLength={8} className="input-neon mt-1" placeholder="e.g. 359609" />
+                  </div>
+                  <button onClick={handleSaveRecoveryNumber} className="btn-neon"><i className="fas fa-save mr-2"></i> Save Recovery Number</button>
                 </div>
               </div>
             </div>
@@ -6889,7 +7048,7 @@
       const [loadingData, setLoadingData] = useState(() => readCache('subscriptions').length === 0);
       const [showIntro, setShowIntro] = useState(true);
       const [introFading, setIntroFading] = useState(false);
-      const { addToast } = useContext(AppContext);
+      const { addToast, syncAdminSettings } = useContext(AppContext);
       const { user, setUser, refreshUser } = useContext(UserContext);
 
       // The polling effect below only runs its setup once (empty dependency
@@ -6942,6 +7101,11 @@
           if (userRef.current) {
             refreshUser().catch(err => console.error('Background user refresh failed:', err));
           }
+
+          // Same idea for the admin password/recovery number — if it was
+          // changed on another device, this picks it up here within a few
+          // seconds instead of only on next page load.
+          syncAdminSettings();
         };
         loadData();
 

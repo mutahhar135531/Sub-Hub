@@ -38,6 +38,7 @@ let waitingCollection;
 let faqsCollection;
 let processedPurchasesCollection;
 let creditHistoryCollection;
+let adminSettingsCollection;
 
 // ─── SUBSCRIPTION COSTS (Monthly) ──────────────────────────
 const SUBSCRIPTION_COSTS = {
@@ -69,6 +70,7 @@ async function connectDB() {
   faqsCollection = db.collection('faqs');
   processedPurchasesCollection = db.collection('processedPurchases');
   creditHistoryCollection = db.collection('creditHistory');
+  adminSettingsCollection = db.collection('adminSettings');
   console.log('✅ Connected to MongoDB');
 }
 
@@ -93,7 +95,70 @@ async function claimIdempotencyKey(key) {
   }
 }
 
-// ─── Seed / Upsert subscriptions ────────────────────────────
+// ─── Admin settings (password + recovery number) ────────────
+// Stored server-side (a single shared document) instead of only in each
+// browser's localStorage, so changing the admin password from one device
+// takes effect for every device, not just the one that made the change.
+const ADMIN_SETTINGS_ID = 'main';
+
+app.get('/api/admin/settings', async (req, res) => {
+  try {
+    let settings = await adminSettingsCollection.findOne({ _id: ADMIN_SETTINGS_ID });
+    if (!settings) {
+      // First time ever running this — seed sensible defaults.
+      settings = { _id: ADMIN_SETTINGS_ID, password: 'admin123', recoveryNumber: '359609' };
+      await adminSettingsCollection.insertOne(settings);
+    }
+    res.json({ password: settings.password, recoveryNumber: settings.recoveryNumber || null });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.put('/api/admin/settings', async (req, res) => {
+  try {
+    const { password, recoveryNumber } = req.body;
+    const update = {};
+    if (password !== undefined && password !== '') update.password = password;
+    if (recoveryNumber !== undefined) update.recoveryNumber = recoveryNumber;
+    if (Object.keys(update).length === 0) {
+      return res.status(400).json({ error: 'Nothing to update' });
+    }
+    await adminSettingsCollection.updateOne({ _id: ADMIN_SETTINGS_ID }, { $set: update }, { upsert: true });
+    const settings = await adminSettingsCollection.findOne({ _id: ADMIN_SETTINGS_ID });
+    res.json({ password: settings.password, recoveryNumber: settings.recoveryNumber || null });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Forgot-password recovery: verified entirely server-side against the
+// stored recovery number, so the correct number is never sent to (or
+// checked in) the browser — only whether it matched.
+app.post('/api/admin/recover', async (req, res) => {
+  try {
+    const { recoveryNumber, newPassword } = req.body;
+    if (!recoveryNumber || !newPassword) {
+      return res.status(400).json({ error: 'Recovery number and new password are required' });
+    }
+    if (newPassword.length < 4) {
+      return res.status(400).json({ error: 'New password must be at least 4 characters' });
+    }
+    const settings = await adminSettingsCollection.findOne({ _id: ADMIN_SETTINGS_ID });
+    if (!settings || !settings.recoveryNumber) {
+      return res.status(400).json({ error: 'No recovery number has been set up for this admin account' });
+    }
+    if (String(settings.recoveryNumber).trim() !== String(recoveryNumber).trim()) {
+      return res.status(400).json({ error: 'Incorrect recovery number' });
+    }
+    await adminSettingsCollection.updateOne({ _id: ADMIN_SETTINGS_ID }, { $set: { password: newPassword } });
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+
 async function seedData() {
   try {
     // Only seed the very first time the app ever runs (i.e. the

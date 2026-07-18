@@ -1,0 +1,36 @@
+[debug] [2026-07-18T17:26:34.046Z] ----------------------------------------------------------------------
+[debug] [2026-07-18T17:26:34.048Z] Command:       C:\Program Files\nodejs\node.exe C:\Users\Hp\AppData\Roaming\npm\node_modules\firebase-tools\lib\bin\firebase.js deploy
+[debug] [2026-07-18T17:26:34.049Z] CLI Version:   15.24.0
+[debug] [2026-07-18T17:26:34.049Z] Platform:      win32
+[debug] [2026-07-18T17:26:34.049Z] Node Version:  v24.18.0
+[debug] [2026-07-18T17:26:34.049Z] Detected Agent: unknown
+[debug] [2026-07-18T17:26:34.049Z] Time:          Sat Jul 18 2026 22:26:34 GMT+0500 (Pakistan Standard Time)
+[debug] [2026-07-18T17:26:34.049Z] ----------------------------------------------------------------------
+[debug] 
+[debug] [2026-07-18T17:26:38.163Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
+[debug] [2026-07-18T17:26:38.163Z] > authorizing via signed-in user (webseriesworldoff@gmail.com)
+[debug] [2026-07-18T17:26:38.163Z] [iam] checking project sub-hub-d948f for permissions ["firebase.projects.get","firebasehosting.sites.update"]
+[debug] [2026-07-18T17:26:38.182Z] Checked if tokens are valid: false, expires at: 1784380832425
+[debug] [2026-07-18T17:26:38.182Z] Checked if tokens are valid: false, expires at: 1784380832425
+[debug] [2026-07-18T17:26:38.182Z] > refreshing access token with scopes: []
+[debug] [2026-07-18T17:26:38.184Z] >>> [apiv2][query] POST https://www.googleapis.com/oauth2/v3/token [none]
+[debug] [2026-07-18T17:26:38.184Z] >>> [apiv2][body] POST https://www.googleapis.com/oauth2/v3/token [omitted]
+[debug] [2026-07-18T17:26:38.660Z] <<< [apiv2][status] POST https://www.googleapis.com/oauth2/v3/token 200
+[debug] [2026-07-18T17:26:38.660Z] <<< [apiv2][body] POST https://www.googleapis.com/oauth2/v3/token [omitted]
+[debug] [2026-07-18T17:26:38.668Z] >>> [apiv2][query] POST https://cloudresourcemanager.googleapis.com/v1/projects/sub-hub-d948f:testIamPermissions [none]
+[debug] [2026-07-18T17:26:38.668Z] >>> [apiv2][(partial)header] POST https://cloudresourcemanager.googleapis.com/v1/projects/sub-hub-d948f:testIamPermissions  x-goog-user-project=sub-hub-d948f
+[debug] [2026-07-18T17:26:38.669Z] >>> [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/sub-hub-d948f:testIamPermissions {"permissions":["firebase.projects.get","firebasehosting.sites.update"]}
+[debug] [2026-07-18T17:26:40.315Z] <<< [apiv2][status] POST https://cloudresourcemanager.googleapis.com/v1/projects/sub-hub-d948f:testIamPermissions 200
+[debug] [2026-07-18T17:26:40.315Z] <<< [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/sub-hub-d948f:testIamPermissions {"permissions":["firebase.projects.get","firebasehosting.sites.update"]}
+[debug] [2026-07-18T17:26:40.316Z] Checked if tokens are valid: true, expires at: 1784399197660
+[debug] [2026-07-18T17:26:40.316Z] Checked if tokens are valid: true, expires at: 1784399197660
+[debug] [2026-07-18T17:26:40.316Z] >>> [apiv2][query] GET https://firebase.googleapis.com/v1beta1/projects/sub-hub-d948f [none]
+[debug] [2026-07-18T17:26:40.963Z] <<< [apiv2][status] GET https://firebase.googleapis.com/v1beta1/projects/sub-hub-d948f 200
+[debug] [2026-07-18T17:26:40.963Z] <<< [apiv2][body] GET https://firebase.googleapis.com/v1beta1/projects/sub-hub-d948f {"projectId":"sub-hub-d948f","projectNumber":"168578722427","displayName":"sub hub","name":"projects/sub-hub-d948f","resources":{"hostingSite":"sub-hub-d948f"},"state":"ACTIVE","labels":{"firebase":"enabled"},"etag":"1_1c4e7f59-b3ea-4c75-8e54-9fc7ddb933a4"}
+[info] 
+[info] === Deploying to 'sub-hub-d948f'...
+[info] 
+[info] i  deploying hosting 
+[debug] [2026-07-18T17:26:40.967Z] Checked if tokens are valid: true, expires at: 1784399197660
+[debug] [2026-07-18T17:26:40.967Z] Checked if tokens are valid: true, expires at: 1784399197660
+[debug] [2026-07-18T17:26:40.967Z] >>> [apiv2][query] GET https://firebasehosting.googleapis.com/v1beta1/projects/sub-hub-d948f/sites/sub-hub-d948f [none]
