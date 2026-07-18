@@ -34,3 +34,9 @@
 [debug] [2026-07-18T17:26:40.967Z] Checked if tokens are valid: true, expires at: 1784399197660
 [debug] [2026-07-18T17:26:40.967Z] Checked if tokens are valid: true, expires at: 1784399197660
 [debug] [2026-07-18T17:26:40.967Z] >>> [apiv2][query] GET https://firebasehosting.googleapis.com/v1beta1/projects/sub-hub-d948f/sites/sub-hub-d948f [none]
+[debug] [2026-07-18T17:26:43.029Z] <<< [apiv2][status] GET https://firebasehosting.googleapis.com/v1beta1/projects/sub-hub-d948f/sites/sub-hub-d948f 200
+[debug] [2026-07-18T17:26:43.030Z] <<< [apiv2][body] GET https://firebasehosting.googleapis.com/v1beta1/projects/sub-hub-d948f/sites/sub-hub-d948f {"name":"projects/sub-hub-d948f/sites/sub-hub-d948f","defaultUrl":"https://sub-hub-d948f.web.app","appId":"1:168578722427:web:975a7dfb145d6c0b9310de","type":"DEFAULT_SITE"}
+[debug] [2026-07-18T17:26:43.033Z] Checked if tokens are valid: true, expires at: 1784399197660
+[debug] [2026-07-18T17:26:43.034Z] Checked if tokens are valid: true, expires at: 1784399197660
+[debug] [2026-07-18T17:26:43.034Z] >>> [apiv2][query] POST https://firebasehosting.googleapis.com/v1beta1/projects/-/sites/sub-hub-d948f/versions [none]
+[debug] [2026-07-18T17:26:43.034Z] >>> [apiv2][body] POST https://firebasehosting.googleapis.com/v1beta1/projects/-/sites/sub-hub-d948f/versions {"status":"CREATED","labels":{"deployment-tool":"cli-firebase"}}
