@@ -768,7 +768,7 @@
                   </>
                 ) : (
                   <button onClick={onCustomerPortal} className="nav-link active">
-                    <i className="fas fa-user-plus mr-2"></i> Customer Portal
+                    <i className="fas fa-sign-in-alt mr-2"></i> Sign In
                   </button>
                 )}
               </div>
@@ -802,7 +802,7 @@
                   </>
                 ) : (
                   <button onClick={() => { onCustomerPortal(); setMobileOpen(false); }} className="nav-link w-full text-left py-3 px-4 active">
-                    <i className="fas fa-user-plus mr-3 w-5"></i> Customer Portal
+                    <i className="fas fa-sign-in-alt mr-3 w-5"></i> Sign In
                   </button>
                 )}
                 <button onClick={() => { onOpenComplaint(); setMobileOpen(false); }} className="nav-link w-full text-left py-3 px-4 text-red-400">
@@ -4583,17 +4583,28 @@
         loadWaiting();
       }, []);
 
-      const refreshData = async () => {
+      // `silent`: when refreshData runs automatically after some other save
+      // (subscription/account/screen/user/etc.) already succeeded, we don't
+      // need to block that action's own success toast/modal-close on this —
+      // it just quietly re-syncs everything in the background. The visible
+      // "Refresh" button still calls this with silent=false so it gets its
+      // own confirmation toast.
+      const refreshData = async (silent = false) => {
         try {
-          const fresh = await fetchSubscriptions();
-          setSubscriptions(fresh);
-          await loadUsers();
-          await loadDeals();
-          await loadIncome(incomePeriod, incomeCustomStart, incomeCustomEnd);
-          await loadPromotions();
-          addToast('Data refreshed!', 'success');
+          // All 5 independent, so run them together instead of one after
+          // another — this alone cuts a multi-second wait down to roughly
+          // however long the single slowest request takes.
+          const [fresh] = await Promise.all([
+            fetchSubscriptions().then(data => { setSubscriptions(data); return data; }),
+            loadUsers(),
+            loadDeals(),
+            loadIncome(incomePeriod, incomeCustomStart, incomeCustomEnd),
+            loadPromotions()
+          ]);
+          if (!silent) addToast('Data refreshed!', 'success');
+          return fresh;
         } catch (err) {
-          addToast('Failed to refresh data', 'error');
+          if (!silent) addToast('Failed to refresh data', 'error');
         }
       };
 
@@ -4641,7 +4652,7 @@
           const result = await createSubscription(newSub);
           setSubscriptions(prev => [...prev, result]);
           resetAddForm();
-          await refreshData();
+          refreshData(true); // background sync — the action above already saved and its own toast already fired
           addToast(`Added ${newSub.name}!`, 'success');
         } catch (err) {
           addToast('Failed to add subscription', 'error');
@@ -4680,7 +4691,7 @@
           setSubscriptions(prev => prev.map(s => s.id === showEditSub.id ? result : s));
           resetAddForm();
           setShowEditSub(null);
-          await refreshData();
+          refreshData(true); // background sync — the action above already saved and its own toast already fired
           addToast('Subscription updated!', 'success');
         } catch (err) {
           addToast('Failed to update subscription', 'error');
@@ -4886,7 +4897,7 @@
             await allocateCustomer(sub.id, slot.account.id, slot.screen.id, customerPayload, grantPurchaseId);
           }
 
-          await refreshData();
+          refreshData(true); // background sync — the action above already saved and its own toast already fired
           addToast(`Subscription granted to ${grantModalUser}.`, 'success');
           closeGrantModal();
         } catch (err) {
@@ -4900,7 +4911,7 @@
       const deleteSubscription = async (subId) => {
         if (window.confirm('Delete this subscription and all its data?')) {
           await deleteSubscriptionAPI(subId);
-          await refreshData();
+          refreshData(true); // background sync — the action above already saved and its own toast already fired
           addToast('Subscription deleted.', 'warning');
         }
       };
@@ -5104,7 +5115,7 @@
           updatedSub.accounts = updatedSub.accounts.filter(a => a.id !== accId);
           setSubscriptions(prev => prev.map(s => s.id === subId ? updatedSub : s));
           await updateSubscription(subId, updatedSub);
-          await refreshData();
+          refreshData(true); // background sync — the action above already saved and its own toast already fired
           addToast('Account deleted.', 'warning');
         }
       };
@@ -5118,12 +5129,12 @@
           if (!customer) { addToast('Customer not found', 'error'); return; }
           try {
             await deleteCustomerEntryAPI(subId, accId, screenId, customer.username);
-            await refreshData();
+            refreshData(true); // background sync — the action above already saved and its own toast already fired
             addToast('Customer deleted.', 'warning');
           } catch (err) {
             console.error('Delete error:', err);
             addToast(err.message || 'Failed to delete customer.', 'error');
-            await refreshData();
+            refreshData(true); // background sync — the action above already saved and its own toast already fired
           }
         }
       };
@@ -5163,13 +5174,13 @@
             expiryDate: editForm.expiryDate,
             newUsername: editForm.username !== originalUsername ? editForm.username : undefined
           });
-          await refreshData();
+          refreshData(true); // background sync — the action above already saved and its own toast already fired
           addToast('Customer updated.', 'success');
           closeEditModal();
         } catch (err) {
           console.error('Update error:', err);
           addToast(err.message || 'Failed to update customer.', 'error');
-          await refreshData();
+          refreshData(true); // background sync — the action above already saved and its own toast already fired
         }
       };
 
@@ -5296,7 +5307,7 @@
         await updateSubscription(subId, updatedSub);
         setNewAccount({ email: '', password: '', screens: [{ name: 'Screen 1', pin: '' }], subscriptionId: '' });
         setShowAddAccount(null);
-        await refreshData();
+        refreshData(true); // background sync — the action above already saved and its own toast already fired
         addToast('Account added!', 'success');
       };
 
@@ -5335,7 +5346,7 @@
         acc.password = password;
         setSubscriptions(prev => prev.map(s => s.id === subId ? updatedSub : s));
         await updateSubscription(subId, updatedSub);
-        await refreshData();
+        refreshData(true); // background sync — the action above already saved and its own toast already fired
         setEditingAccount(null);
         addToast('Account updated!', 'success');
       };
@@ -5354,7 +5365,7 @@
         screen.pin = pin;
         setSubscriptions(prev => prev.map(s => s.id === subId ? updatedSub : s));
         await updateSubscription(subId, updatedSub);
-        await refreshData();
+        refreshData(true); // background sync — the action above already saved and its own toast already fired
         setEditingScreen(null);
         addToast('Screen updated!', 'success');
       };
@@ -7125,7 +7136,7 @@
                       {user ? (
                         <button onClick={() => { const found = findCustomers(user.username); setCustomerData(found); setFlowStep('customer-dash'); }} className="btn-neon-outline px-10 py-4 text-lg"><i className="fas fa-user-circle mr-3"></i> My Dashboard</button>
                       ) : (
-                        <button onClick={() => { setShowAuth(true); setFlowStep('auth'); }} className="btn-neon-outline px-10 py-4 text-lg"><i className="fas fa-sign-in-alt mr-3"></i> Customer Portal</button>
+                        <button onClick={() => { setShowAuth(true); setFlowStep('auth'); }} className="btn-neon-outline px-10 py-4 text-lg"><i className="fas fa-sign-in-alt mr-3"></i> Sign In</button>
                       )}
                     </div>
                   </div>
