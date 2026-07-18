@@ -6491,13 +6491,14 @@
                   )}
                   {incomeData.customers && incomeData.customers.length > 0 && (
                     <div>
-                      <h4 className="text-white font-medium mb-2">Customer Breakdown</h4>
+                      <h4 className="text-white font-medium mb-1">Customer Breakdown</h4>
+                      <p className="text-white/30 text-xs mb-2">Cost is a flat per-account expense, not per customer — see the summary above for total Cost/Profit.</p>
                       <div className="overflow-x-auto max-h-60 overflow-y-auto">
                         <table className="admin-table text-sm">
-                          <thead><tr><th>Customer</th><th>Subscription</th><th>Screen</th><th>Months</th><th>Revenue</th><th>Cost</th><th>Profit</th><th>Expiry</th></tr></thead>
+                          <thead><tr><th>Customer</th><th>Subscription</th><th>Screen</th><th>Months</th><th>Revenue</th><th>Expiry</th></tr></thead>
                           <tbody>
                             {incomeData.customers.map((c, idx) => (
-                              <tr key={idx}><td>{c.customerName}</td><td>{c.subscriptionName}</td><td>{c.screenName}</td><td>{c.months}</td><td className="text-green-400">RS {c.revenue.toFixed(2)}</td><td className="text-red-400">RS {c.cost.toFixed(2)}</td><td className={c.profit >= 0 ? 'text-yellow-400' : 'text-red-500'}>RS {c.profit.toFixed(2)}</td><td className="text-yellow-400">{c.expiryDate ? new Date(c.expiryDate).toLocaleDateString() : 'N/A'}</td></tr>
+                              <tr key={idx}><td>{c.customerName}</td><td>{c.subscriptionName}</td><td>{c.screenName}</td><td>{c.months}</td><td className="text-green-400">RS {c.revenue.toFixed(2)}</td><td className="text-yellow-400">{c.expiryDate ? new Date(c.expiryDate).toLocaleDateString() : 'N/A'}</td></tr>
                             ))}
                           </tbody>
                         </table>

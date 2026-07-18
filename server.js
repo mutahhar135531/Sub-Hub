@@ -1263,9 +1263,9 @@ app.get('/api/income', async (req, res) => {
     }
 
     const subs = await subscriptionsCollection.find({}).toArray();
-    let totalRevenue = 0, totalCost = 0, totalProfit = 0;
+    let totalRevenue = 0, totalCost = 0;
     let customers = [];
-    let revenueByType = {}, costByType = {}, profitByType = {};
+    let revenueByType = {}, costByType = {};
 
     subs.forEach(sub => {
       // No accounts on this subscription at all -> nothing to have cost you
@@ -1274,6 +1274,17 @@ app.get('/api/income', async (req, res) => {
 
       const costPerMonth = sub.costPerMonth || 0;
       const sellingPrice = sub.sellingPrice || 0;
+      const subType = sub.type;
+
+      // Cost is a flat, recurring amount per ACCOUNT you maintain (what you
+      // actually pay the provider for it) — completely independent of how
+      // many customers you've put on it or which reporting period is
+      // selected. Adding another customer to an existing account must NOT
+      // increase this; only adding another account does.
+      const accountsCost = sub.accounts.length * costPerMonth;
+      totalCost += accountsCost;
+      costByType[subType] = (costByType[subType] || 0) + accountsCost;
+
       sub.accounts.forEach(acc => {
         acc.screens.forEach(screen => {
           if (screen.customers && screen.customers.length > 0) {
@@ -1293,17 +1304,9 @@ app.get('/api/income', async (req, res) => {
 
               const months = c.months || 1;
               const revenue = sellingPrice * months;
-              const cost = costPerMonth * months;
-              const profit = revenue - cost;
 
               totalRevenue += revenue;
-              totalCost += cost;
-              totalProfit += profit;
-
-              const subType = sub.type;
               revenueByType[subType] = (revenueByType[subType] || 0) + revenue;
-              costByType[subType] = (costByType[subType] || 0) + cost;
-              profitByType[subType] = (profitByType[subType] || 0) + profit;
 
               customers.push({
                 customerName: c.name || c.username,
@@ -1313,8 +1316,6 @@ app.get('/api/income', async (req, res) => {
                 accountEmail: acc.email,
                 months: months,
                 revenue: revenue,
-                cost: cost,
-                profit: profit,
                 expiryDate: c.expiryDate,
                 purchasedAt: c.purchasedAt || purchaseDate
               });
@@ -1324,20 +1325,11 @@ app.get('/api/income', async (req, res) => {
       });
     });
 
-    const now30 = new Date(now); now30.setDate(now30.getDate() - 30);
-    const now60 = new Date(now); now60.setDate(now60.getDate() - 60);
-    const now90 = new Date(now); now90.setDate(now90.getDate() - 90);
-
-    const last30 = { revenue: 0, cost: 0, profit: 0 };
-    const last60 = { revenue: 0, cost: 0, profit: 0 };
-    const last90 = { revenue: 0, cost: 0, profit: 0 };
-    customers.forEach(c => {
-      if (c.purchasedAt) {
-        const d = new Date(c.purchasedAt);
-        if (d >= now30) { last30.revenue += c.revenue; last30.cost += c.cost; last30.profit += c.profit; }
-        if (d >= now60) { last60.revenue += c.revenue; last60.cost += c.cost; last60.profit += c.profit; }
-        if (d >= now90) { last90.revenue += c.revenue; last90.cost += c.cost; last90.profit += c.profit; }
-      }
+    const totalProfit = totalRevenue - totalCost;
+    const profitByType = {};
+    const allTypes = new Set([...Object.keys(revenueByType), ...Object.keys(costByType)]);
+    allTypes.forEach(t => {
+      profitByType[t] = (revenueByType[t] || 0) - (costByType[t] || 0);
     });
 
     res.json({
@@ -1350,10 +1342,7 @@ app.get('/api/income', async (req, res) => {
       customers,
       period: period || 'all',
       startDate: startDate.toISOString(),
-      endDate: endDate.toISOString(),
-      last30,
-      last60,
-      last90
+      endDate: endDate.toISOString()
     });
   } catch (err) {
     res.status(500).json({ error: err.message });
