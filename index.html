@@ -7233,25 +7233,24 @@
         }
       };
 
-      const handleCustomerPortal = async () => {
+      const handleCustomerPortal = () => {
         navigateTo('/subscriptions');
         if (user) {
-          await refreshUser();
-          // Always pull the latest subscriptions straight from the database before
-          // computing this user's entries — this is what makes a purchase made on
-          // one device show up immediately when the same account opens the portal
-          // on another device, instead of relying on data cached from page-load.
-          try {
-            const fresh = await fetchSubscriptions();
-            setSubscriptions(fresh);
-            const found = findCustomers(user.username, fresh);
-            setCustomerData(found);
-          } catch (err) {
-            // fall back to whatever is already in memory if the refetch fails
-            const found = findCustomers(user.username);
-            setCustomerData(found);
-          }
+          // Show what's already loaded right away — the customer shouldn't
+          // have to stare at a frozen screen (and click again wondering if
+          // it registered) just waiting on a network round trip to see
+          // their own portal.
+          setCustomerData(findCustomers(user.username));
           setFlowStep('customer-dash');
+
+          // Then quietly catch up in the background, in case a purchase
+          // was made from another device since this data was last loaded.
+          Promise.all([refreshUser(), fetchSubscriptions()])
+            .then(([, fresh]) => {
+              setSubscriptions(fresh);
+              setCustomerData(findCustomers(user.username, fresh));
+            })
+            .catch(err => console.error('Background customer portal refresh failed:', err));
         } else {
           setFlowStep('auth');
         }
