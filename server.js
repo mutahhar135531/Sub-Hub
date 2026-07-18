@@ -473,7 +473,7 @@ app.post('/api/subscriptions', async (req, res) => {
       id,
       name,
       type,
-      accounts: accounts || [],
+      accounts: dedupeAccounts(accounts || []),
       costPerMonth: costPerMonth || SUBSCRIPTION_COSTS[type] || 0,
       sellingPrice: sellingPrice || 0,
       slots: slots || 0,
@@ -490,13 +490,45 @@ app.post('/api/subscriptions', async (req, res) => {
   }
 });
 
+// Accounts are uniquely identified by their login email — a duplicate email
+// means the same real-world account got submitted twice (e.g. a double-
+// tapped Save button before the UI gave feedback). Left alone, every
+// duplicate gets counted again in the cost calculation below, which is how
+// "2 accounts" quietly becomes "8 accounts" worth of cost. This merges any
+// duplicates back into one entry, combining their screens (so no customer
+// data is lost) rather than just discarding the extra one blindly.
+function dedupeAccounts(accounts) {
+  if (!Array.isArray(accounts)) return accounts;
+  const byEmail = new Map();
+  const order = [];
+  for (const acc of accounts) {
+    const key = (acc.email || '').trim().toLowerCase();
+    if (!key) { order.push(acc); continue; } // no email — nothing safe to match on, keep as-is
+    if (!byEmail.has(key)) {
+      const clone = { ...acc, screens: [...(acc.screens || [])] };
+      byEmail.set(key, clone);
+      order.push(clone);
+    } else {
+      const existing = byEmail.get(key);
+      const seenScreenIds = new Set(existing.screens.map(s => s.id));
+      for (const scr of (acc.screens || [])) {
+        if (!seenScreenIds.has(scr.id)) {
+          existing.screens.push(scr);
+          seenScreenIds.add(scr.id);
+        }
+      }
+    }
+  }
+  return order;
+}
+
 app.put('/api/subscriptions/:id', async (req, res) => {
   try {
     const { name, type, accounts, costPerMonth, sellingPrice, slots, askFor, description, importantNote, logo } = req.body;
     const update = {};
     if (name !== undefined) update.name = name;
     if (type !== undefined) update.type = type;
-    if (accounts !== undefined) update.accounts = accounts;
+    if (accounts !== undefined) update.accounts = dedupeAccounts(accounts);
     if (costPerMonth !== undefined) update.costPerMonth = costPerMonth;
     if (sellingPrice !== undefined) update.sellingPrice = sellingPrice;
     if (slots !== undefined) update.slots = slots;
@@ -513,6 +545,26 @@ app.put('/api/subscriptions/:id', async (req, res) => {
     }
     const updated = await subscriptionsCollection.findOne({ id: req.params.id });
     res.json(updated);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// One-click cleanup for subscriptions that already have duplicate accounts
+// from before this guard existed — re-runs the same dedupe against
+// whatever's currently saved and reports how many were merged away.
+app.post('/api/subscriptions/:id/dedupe-accounts', async (req, res) => {
+  try {
+    const sub = await subscriptionsCollection.findOne({ id: req.params.id });
+    if (!sub) return res.status(404).json({ error: 'Not found' });
+    const before = (sub.accounts || []).length;
+    const deduped = dedupeAccounts(sub.accounts || []);
+    const duplicatesRemoved = before - deduped.length;
+    if (duplicatesRemoved > 0) {
+      await subscriptionsCollection.updateOne({ id: req.params.id }, { $set: { accounts: deduped } });
+    }
+    const updated = await subscriptionsCollection.findOne({ id: req.params.id });
+    res.json({ ...updated, duplicatesRemoved });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -1266,6 +1318,10 @@ app.get('/api/income', async (req, res) => {
     let totalRevenue = 0, totalCost = 0;
     let customers = [];
     let revenueByType = {}, costByType = {};
+    // Per-subscription-document cost breakdown, so an inflated total is
+    // easy to trace back to exactly which subscription has more accounts
+    // saved against it than expected (e.g. leftover duplicates).
+    let subscriptionBreakdown = [];
 
     subs.forEach(sub => {
       // No accounts on this subscription at all -> nothing to have cost you
@@ -1284,6 +1340,15 @@ app.get('/api/income', async (req, res) => {
       const accountsCost = sub.accounts.length * costPerMonth;
       totalCost += accountsCost;
       costByType[subType] = (costByType[subType] || 0) + accountsCost;
+      subscriptionBreakdown.push({
+        subscriptionId: sub.id,
+        name: sub.name,
+        type: subType,
+        accountsCount: sub.accounts.length,
+        costPerAccount: costPerMonth,
+        totalCost: accountsCost,
+        accountEmails: sub.accounts.map(a => a.email).filter(Boolean)
+      });
 
       sub.accounts.forEach(acc => {
         acc.screens.forEach(screen => {
@@ -1340,6 +1405,7 @@ app.get('/api/income', async (req, res) => {
       costByType,
       profitByType,
       customers,
+      subscriptionBreakdown,
       period: period || 'all',
       startDate: startDate.toISOString(),
       endDate: endDate.toISOString()

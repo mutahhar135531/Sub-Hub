@@ -366,6 +366,17 @@
       return res.json();
     };
 
+    const dedupeAccountsAPI = async (subId) => {
+      const res = await fetch(`${API_BASE}/api/subscriptions/${subId}/dedupe-accounts`, {
+        method: 'POST',
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok || json.error) {
+        throw new Error(json.error || `Failed to clean up duplicate accounts (${res.status})`);
+      }
+      return json;
+    };
+
     // Atomically push a new customer purchase into one specific account/screen.
     // This never touches any other customer's data, so it can't wipe out
     // someone else's subscription details the way a full-document overwrite could.
@@ -5158,6 +5169,21 @@
         }
       };
 
+      const fixDuplicateAccounts = async (subId) => {
+        try {
+          const result = await dedupeAccountsAPI(subId);
+          setSubscriptions(prev => prev.map(s => s.id === subId ? result : s));
+          if (result.duplicatesRemoved > 0) {
+            addToast(`Merged ${result.duplicatesRemoved} duplicate account(s).`, 'success');
+          } else {
+            addToast('No duplicates found.', 'success');
+          }
+          if (incomePeriod !== undefined) loadIncome(incomePeriod, incomeCustomStart, incomeCustomEnd);
+        } catch (err) {
+          addToast(err.message || 'Failed to clean up duplicates', 'error');
+        }
+      };
+
       // ─── Deal functions ─────────────────────────────────────────
       const openDealModal = (deal = null) => {
         if (deal) {
@@ -6486,6 +6512,37 @@
                             </div>
                           );
                         })}
+                      </div>
+                    </div>
+                  )}
+                  {incomeData.subscriptionBreakdown && incomeData.subscriptionBreakdown.length > 0 && (
+                    <div>
+                      <h4 className="text-white font-medium mb-1">Cost Breakdown by Subscription</h4>
+                      <p className="text-white/30 text-xs mb-2">If a total looks too high, check here first — it's usually leftover duplicate accounts (e.g. from double-clicking Save). "Fix" merges duplicate accounts (same login email) back into one, without losing any customers.</p>
+                      <div className="overflow-x-auto">
+                        <table className="admin-table text-sm">
+                          <thead><tr><th>Subscription</th><th>Accounts</th><th>Cost/Account</th><th>Total Cost</th><th></th></tr></thead>
+                          <tbody>
+                            {incomeData.subscriptionBreakdown.map((b) => {
+                              const emailCounts = {};
+                              (b.accountEmails || []).forEach(e => { const k = e.trim().toLowerCase(); emailCounts[k] = (emailCounts[k] || 0) + 1; });
+                              const hasDuplicates = Object.values(emailCounts).some(n => n > 1);
+                              return (
+                                <tr key={b.subscriptionId}>
+                                  <td>{b.name} <span className="text-white/30 text-xs capitalize">({b.type})</span></td>
+                                  <td className={hasDuplicates ? 'text-yellow-400 font-bold' : ''}>{b.accountsCount}{hasDuplicates && <i className="fas fa-triangle-exclamation ml-1" title="Duplicate account emails detected"></i>}</td>
+                                  <td className="text-white/40">RS {b.costPerAccount}</td>
+                                  <td className="text-red-400 font-bold">RS {b.totalCost.toFixed(2)}</td>
+                                  <td>
+                                    {hasDuplicates && (
+                                      <button onClick={() => fixDuplicateAccounts(b.subscriptionId)} className="btn-warning text-xs"><i className="fas fa-broom mr-1"></i> Fix</button>
+                                    )}
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
                       </div>
                     </div>
                   )}
