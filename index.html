@@ -668,6 +668,16 @@
         return saved ? JSON.parse(saved) : null;
       });
 
+      // refreshUser is redefined on every render (it's not wrapped in
+      // useCallback), so anything that captures a copy of it once — like an
+      // effect with an empty dependency array — would otherwise be stuck
+      // forever checking against whatever `user` was at the moment that
+      // copy was made (e.g. still logged out). Reading through this ref
+      // instead means every copy of refreshUser, however old, always sees
+      // who's actually logged in right now.
+      const userRef = useRef(user);
+      useEffect(() => { userRef.current = user; }, [user]);
+
       const addToast = (message, type = 'info') => {
         const id = Date.now();
         setToasts(prev => [...prev, { id, message, type }]);
@@ -676,17 +686,17 @@
       const removeToast = (id) => setToasts(prev => prev.filter(t => t.id !== id));
 
       const refreshUser = async () => {
-        if (!user?.username) return null;
+        if (!userRef.current?.username) return null;
         try {
-          const fresh = await fetchUser(user.username);
+          const fresh = await fetchUser(userRef.current.username);
           if (fresh && fresh.username) {
             setUser(fresh);
             return fresh;
           }
-          return user;
+          return userRef.current;
         } catch (err) {
           console.error('Failed to refresh user:', err);
-          return user;
+          return userRef.current;
         }
       };
 
@@ -6882,6 +6892,15 @@
       const { addToast } = useContext(AppContext);
       const { user, setUser, refreshUser } = useContext(UserContext);
 
+      // The polling effect below only runs its setup once (empty dependency
+      // array), so a plain `user` variable inside it would always see
+      // whatever it was at that first render — stuck on "logged out" even
+      // after someone signs in. This ref always holds the latest value
+      // instead, so the poll can correctly check "is anyone logged in
+      // *right now*" on every tick.
+      const userRef = useRef(user);
+      useEffect(() => { userRef.current = user; }, [user]);
+
       useEffect(() => {
         const fadeTimer = setTimeout(() => setIntroFading(true), 2600);
         const hideTimer = setTimeout(() => setShowIntro(false), 3000);
@@ -6914,6 +6933,15 @@
             setCustomFaqs(faqsData);
             writeCache('faqs', faqsData);
           }).catch(() => {});
+
+          // Keep the logged-in customer's own record (credits, credit
+          // history, purchase count) in sync too — this is what makes
+          // credits added from the admin panel show up for the customer
+          // immediately, wherever they currently are in the app, without
+          // needing to reopen their portal or refresh the page.
+          if (userRef.current) {
+            refreshUser().catch(err => console.error('Background user refresh failed:', err));
+          }
         };
         loadData();
 
