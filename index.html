@@ -659,6 +659,60 @@
       return res.json();
     };
 
+    // ─── CUSTOM GRANTS (manually-fulfilled, out-of-catalog subscriptions) ──
+    const fetchCustomGrants = async (username) => {
+      const qs = username ? `username=${encodeURIComponent(username)}&t=${Date.now()}` : `t=${Date.now()}`;
+      const res = await fetch(`${API_BASE}/api/custom-grants?${qs}`, {
+        headers: { 'Cache-Control': 'no-cache' }
+      });
+      return res.json();
+    };
+
+    const createCustomGrant = async (data) => {
+      const res = await fetch(`${API_BASE}/api/custom-grants`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok || json.error) {
+        throw new Error(json.error || `Failed to create custom grant (${res.status})`);
+      }
+      return json;
+    };
+
+    const deleteCustomGrantAPI = async (id) => {
+      const res = await fetch(`${API_BASE}/api/custom-grants/${id}`, { method: 'DELETE' });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok || json.error) {
+        throw new Error(json.error || `Failed to remove custom grant (${res.status})`);
+      }
+      return json;
+    };
+
+    // Converts a raw custom-grant record into the same shape findCustomers()
+    // produces, so it can render in the customer's portal as just another
+    // subscription card, no special-casing needed at render time beyond the
+    // isCustom flag (used to hide the not-applicable screen fields).
+    const mapCustomGrantsToEntries = (grants) => (grants || []).map(g => ({
+      name: g.name || '',
+      username: g.username,
+      whatsapp: g.whatsapp,
+      expiryDate: g.expiryDate,
+      screens: 1,
+      months: g.months || 0,
+      days: g.days || 0,
+      subscriptionName: g.subscriptionName,
+      accountEmail: g.email,
+      accountPassword: g.password,
+      screenName: null,
+      screenPin: null,
+      email: '',
+      notes: g.notes || '',
+      isCustom: true,
+      purchasedAt: g.purchasedAt || null
+    }));
+
     // ─── HELP / FAQ ───────────────────────────────────────────
     const fetchFaqs = async () => {
       const res = await fetch(`${API_BASE}/api/faqs?t=${Date.now()}`, {
@@ -3991,18 +4045,25 @@
                           <button className="copy-btn" onClick={() => { navigator?.clipboard?.writeText(entry.accountPassword || ''); addToast('Copied!', 'success'); }}><i className="fas fa-copy"></i></button>
                         </span>
                       </div>
-                      <div className="detail-row"><span className="label">Screen Name</span>
-                        <span className="value">{entry.screenName}
-                          <button className="copy-btn" onClick={() => { navigator?.clipboard?.writeText(entry.screenName); addToast('Copied!', 'success'); }}><i className="fas fa-copy"></i></button>
-                        </span>
-                      </div>
-                      <div className="detail-row"><span className="label">Screen PIN</span>
-                        <span className="value">{entry.screenPin || 'N/A'}
-                          <button className="copy-btn" onClick={() => { navigator?.clipboard?.writeText(entry.screenPin || ''); addToast('Copied!', 'success'); }}><i className="fas fa-copy"></i></button>
-                        </span>
-                      </div>
+                      {!entry.isCustom && (
+                        <>
+                          <div className="detail-row"><span className="label">Screen Name</span>
+                            <span className="value">{entry.screenName}
+                              <button className="copy-btn" onClick={() => { navigator?.clipboard?.writeText(entry.screenName); addToast('Copied!', 'success'); }}><i className="fas fa-copy"></i></button>
+                            </span>
+                          </div>
+                          <div className="detail-row"><span className="label">Screen PIN</span>
+                            <span className="value">{entry.screenPin || 'N/A'}
+                              <button className="copy-btn" onClick={() => { navigator?.clipboard?.writeText(entry.screenPin || ''); addToast('Copied!', 'success'); }}><i className="fas fa-copy"></i></button>
+                            </span>
+                          </div>
+                        </>
+                      )}
                       {entry.email && (
                         <div className="detail-row"><span className="label">Email</span><span className="value">{entry.email}</span></div>
+                      )}
+                      {entry.notes && (
+                        <div className="detail-row sm:col-span-2"><span className="label">Notes</span><span className="value">{entry.notes}</span></div>
                       )}
                     </div>
                     {isExpiring && (
@@ -4605,6 +4666,7 @@
       const [otpList, setOtpList] = useState([]);
       const [usersList, setUsersList] = useState([]);
       const [waitingList, setWaitingList] = useState([]);
+      const [customGrantsList, setCustomGrantsList] = useState([]);
       const [faqsList, setFaqsList] = useState([]);
       const [newFaqQuestion, setNewFaqQuestion] = useState('');
       const [newFaqAnswer, setNewFaqAnswer] = useState('');
@@ -4637,6 +4699,12 @@
       const [grantModalUser, setGrantModalUser] = useState(null);
       const [grantForm, setGrantForm] = useState({ subscriptionId: '', name: '', whatsapp: '', screens: 1, durationType: 'months', months: 1, days: 30 });
       const [grantLoading, setGrantLoading] = useState(false);
+      // "Custom" grant mode: manually fulfilling a subscription that isn't
+      // in the regular accounts/screens catalog (out of stock, or not
+      // something normally sold). costPerMonth/sellingPrice are admin-only
+      // — they feed the Income tab but are never shown to the customer.
+      const [grantMode, setGrantMode] = useState('catalog'); // 'catalog' | 'custom'
+      const [customGrantForm, setCustomGrantForm] = useState({ subscriptionName: '', email: '', password: '', notes: '', matchedSubscriptionId: '', costPerMonth: '', sellingPrice: '' });
       const [showDealModal, setShowDealModal] = useState(false);
       const [editingDeal, setEditingDeal] = useState(null);
       const [dealForm, setDealForm] = useState({ id: '', subscriptionIds: [], title: '', description: '', actualPrice: '', discountPrice: '', active: true });
@@ -4765,6 +4833,24 @@
         }
       };
 
+      const loadCustomGrants = async () => {
+        try {
+          const data = await fetchCustomGrants(); // no username -> admin view, includes cost/pricing
+          setCustomGrantsList(data);
+        } catch (err) { console.error(err); }
+      };
+
+      const deleteCustomGrant = async (id) => {
+        if (!window.confirm('Remove this custom grant? The customer will lose access to it.')) return;
+        try {
+          await deleteCustomGrantAPI(id);
+          setCustomGrantsList(prev => prev.filter(g => g.id !== id));
+          addToast('Custom grant removed.', 'warning');
+        } catch (err) {
+          addToast(err.message || 'Failed to remove custom grant', 'error');
+        }
+      };
+
       const loadFaqs = async () => {
         try {
           const data = await fetchFaqs();
@@ -4885,6 +4971,7 @@
         if (activeTab === 'deals') loadDeals();
         if (activeTab === 'promotions') loadPromotions();
         if (activeTab === 'waiting') loadWaiting();
+        if (activeTab === 'customers') loadCustomGrants();
         if (activeTab === 'faqs') loadFaqs();
         if (activeTab === 'overview' || activeTab === 'income') {
           if (incomePeriod !== 'custom') loadIncome(incomePeriod);
@@ -5148,10 +5235,14 @@
       const openGrantModal = (u) => {
         setGrantModalUser(u.username);
         setGrantForm({ subscriptionId: subscriptions[0]?.id || '', name: '', whatsapp: u.whatsapp || '', screens: 1, durationType: 'months', months: 1, days: 30 });
+        setGrantMode('catalog');
+        setCustomGrantForm({ subscriptionName: '', email: '', password: '', notes: '', matchedSubscriptionId: '', costPerMonth: '', sellingPrice: '' });
       };
       const closeGrantModal = () => {
         setGrantModalUser(null);
         setGrantForm({ subscriptionId: '', name: '', whatsapp: '', screens: 1, durationType: 'months', months: 1, days: 30 });
+        setGrantMode('catalog');
+        setCustomGrantForm({ subscriptionName: '', email: '', password: '', notes: '', matchedSubscriptionId: '', costPerMonth: '', sellingPrice: '' });
       };
 
       // Manually grants a subscription to a user's portal — picks the best available
@@ -5215,6 +5306,48 @@
         } catch (err) {
           console.error(err);
           addToast(err.message || 'Failed to grant subscription', 'error');
+        } finally {
+          setGrantLoading(false);
+        }
+      };
+
+      // Grants a subscription that isn't backed by a real account/screen in
+      // the catalog — the admin manually sourced credentials for it (e.g.
+      // fulfilling a waiting-customer request that was out of stock). Shows
+      // up in the customer's portal like any other subscription; cost/
+      // selling price are only used for the Income tab, never sent to them.
+      const saveCustomGrant = async () => {
+        if (!grantModalUser) return;
+        if (!customGrantForm.subscriptionName.trim()) { addToast('Subscription name is required', 'error'); return; }
+        if (!customGrantForm.email.trim() || !customGrantForm.password.trim()) { addToast('Email and password are required', 'error'); return; }
+        if (!grantForm.whatsapp.trim()) { addToast('WhatsApp number is required', 'error'); return; }
+        if (!customGrantForm.matchedSubscriptionId && (!customGrantForm.costPerMonth || !customGrantForm.sellingPrice)) {
+          addToast('This isn\'t in your catalog, so enter its cost and selling price', 'error');
+          return;
+        }
+
+        setGrantLoading(true);
+        try {
+          await createCustomGrant({
+            username: grantModalUser,
+            name: grantForm.name.trim(),
+            whatsapp: grantForm.whatsapp.trim(),
+            subscriptionName: customGrantForm.subscriptionName.trim(),
+            email: customGrantForm.email.trim(),
+            password: customGrantForm.password.trim(),
+            notes: customGrantForm.notes.trim(),
+            months: grantForm.durationType === 'months' ? (grantForm.months || 1) : 0,
+            days: grantForm.durationType === 'days' ? (grantForm.days || 30) : undefined,
+            matchedSubscriptionId: customGrantForm.matchedSubscriptionId || null,
+            costPerMonth: customGrantForm.costPerMonth,
+            sellingPrice: customGrantForm.sellingPrice
+          });
+          addToast(`Custom subscription granted to ${grantModalUser}.`, 'success');
+          closeGrantModal();
+          loadCustomGrants();
+        } catch (err) {
+          console.error(err);
+          addToast(err.message || 'Failed to grant custom subscription', 'error');
         } finally {
           setGrantLoading(false);
         }
@@ -6390,6 +6523,44 @@
                   )}
                 </div>
               </div>
+              {(() => {
+                const grants = customerSearch
+                  ? customGrantsList.filter(g => matchesSearch([g.name, g.username, g.whatsapp], customerSearch))
+                  : customGrantsList;
+                if (grants.length === 0) return null;
+                return (
+                  <div className="glass-panel">
+                    <h4 className="text-white font-semibold mb-3"><i className="fas fa-hand-holding-heart mr-2 text-red-400"></i> Custom Grants ({grants.length})</h4>
+                    <p className="text-white/30 text-xs mb-3">Manually-fulfilled subscriptions outside your catalog — not part of any account/screen, so they're managed here instead of in Subscriptions.</p>
+                    <div className="overflow-x-auto">
+                      <table className="admin-table text-sm">
+                        <thead><tr><th>Subscription</th><th>Name</th><th>Username</th><th>WhatsApp</th><th>Email</th><th>Cost / Sell</th><th>Purchased</th><th>Expiry</th><th>Status</th><th>Actions</th></tr></thead>
+                        <tbody>
+                          {grants.map(g => {
+                            const status = checkExpiry(g.expiryDate);
+                            const statusColors = { expired: 'badge-red', today: 'badge-yellow', tomorrow: 'badge-yellow', soon: 'badge-yellow', active: 'badge-green', unknown: 'badge-red-light' };
+                            const statusLabels = { expired: 'Expired', today: 'Today', tomorrow: 'Tomorrow', soon: 'Soon', active: 'Active', unknown: 'N/A' };
+                            return (
+                              <tr key={g.id}>
+                                <td>{g.subscriptionName}</td>
+                                <td>{g.name || 'N/A'}</td>
+                                <td className="font-mono text-xs">{g.username}</td>
+                                <td>{g.whatsapp}</td>
+                                <td className="text-xs">{g.email}</td>
+                                <td className="text-xs">RS {g.costPerMonth || 0} / RS {g.sellingPrice || 0}</td>
+                                <td className="text-xs">{g.purchasedAt ? new Date(g.purchasedAt).toLocaleDateString() : 'N/A'}</td>
+                                <td className="text-xs">{g.expiryDate}</td>
+                                <td><span className={`badge ${statusColors[status]}`}>{statusLabels[status]}</span></td>
+                                <td><button onClick={() => deleteCustomGrant(g.id)} className="btn-danger text-xs"><i className="fas fa-trash"></i></button></td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                );
+              })()}
               {subscriptions.map(sub => {
                 const allRecords = getCustomerRecords(sub);
                 const records = customerSearch
@@ -7034,17 +7205,53 @@
             <div className="modal-overlay">
               <div className="modal-content glass-panel">
                 <h3 className="text-xl font-bold text-white mb-4">Grant Subscription to {grantModalUser}</h3>
+                <div className="flex gap-2 mb-4 bg-white/5 rounded-lg p-1">
+                  <button onClick={() => setGrantMode('catalog')} className={`flex-1 py-2 rounded-md text-sm font-medium transition ${grantMode === 'catalog' ? 'bg-red-500 text-white' : 'text-white/50'}`}>From Catalog</button>
+                  <button onClick={() => setGrantMode('custom')} className={`flex-1 py-2 rounded-md text-sm font-medium transition ${grantMode === 'custom' ? 'bg-red-500 text-white' : 'text-white/50'}`}>Custom</button>
+                </div>
                 <div className="space-y-4">
-                  <div>
-                    <label className="text-white/50 text-sm">Subscription</label>
-                    <select value={grantForm.subscriptionId} onChange={(e) => setGrantForm({ ...grantForm, subscriptionId: e.target.value })} className="input-neon mt-1">
-                      <option value="">Select a subscription</option>
-                      {subscriptions.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-                    </select>
-                  </div>
+                  {grantMode === 'catalog' ? (
+                    <div>
+                      <label className="text-white/50 text-sm">Subscription</label>
+                      <select value={grantForm.subscriptionId} onChange={(e) => setGrantForm({ ...grantForm, subscriptionId: e.target.value })} className="input-neon mt-1">
+                        <option value="">Select a subscription</option>
+                        {subscriptions.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                      </select>
+                    </div>
+                  ) : (
+                    <>
+                      <p className="text-white/30 text-xs -mt-2">For a subscription that's out of stock or not something you normally sell — you provide the login yourself, and it still shows up in their portal.</p>
+                      <div><label className="text-white/50 text-sm">Subscription Name</label><input type="text" value={customGrantForm.subscriptionName} onChange={(e) => setCustomGrantForm({ ...customGrantForm, subscriptionName: e.target.value })} className="input-neon mt-1" placeholder="e.g. Disney+ Premium" /></div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div><label className="text-white/50 text-sm">Email</label><input type="text" value={customGrantForm.email} onChange={(e) => setCustomGrantForm({ ...customGrantForm, email: e.target.value })} className="input-neon mt-1" /></div>
+                        <div><label className="text-white/50 text-sm">Password</label><input type="text" value={customGrantForm.password} onChange={(e) => setCustomGrantForm({ ...customGrantForm, password: e.target.value })} className="input-neon mt-1" /></div>
+                      </div>
+                      <div><label className="text-white/50 text-sm">Notes <span className="text-white/25">(optional — shown to the customer)</span></label><textarea value={customGrantForm.notes} onChange={(e) => setCustomGrantForm({ ...customGrantForm, notes: e.target.value })} className="input-neon mt-1" rows="2" placeholder="Any extra details they need, e.g. how to log in" /></div>
+                      <div>
+                        <label className="text-white/50 text-sm">Which subscription is this? <span className="text-white/25">(for cost/profit tracking only — never shown to the customer)</span></label>
+                        <select value={customGrantForm.matchedSubscriptionId} onChange={(e) => setCustomGrantForm({ ...customGrantForm, matchedSubscriptionId: e.target.value })} className="input-neon mt-1">
+                          <option value="">Not in my list — I'll enter cost manually</option>
+                          {subscriptions.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                        </select>
+                      </div>
+                      {customGrantForm.matchedSubscriptionId ? (
+                        (() => {
+                          const matched = subscriptions.find(s => s.id === customGrantForm.matchedSubscriptionId);
+                          return matched ? (
+                            <p className="text-white/30 text-xs bg-white/5 rounded-lg p-2">Cost/profit will use {matched.name}'s catalog pricing — cost RS {matched.costPerMonth || 0}, selling price RS {matched.sellingPrice || 0}.</p>
+                          ) : null;
+                        })()
+                      ) : (
+                        <div className="grid grid-cols-2 gap-3">
+                          <div><label className="text-white/50 text-sm">Your Cost (RS)</label><input type="number" min="0" value={customGrantForm.costPerMonth} onChange={(e) => setCustomGrantForm({ ...customGrantForm, costPerMonth: e.target.value })} className="input-neon mt-1" placeholder="What this cost you" /></div>
+                          <div><label className="text-white/50 text-sm">Selling Price (RS)</label><input type="number" min="0" value={customGrantForm.sellingPrice} onChange={(e) => setCustomGrantForm({ ...customGrantForm, sellingPrice: e.target.value })} className="input-neon mt-1" placeholder="What they paid" /></div>
+                        </div>
+                      )}
+                    </>
+                  )}
                   <div><label className="text-white/50 text-sm">Customer Name</label><input type="text" value={grantForm.name} onChange={(e) => setGrantForm({ ...grantForm, name: e.target.value })} className="input-neon mt-1" /></div>
                   <div><label className="text-white/50 text-sm">WhatsApp</label><input type="text" value={grantForm.whatsapp} onChange={(e) => setGrantForm({ ...grantForm, whatsapp: e.target.value })} className="input-neon mt-1" /></div>
-                  {subscriptions.find(s => s.id === grantForm.subscriptionId)?.type === 'netflix' && (
+                  {grantMode === 'catalog' && subscriptions.find(s => s.id === grantForm.subscriptionId)?.type === 'netflix' && (
                     <div>
                       <label className="text-white/50 text-sm">Screens</label>
                       <input type="number" min="1" max="5" value={grantForm.screens} onChange={(e) => setGrantForm({ ...grantForm, screens: Number(e.target.value) })} className="input-neon mt-1" />
@@ -7066,7 +7273,7 @@
                   </div>
                 </div>
                 <div className="flex gap-3 mt-6">
-                  <button onClick={saveGrant} disabled={grantLoading} className="btn-neon">{grantLoading ? <span className="spinner"></span> : 'Grant'}</button>
+                  <button onClick={grantMode === 'custom' ? saveCustomGrant : saveGrant} disabled={grantLoading} className="btn-neon">{grantLoading ? <span className="spinner"></span> : 'Grant'}</button>
                   <button onClick={closeGrantModal} className="btn-neon-outline">Cancel</button>
                 </div>
               </div>
@@ -7554,10 +7761,10 @@
 
           // Then quietly catch up in the background, in case a purchase
           // was made from another device since this data was last loaded.
-          Promise.all([refreshUser(), fetchSubscriptions()])
-            .then(([, fresh]) => {
+          Promise.all([refreshUser(), fetchSubscriptions(), fetchCustomGrants(user.username).catch(() => [])])
+            .then(([, fresh, grants]) => {
               setSubscriptions(fresh);
-              setCustomerData(findCustomers(user.username, fresh));
+              setCustomerData([...findCustomers(user.username, fresh), ...mapCustomGrantsToEntries(grants)]);
             })
             .catch(err => console.error('Background customer portal refresh failed:', err));
         } else {
@@ -7718,7 +7925,7 @@
                     <div className="flex flex-wrap justify-center gap-4">
                       <button onClick={handleGetStarted} className="btn-neon px-10 py-4 text-lg"><i className="fas fa-plus-circle mr-3"></i> New Subscription</button>
                       {user ? (
-                        <button onClick={() => { const found = findCustomers(user.username); setCustomerData(found); setFlowStep('customer-dash'); }} className="btn-neon-outline px-10 py-4 text-lg"><i className="fas fa-user-circle mr-3"></i> My Dashboard</button>
+                        <button onClick={() => { const found = findCustomers(user.username); setCustomerData(found); setFlowStep('customer-dash'); fetchCustomGrants(user.username).then(grants => setCustomerData([...found, ...mapCustomGrantsToEntries(grants)])).catch(() => {}); }} className="btn-neon-outline px-10 py-4 text-lg"><i className="fas fa-user-circle mr-3"></i> My Dashboard</button>
                       ) : (
                         <button onClick={() => { setShowAuth(true); setFlowStep('auth'); }} className="btn-neon-outline px-10 py-4 text-lg"><i className="fas fa-user-plus mr-3"></i> Sign Up</button>
                       )}

@@ -35,6 +35,7 @@ let usersCollection;
 let dealsCollection;
 let promotionsCollection;
 let waitingCollection;
+let customGrantsCollection;
 let faqsCollection;
 let processedPurchasesCollection;
 let creditHistoryCollection;
@@ -67,6 +68,7 @@ async function connectDB() {
   dealsCollection = db.collection('deals');
   promotionsCollection = db.collection('promotions');
   waitingCollection = db.collection('waitingCustomers');
+  customGrantsCollection = db.collection('customGrants');
   faqsCollection = db.collection('faqs');
   processedPurchasesCollection = db.collection('processedPurchases');
   creditHistoryCollection = db.collection('creditHistory');
@@ -1286,6 +1288,98 @@ app.delete('/api/faqs/:id', async (req, res) => {
   }
 });
 
+// ---- Custom Grants ----
+// A custom grant is a manually-fulfilled subscription that doesn't come
+// from the regular accounts/screens catalog — e.g. a customer asked for
+// something out of stock or not normally sold, and the admin sourced a
+// one-off account for it by hand. It still shows up in the customer's
+// portal like a real purchase (name, email, password, expiry), and still
+// counts toward income, but the cost/selling price used for that
+// calculation are admin-only — never sent back on a customer-scoped fetch.
+app.get('/api/custom-grants', async (req, res) => {
+  try {
+    const { username } = req.query;
+    const filter = username ? { username } : {};
+    const list = await customGrantsCollection.find(filter).sort({ createdAt: -1 }).toArray();
+    if (username) {
+      // Customer-facing fetch — strip the admin-only cost/pricing fields.
+      const sanitized = list.map(({ costPerMonth, sellingPrice, matchedSubscriptionId, ...rest }) => rest);
+      return res.json(sanitized);
+    }
+    res.json(list);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/custom-grants', async (req, res) => {
+  try {
+    const {
+      username, name, whatsapp, subscriptionName, email, password, notes,
+      months, days, matchedSubscriptionId, costPerMonth, sellingPrice
+    } = req.body;
+    if (!username || !subscriptionName || !subscriptionName.trim()) {
+      return res.status(400).json({ error: 'username and subscriptionName are required' });
+    }
+
+    // "Already listed" means: trust that catalog subscription's own
+    // cost/selling price for the income calculation rather than whatever
+    // was typed in — single source of truth, and it's what keeps this
+    // consistent with every other cost figure in the Income tab.
+    let finalCostPerMonth = Number(costPerMonth) || 0;
+    let finalSellingPrice = Number(sellingPrice) || 0;
+    if (matchedSubscriptionId) {
+      const matched = await subscriptionsCollection.findOne({ id: matchedSubscriptionId });
+      if (matched) {
+        finalCostPerMonth = matched.costPerMonth || 0;
+        finalSellingPrice = matched.sellingPrice || 0;
+      }
+    } else if (!costPerMonth && !sellingPrice) {
+      return res.status(400).json({ error: 'Cost and selling price are required for a subscription not in your catalog' });
+    }
+
+    const now = new Date();
+    const totalDays = months ? Number(months) * 30 : (Number(days) || 30);
+    const expiry = new Date(now);
+    expiry.setDate(expiry.getDate() + totalDays);
+
+    const entry = {
+      id: crypto.randomUUID(),
+      username,
+      name: name || '',
+      whatsapp: whatsapp || '',
+      subscriptionName: subscriptionName.trim(),
+      email: email || '',
+      password: password || '',
+      notes: notes || '',
+      months: months ? Number(months) : 0,
+      days: totalDays,
+      expiryDate: expiry.toISOString().split('T')[0],
+      matchedSubscriptionId: matchedSubscriptionId || null,
+      costPerMonth: finalCostPerMonth,
+      sellingPrice: finalSellingPrice,
+      purchasedAt: now.toISOString(),
+      createdAt: now
+    };
+    await customGrantsCollection.insertOne(entry);
+    res.json(entry);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.delete('/api/custom-grants/:id', async (req, res) => {
+  try {
+    const result = await customGrantsCollection.deleteOne({ id: req.params.id });
+    if (result.deletedCount === 0) {
+      return res.status(404).json({ error: 'Not found' });
+    }
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // ---- INCOME CALCULATION ----
 // costPerMonth = what YOU pay for the account (your expense/cost).
 // sellingPrice = what YOU charge the customer (your revenue).
@@ -1389,6 +1483,40 @@ app.get('/api/income', async (req, res) => {
             });
           }
         });
+      });
+    });
+
+    // Custom grants (manually-fulfilled, out-of-catalog subscriptions) count
+    // toward income the same way a regular customer purchase does — cost is
+    // a flat recurring amount for as long as it's active, revenue is what
+    // the customer was actually charged, counted only if the grant was made
+    // within the selected period.
+    const customGrants = await customGrantsCollection.find({}).toArray();
+    customGrants.forEach(g => {
+      const expiryDate = g.expiryDate ? new Date(g.expiryDate) : null;
+      if (expiryDate && expiryDate < now) return; // expired — no longer an active cost
+
+      const cost = g.costPerMonth || 0;
+      totalCost += cost;
+      costByType['custom'] = (costByType['custom'] || 0) + cost;
+
+      const purchaseDate = g.purchasedAt ? new Date(g.purchasedAt) : null;
+      if (purchaseDate && (purchaseDate < startDate || purchaseDate > endDate)) return;
+
+      const revenue = (g.sellingPrice || 0) * (g.months || 1);
+      totalRevenue += revenue;
+      revenueByType['custom'] = (revenueByType['custom'] || 0) + revenue;
+
+      customers.push({
+        customerName: g.name || g.username,
+        subscriptionType: 'custom',
+        subscriptionName: g.subscriptionName + ' (custom grant)',
+        screenName: 'N/A',
+        accountEmail: g.email,
+        months: g.months || 1,
+        revenue: revenue,
+        expiryDate: g.expiryDate,
+        purchasedAt: g.purchasedAt || purchaseDate
       });
     });
 
