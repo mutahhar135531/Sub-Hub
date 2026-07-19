@@ -350,6 +350,37 @@
       return res.json();
     };
 
+    // ─── Pending-write guard ──────────────────────────────────────
+    // The background poll (in App, every 8s) and AdminDashboard's own
+    // refreshData() both blindly replace the whole `subscriptions` state
+    // with whatever the server returns. If an admin action (e.g. "Gen PIN")
+    // just applied an optimistic local update and is still mid-flight to
+    // the server, a poll fetch that was already in progress (or fires
+    // right after) can land with pre-save data and stomp the fresh local
+    // change — making it "disappear" until a later poll finally sees the
+    // persisted value. markPendingWrite() flags a subscription so any
+    // full-list refresh keeps the local copy instead of overwriting it,
+    // for a short window that comfortably covers overlapping requests.
+    const pendingLocalWrites = new Map(); // subId -> expiry timestamp
+    const markPendingWrite = (subId, ttlMs = 15000) => {
+      pendingLocalWrites.set(subId, Date.now() + ttlMs);
+    };
+    const isPendingWrite = (subId) => {
+      const exp = pendingLocalWrites.get(subId);
+      if (!exp) return false;
+      if (Date.now() > exp) { pendingLocalWrites.delete(subId); return false; }
+      return true;
+    };
+    // Merges a freshly-fetched subscriptions list with current local state,
+    // keeping the local copy for any subscription that has a pending write.
+    const mergeSubscriptions = (fetched, prev) => fetched.map(s => {
+      if (isPendingWrite(s.id)) {
+        const local = prev.find(p => p.id === s.id);
+        if (local) return local;
+      }
+      return s;
+    });
+
     const createSubscription = async (data) => {
       const res = await fetch(`${API_BASE}/api/subscriptions`, {
         method: 'POST',
@@ -4994,7 +5025,7 @@
           // another — this alone cuts a multi-second wait down to roughly
           // however long the single slowest request takes.
           const [fresh] = await Promise.all([
-            fetchSubscriptions().then(data => { setSubscriptions(data); return data; }),
+            fetchSubscriptions().then(data => { setSubscriptions(prev => mergeSubscriptions(data, prev)); return data; }),
             loadUsers(),
             loadDeals(),
             loadIncome(incomePeriod, incomeCustomStart, incomeCustomEnd),
@@ -5598,6 +5629,7 @@
           const updatedSub = JSON.parse(JSON.stringify(sub));
           updatedSub.accounts = updatedSub.accounts.filter(a => a.id !== accId);
           setSubscriptions(prev => prev.map(s => s.id === subId ? updatedSub : s));
+          markPendingWrite(subId);
           await updateSubscription(subId, updatedSub);
           refreshData(true); // background sync — the action above already saved and its own toast already fired
           addToast('Account deleted.', 'warning');
@@ -5788,6 +5820,7 @@
         };
         updatedSub.accounts.push(account);
         setSubscriptions(prev => prev.map(s => s.id === subId ? updatedSub : s));
+        markPendingWrite(subId);
         await updateSubscription(subId, updatedSub);
         setNewAccount({ email: '', password: '', screens: [{ name: 'Screen 1', pin: '' }], subscriptionId: '' });
         setShowAddAccount(null);
@@ -5829,6 +5862,7 @@
         acc.email = email;
         acc.password = password;
         setSubscriptions(prev => prev.map(s => s.id === subId ? updatedSub : s));
+        markPendingWrite(subId);
         await updateSubscription(subId, updatedSub);
         refreshData(true); // background sync — the action above already saved and its own toast already fired
         setEditingAccount(null);
@@ -5848,6 +5882,7 @@
         screen.name = name;
         screen.pin = pin;
         setSubscriptions(prev => prev.map(s => s.id === subId ? updatedSub : s));
+        markPendingWrite(subId);
         await updateSubscription(subId, updatedSub);
         refreshData(true); // background sync — the action above already saved and its own toast already fired
         setEditingScreen(null);
@@ -5863,6 +5898,7 @@
         if (!acc) return;
         acc.password = newPass;
         setSubscriptions(prev => prev.map(s => s.id === subId ? updatedSub : s));
+        markPendingWrite(subId);
         await updateSubscription(subId, updatedSub);
         addToast('New password generated!', 'success');
       };
@@ -5898,6 +5934,7 @@
         // reminder off, since it means access was just revoked/reset.
         screen.pinResetAt = new Date().toISOString();
         setSubscriptions(prev => prev.map(s => s.id === subId ? updatedSub : s));
+        markPendingWrite(subId);
         await updateSubscription(subId, updatedSub);
         addToast('New PIN generated!', 'success');
       };
@@ -7408,7 +7445,7 @@
             // fetched separately below so a slow Help-content fetch never
             // holds up the parts of the page people see first.
             const [subs, dealsData, promos] = await Promise.all([fetchSubscriptions(), fetchDeals(), fetchPromotions()]);
-            setSubscriptions(subs);
+            setSubscriptions(prev => mergeSubscriptions(subs, prev));
             setDeals(dealsData);
             setPromotions(promos);
             writeCache('subscriptions', subs);

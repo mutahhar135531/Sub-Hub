@@ -1,0 +1,22 @@
+[debug] [2026-07-19T14:50:19.322Z] ----------------------------------------------------------------------
+[debug] [2026-07-19T14:50:19.326Z] Command:       C:\Program Files\nodejs\node.exe C:\Users\Hp\AppData\Roaming\npm\node_modules\firebase-tools\lib\bin\firebase.js deploy
+[debug] [2026-07-19T14:50:19.327Z] CLI Version:   15.24.0
+[debug] [2026-07-19T14:50:19.327Z] Platform:      win32
+[debug] [2026-07-19T14:50:19.327Z] Node Version:  v24.18.0
+[debug] [2026-07-19T14:50:19.328Z] Detected Agent: unknown
+[debug] [2026-07-19T14:50:19.328Z] Time:          Sun Jul 19 2026 19:50:19 GMT+0500 (Pakistan Standard Time)
+[debug] [2026-07-19T14:50:19.328Z] ----------------------------------------------------------------------
+[debug] 
+[debug] [2026-07-19T14:50:24.483Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
+[debug] [2026-07-19T14:50:24.484Z] > authorizing via signed-in user (webseriesworldoff@gmail.com)
+[debug] [2026-07-19T14:50:24.484Z] [iam] checking project sub-hub-d948f for permissions ["firebase.projects.get","firebasehosting.sites.update"]
+[debug] [2026-07-19T14:50:24.536Z] Checked if tokens are valid: false, expires at: 1784467676055
+[debug] [2026-07-19T14:50:24.536Z] Checked if tokens are valid: false, expires at: 1784467676055
+[debug] [2026-07-19T14:50:24.537Z] > refreshing access token with scopes: []
+[debug] [2026-07-19T14:50:24.542Z] >>> [apiv2][query] POST https://www.googleapis.com/oauth2/v3/token [none]
+[debug] [2026-07-19T14:50:24.542Z] >>> [apiv2][body] POST https://www.googleapis.com/oauth2/v3/token [omitted]
+[debug] [2026-07-19T14:50:25.174Z] <<< [apiv2][status] POST https://www.googleapis.com/oauth2/v3/token 200
+[debug] [2026-07-19T14:50:25.174Z] <<< [apiv2][body] POST https://www.googleapis.com/oauth2/v3/token [omitted]
+[debug] [2026-07-19T14:50:25.190Z] >>> [apiv2][query] POST https://cloudresourcemanager.googleapis.com/v1/projects/sub-hub-d948f:testIamPermissions [none]
+[debug] [2026-07-19T14:50:25.190Z] >>> [apiv2][(partial)header] POST https://cloudresourcemanager.googleapis.com/v1/projects/sub-hub-d948f:testIamPermissions  x-goog-user-project=sub-hub-d948f
+[debug] [2026-07-19T14:50:25.190Z] >>> [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/sub-hub-d948f:testIamPermissions {"permissions":["firebase.projects.get","firebasehosting.sites.update"]}
