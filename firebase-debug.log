@@ -1,0 +1,20 @@
+[debug] [2026-07-19T07:35:50.540Z] ----------------------------------------------------------------------
+[debug] [2026-07-19T07:35:50.546Z] Command:       C:\Program Files\nodejs\node.exe C:\Users\Hp\AppData\Roaming\npm\node_modules\firebase-tools\lib\bin\firebase.js deploy
+[debug] [2026-07-19T07:35:50.547Z] CLI Version:   15.24.0
+[debug] [2026-07-19T07:35:50.547Z] Platform:      win32
+[debug] [2026-07-19T07:35:50.547Z] Node Version:  v24.18.0
+[debug] [2026-07-19T07:35:50.548Z] Detected Agent: unknown
+[debug] [2026-07-19T07:35:50.548Z] Time:          Sun Jul 19 2026 12:35:50 GMT+0500 (Pakistan Standard Time)
+[debug] [2026-07-19T07:35:50.548Z] ----------------------------------------------------------------------
+[debug] 
+[debug] [2026-07-19T07:35:50.574Z] >>> [apiv2][query] GET https://firebase-public.firebaseio.com/cli.json [none]
+[debug] [2026-07-19T07:35:54.885Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
+[debug] [2026-07-19T07:35:54.886Z] > authorizing via signed-in user (webseriesworldoff@gmail.com)
+[debug] [2026-07-19T07:35:54.886Z] [iam] checking project sub-hub-d948f for permissions ["firebase.projects.get","firebasehosting.sites.update"]
+[debug] [2026-07-19T07:35:54.888Z] Checked if tokens are valid: true, expires at: 1784448390206
+[debug] [2026-07-19T07:35:54.888Z] Checked if tokens are valid: true, expires at: 1784448390206
+[debug] [2026-07-19T07:35:54.889Z] >>> [apiv2][query] POST https://cloudresourcemanager.googleapis.com/v1/projects/sub-hub-d948f:testIamPermissions [none]
+[debug] [2026-07-19T07:35:54.889Z] >>> [apiv2][(partial)header] POST https://cloudresourcemanager.googleapis.com/v1/projects/sub-hub-d948f:testIamPermissions  x-goog-user-project=sub-hub-d948f
+[debug] [2026-07-19T07:35:54.889Z] >>> [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/sub-hub-d948f:testIamPermissions {"permissions":["firebase.projects.get","firebasehosting.sites.update"]}
+[debug] [2026-07-19T07:35:56.266Z] <<< [apiv2][status] GET https://firebase-public.firebaseio.com/cli.json 200
+[debug] [2026-07-19T07:35:56.266Z] <<< [apiv2][body] GET https://firebase-public.firebaseio.com/cli.json {"cloudBuildErrorAfter":1594252800000,"cloudBuildWarnAfter":1590019200000,"defaultNode10After":1594252800000,"minVersion":"3.0.5","node8DeploysDisabledAfter":1613390400000,"node8RuntimeDisabledAfter":1615809600000,"node8WarnAfter":1600128000000}
