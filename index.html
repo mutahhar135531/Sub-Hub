@@ -1956,11 +1956,11 @@
       const verifyOTPAPI = async (otp) => {
         try {
           const result = await verifyOTP(otp);
-          if (result.success) return true;
-          else { addToast(result.error || 'Invalid OTP', 'error'); return false; }
+          if (result.success) return { ok: true };
+          return { ok: false, error: result.error || 'Invalid OTP', expired: !!result.expired };
         } catch (err) {
           addToast('Error verifying OTP', 'error');
-          return false;
+          return { ok: false, error: 'Error verifying OTP', expired: false };
         }
       };
       return { generateOTPAPI, verifyOTPAPI };
@@ -2205,6 +2205,8 @@
           addToast('Please select a specific screen', 'error');
           return;
         }
+        setOtp(['', '', '', '']);
+        setOtpError('');
         await generateOTPAPI();
       };
 
@@ -2226,12 +2228,12 @@
       const handleVerifyOtp = async () => {
         const entered = otp.join('');
         if (entered.length !== 4) { setOtpError('Enter all 4 digits'); return; }
-        const verified = await verifyOTPAPI(entered);
-        if (verified) {
+        const result = await verifyOTPAPI(entered);
+        if (result.ok) {
           setOtpError('');
           setStep('details');
         } else {
-          setOtpError('Invalid OTP');
+          setOtpError(result.error);
         }
       };
 
@@ -2437,14 +2439,23 @@
           <div className="space-y-6">
             <button onClick={() => setStep('plan')} className="text-red-400 hover:text-red-300 text-sm"><i className="fas fa-arrow-left mr-2"></i> Back</button>
             <h2 className="text-2xl font-bold text-white">Enter OTP</h2>
-            <p className="text-white/40 text-sm">Enter the 4-digit OTP. Expires in {otpTimer}s</p>
+            <p className="text-white/40 text-sm">
+              {otpTimer > 0 ? `Enter the 4-digit OTP. Expires in ${otpTimer}s` : 'Enter the 4-digit OTP.'}
+            </p>
             <div className="flex gap-3 justify-center">
               {[0,1,2,3].map(idx => (
-                <input key={idx} ref={el => otpRefs.current[idx] = el} type="text" className="otp-input" maxLength="1" value={otp[idx]} onChange={(e) => handleOtpChange(idx, e.target.value)} onKeyDown={(e) => { if (e.key === 'Backspace' && !otp[idx] && idx > 0) otpRefs.current[idx - 1]?.focus(); }} autoFocus={idx === 0} />
+                <input key={idx} ref={el => otpRefs.current[idx] = el} type="text" inputMode="numeric" pattern="[0-9]*" autoComplete="one-time-code" className="otp-input" maxLength="1" value={otp[idx]} onChange={(e) => handleOtpChange(idx, e.target.value)} onKeyDown={(e) => { if (e.key === 'Backspace' && !otp[idx] && idx > 0) otpRefs.current[idx - 1]?.focus(); }} autoFocus={idx === 0} disabled={otpTimer <= 0} />
               ))}
             </div>
             {otpError && <p className="text-red-400 text-sm text-center">{otpError}</p>}
-            <button onClick={handleVerifyOtp} className="btn-neon w-full py-3"><i className="fas fa-check mr-2"></i> Verify OTP</button>
+            {otpTimer <= 0 ? (
+              <div className="text-center space-y-3">
+                <p className="text-yellow-400 text-sm font-medium"><i className="fas fa-clock mr-2"></i> Time is up! Please request a new OTP.</p>
+                <button onClick={handleGenerateOTP} className="btn-neon w-full py-3"><i className="fas fa-redo mr-2"></i> Send OTP Again</button>
+              </div>
+            ) : (
+              <button onClick={handleVerifyOtp} className="btn-neon w-full py-3"><i className="fas fa-check mr-2"></i> Verify OTP</button>
+            )}
           </div>
         );
       }
@@ -2523,6 +2534,8 @@
           addToast('WhatsApp number must match your sign-up number', 'error');
           return;
         }
+        setOtp(['', '', '', '']);
+        setOtpError('');
         await generateOTPAPI();
       };
 
@@ -2544,12 +2557,12 @@
       const handleVerifyOtp = async () => {
         const entered = otp.join('');
         if (entered.length !== 4) { setOtpError('Enter all 4 digits'); return; }
-        const verified = await verifyOTPAPI(entered);
-        if (verified) {
+        const result = await verifyOTPAPI(entered);
+        if (result.ok) {
           setOtpError('');
           setStep('details');
         } else {
-          setOtpError('Invalid OTP');
+          setOtpError(result.error);
         }
       };
 
@@ -2712,14 +2725,23 @@
           <div className="space-y-6">
             <button onClick={() => setStep('plan')} className="text-red-400 hover:text-red-300 text-sm"><i className="fas fa-arrow-left mr-2"></i> Back</button>
             <h2 className="text-2xl font-bold text-white">Enter OTP</h2>
-            <p className="text-white/40 text-sm">Enter the 4-digit OTP. Expires in {otpTimer}s</p>
+            <p className="text-white/40 text-sm">
+              {otpTimer > 0 ? `Enter the 4-digit OTP. Expires in ${otpTimer}s` : 'Enter the 4-digit OTP.'}
+            </p>
             <div className="flex gap-3 justify-center">
               {[0,1,2,3].map(idx => (
-                <input key={idx} ref={el => otpRefs.current[idx] = el} type="text" className="otp-input" maxLength="1" value={otp[idx]} onChange={(e) => handleOtpChange(idx, e.target.value)} onKeyDown={(e) => { if (e.key === 'Backspace' && !otp[idx] && idx > 0) otpRefs.current[idx - 1]?.focus(); }} autoFocus={idx === 0} />
+                <input key={idx} ref={el => otpRefs.current[idx] = el} type="text" inputMode="numeric" pattern="[0-9]*" autoComplete="one-time-code" className="otp-input" maxLength="1" value={otp[idx]} onChange={(e) => handleOtpChange(idx, e.target.value)} onKeyDown={(e) => { if (e.key === 'Backspace' && !otp[idx] && idx > 0) otpRefs.current[idx - 1]?.focus(); }} autoFocus={idx === 0} disabled={otpTimer <= 0} />
               ))}
             </div>
             {otpError && <p className="text-red-400 text-sm text-center">{otpError}</p>}
-            <button onClick={handleVerifyOtp} className="btn-neon w-full py-3"><i className="fas fa-check mr-2"></i> Verify OTP</button>
+            {otpTimer <= 0 ? (
+              <div className="text-center space-y-3">
+                <p className="text-yellow-400 text-sm font-medium"><i className="fas fa-clock mr-2"></i> Time is up! Please request a new OTP.</p>
+                <button onClick={handleGenerateOTP} className="btn-neon w-full py-3"><i className="fas fa-redo mr-2"></i> Send OTP Again</button>
+              </div>
+            ) : (
+              <button onClick={handleVerifyOtp} className="btn-neon w-full py-3"><i className="fas fa-check mr-2"></i> Verify OTP</button>
+            )}
           </div>
         );
       }
@@ -2806,6 +2828,8 @@
           addToast('Email is required for this subscription', 'error');
           return;
         }
+        setOtp(['', '', '', '']);
+        setOtpError('');
         await generateOTPAPI();
       };
 
@@ -2829,12 +2853,12 @@
         const entered = otp.join('');
         if (entered.length !== 4) { setOtpError('Enter all 4 digits'); return; }
         setLoading(true);
-        const verified = await verifyOTPAPI(entered);
-        if (verified) {
+        const result = await verifyOTPAPI(entered);
+        if (result.ok) {
           setOtpError('');
           completePurchase(false);
         } else {
-          setOtpError('Invalid OTP');
+          setOtpError(result.error);
           setLoading(false);
         }
       };
@@ -3035,16 +3059,25 @@
             <ProcessingOverlay show={loading} />
             <button onClick={() => setStep('plan')} className="text-red-400 hover:text-red-300 text-sm"><i className="fas fa-arrow-left mr-2"></i> Back</button>
             <h2 className="text-2xl font-bold text-white">Enter OTP</h2>
-            <p className="text-white/40 text-sm">Enter the 4-digit OTP. Expires in {otpTimer}s</p>
+            <p className="text-white/40 text-sm">
+              {otpTimer > 0 ? `Enter the 4-digit OTP. Expires in ${otpTimer}s` : 'Enter the 4-digit OTP.'}
+            </p>
             <div className="flex gap-3 justify-center">
               {[0,1,2,3].map(idx => (
-                <input key={idx} ref={el => otpRefs.current[idx] = el} type="text" className="otp-input" maxLength="1" value={otp[idx]} onChange={(e) => handleOtpChange(idx, e.target.value)} onKeyDown={(e) => { if (e.key === 'Backspace' && !otp[idx] && idx > 0) otpRefs.current[idx - 1]?.focus(); }} autoFocus={idx === 0} />
+                <input key={idx} ref={el => otpRefs.current[idx] = el} type="text" inputMode="numeric" pattern="[0-9]*" autoComplete="one-time-code" className="otp-input" maxLength="1" value={otp[idx]} onChange={(e) => handleOtpChange(idx, e.target.value)} onKeyDown={(e) => { if (e.key === 'Backspace' && !otp[idx] && idx > 0) otpRefs.current[idx - 1]?.focus(); }} autoFocus={idx === 0} disabled={otpTimer <= 0} />
               ))}
             </div>
             {otpError && <p className="text-red-400 text-sm text-center">{otpError}</p>}
-            <button onClick={handleVerifyOtp} disabled={loading} className="btn-neon w-full py-3">
-              {loading ? <span className="spinner"></span> : <><i className="fas fa-check mr-2"></i> Verify & Complete</>}
-            </button>
+            {otpTimer <= 0 ? (
+              <div className="text-center space-y-3">
+                <p className="text-yellow-400 text-sm font-medium"><i className="fas fa-clock mr-2"></i> Time is up! Please request a new OTP.</p>
+                <button onClick={handleGenerateOTP} className="btn-neon w-full py-3"><i className="fas fa-redo mr-2"></i> Send OTP Again</button>
+              </div>
+            ) : (
+              <button onClick={handleVerifyOtp} disabled={loading} className="btn-neon w-full py-3">
+                {loading ? <span className="spinner"></span> : <><i className="fas fa-check mr-2"></i> Verify & Complete</>}
+              </button>
+            )}
           </div>
         );
       }
@@ -3089,6 +3122,8 @@
           addToast('WhatsApp number must match your sign-up number', 'error');
           return;
         }
+        setOtp(['', '', '', '']);
+        setOtpError('');
         await generateOTPAPI();
       };
 
@@ -3112,12 +3147,12 @@
         const entered = otp.join('');
         if (entered.length !== 4) { setOtpError('Enter all 4 digits'); return; }
         setLoading(true);
-        const verified = await verifyOTPAPI(entered);
-        if (verified) {
+        const result = await verifyOTPAPI(entered);
+        if (result.ok) {
           setOtpError('');
           completePurchase(false);
         } else {
-          setOtpError('Invalid OTP');
+          setOtpError(result.error);
           setLoading(false);
         }
       };
@@ -3349,16 +3384,25 @@
             <ProcessingOverlay show={loading} />
             <button onClick={() => setStep('plan')} className="text-red-400 hover:text-red-300 text-sm"><i className="fas fa-arrow-left mr-2"></i> Back</button>
             <h2 className="text-2xl font-bold text-white">Enter OTP</h2>
-            <p className="text-white/40 text-sm">Enter the 4-digit OTP. Expires in {otpTimer}s</p>
+            <p className="text-white/40 text-sm">
+              {otpTimer > 0 ? `Enter the 4-digit OTP. Expires in ${otpTimer}s` : 'Enter the 4-digit OTP.'}
+            </p>
             <div className="flex gap-3 justify-center">
               {[0,1,2,3].map(idx => (
-                <input key={idx} ref={el => otpRefs.current[idx] = el} type="text" className="otp-input" maxLength="1" value={otp[idx]} onChange={(e) => handleOtpChange(idx, e.target.value)} onKeyDown={(e) => { if (e.key === 'Backspace' && !otp[idx] && idx > 0) otpRefs.current[idx - 1]?.focus(); }} autoFocus={idx === 0} />
+                <input key={idx} ref={el => otpRefs.current[idx] = el} type="text" inputMode="numeric" pattern="[0-9]*" autoComplete="one-time-code" className="otp-input" maxLength="1" value={otp[idx]} onChange={(e) => handleOtpChange(idx, e.target.value)} onKeyDown={(e) => { if (e.key === 'Backspace' && !otp[idx] && idx > 0) otpRefs.current[idx - 1]?.focus(); }} autoFocus={idx === 0} disabled={otpTimer <= 0} />
               ))}
             </div>
             {otpError && <p className="text-red-400 text-sm text-center">{otpError}</p>}
-            <button onClick={handleVerifyOtp} disabled={loading} className="btn-neon w-full py-3">
-              {loading ? <span className="spinner"></span> : <><i className="fas fa-check mr-2"></i> Verify & Complete</>}
-            </button>
+            {otpTimer <= 0 ? (
+              <div className="text-center space-y-3">
+                <p className="text-yellow-400 text-sm font-medium"><i className="fas fa-clock mr-2"></i> Time is up! Please request a new OTP.</p>
+                <button onClick={handleGenerateOTP} className="btn-neon w-full py-3"><i className="fas fa-redo mr-2"></i> Send OTP Again</button>
+              </div>
+            ) : (
+              <button onClick={handleVerifyOtp} disabled={loading} className="btn-neon w-full py-3">
+                {loading ? <span className="spinner"></span> : <><i className="fas fa-check mr-2"></i> Verify & Complete</>}
+              </button>
+            )}
           </div>
         );
       }

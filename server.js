@@ -1051,7 +1051,10 @@ app.post('/api/otp/generate', async (req, res) => {
   try {
     const { userIdentifier, description } = req.body;
     const otp = String(Math.floor(1000 + Math.random() * 9000));
-    const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
+    // Matches the 60-second countdown shown on screen — it used to be
+    // 5 minutes here while the UI displayed a 1-minute countdown, so the
+    // code kept working long after it visibly said "expired".
+    const expiresAt = new Date(Date.now() + 60 * 1000);
     const newOTP = {
       id: Date.now().toString(),
       otp,
@@ -1073,13 +1076,12 @@ app.post('/api/otp/verify', async (req, res) => {
   try {
     const { otp } = req.body;
     if (!otp) return res.status(400).json({ error: 'OTP required' });
-    const record = await otpsCollection.findOne({
-      otp,
-      verified: false,
-      expiresAt: { $gt: new Date() }
-    });
+    const record = await otpsCollection.findOne({ otp, verified: false });
     if (!record) {
-      return res.status(400).json({ error: 'Invalid or expired OTP' });
+      return res.status(400).json({ error: 'Invalid OTP' });
+    }
+    if (record.expiresAt < new Date()) {
+      return res.status(400).json({ error: 'Time is up! Please request a new OTP.', expired: true });
     }
     await otpsCollection.updateOne(
       { _id: record._id },
