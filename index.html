@@ -5902,12 +5902,21 @@
         addToast('New PIN generated!', 'success');
       };
 
+      // Fixed format: 5 letters (first always capital) + 1 special char +
+      // 3 digits + 1 special char + 3 digits. e.g. "Xkqmz!482&719".
       const generatePassword = () => {
-        const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789@#$%&';
-        let pass = '';
-        for (let i = 0; i < 12; i++) {
-          pass += chars.charAt(Math.floor(Math.random() * chars.length));
-        }
+        const upper = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+        const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
+        const specials = '!@#$%&';
+        const digits = '0123456789';
+        const pick = (str) => str.charAt(Math.floor(Math.random() * str.length));
+
+        let pass = pick(upper); // first letter always capital
+        for (let i = 0; i < 4; i++) pass += pick(letters); // remaining 4 of the 5 letters
+        pass += pick(specials);
+        for (let i = 0; i < 3; i++) pass += pick(digits);
+        pass += pick(specials);
+        for (let i = 0; i < 3; i++) pass += pick(digits);
         return pass;
       };
 
