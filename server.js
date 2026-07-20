@@ -73,7 +73,6 @@ async function connectDB() {
   processedPurchasesCollection = db.collection('processedPurchases');
   creditHistoryCollection = db.collection('creditHistory');
   adminSettingsCollection = db.collection('adminSettings');
-  await ensureAuthSecret(); // load or create the server-only token-signing secret
   console.log('✅ Connected to MongoDB');
 }
 
@@ -104,174 +103,15 @@ async function claimIdempotencyKey(key) {
 // takes effect for every device, not just the one that made the change.
 const ADMIN_SETTINGS_ID = 'main';
 
-// Remove sensitive fields before sending a user document to the browser.
-// The password must never leave the server in a response — the client has
-// no legitimate reason to ever see it, and anything sent to the browser is
-// visible in the Network tab.
-function sanitizeUser(user) {
-  if (!user) return user;
-  const { password, ...safe } = user;
-  return safe;
-}
-
-// Load the admin settings document, seeding sensible defaults the first
-// time the app ever runs.
-async function getAdminSettings() {
-  let settings = await adminSettingsCollection.findOne({ _id: ADMIN_SETTINGS_ID });
-  if (!settings) {
-    settings = { _id: ADMIN_SETTINGS_ID, password: 'admin123', recoveryNumber: '359609' };
-    await adminSettingsCollection.insertOne(settings);
-  }
-  return settings;
-}
-
-// ─── Password hashing (scrypt, built-in — no extra dependency) ──────
-// Passwords are stored as `scrypt$<salt>$<hash>` instead of plain text, so
-// even if the database is ever leaked the real passwords can't be read out.
-// verifyPassword also still accepts old plain-text values so nobody who
-// signed up before this change is locked out — those get upgraded to a hash
-// automatically the next time they log in (see the login routes).
-function hashPassword(plain) {
-  const salt = crypto.randomBytes(16).toString('hex');
-  const derived = crypto.scryptSync(String(plain), salt, 64).toString('hex');
-  return `scrypt$${salt}$${derived}`;
-}
-function isHashed(stored) {
-  return typeof stored === 'string' && stored.startsWith('scrypt$');
-}
-function verifyPassword(plain, stored) {
-  if (stored == null) return false;
-  if (isHashed(stored)) {
-    const [, salt, hash] = stored.split('$');
-    let derived;
-    try { derived = crypto.scryptSync(String(plain), salt, 64).toString('hex'); } catch { return false; }
-    const a = Buffer.from(hash, 'hex');
-    const b = Buffer.from(derived, 'hex');
-    return a.length === b.length && crypto.timingSafeEqual(a, b);
-  }
-  return String(plain) === String(stored); // legacy plain-text (pre-hashing)
-}
-
-// ─── Auth tokens (stateless, HMAC-signed) ───────────────────────────
-// On login the server hands the browser a signed token. The token proves
-// "this request is from user X" (or the admin) without the password ever
-// being re-sent. It is signed with a server-only secret, so the browser
-// can't forge or tamper with it. This is what lets the server safely show
-// a customer their own account credentials while hiding everyone else's.
-let AUTH_SECRET = null;
-const TOKEN_MAX_AGE_MS = 1000 * 60 * 60 * 24 * 30; // 30 days
-
-async function ensureAuthSecret() {
-  const doc = await adminSettingsCollection.findOne({ _id: 'authSecret' });
-  if (doc && doc.secret) { AUTH_SECRET = doc.secret; return; }
-  AUTH_SECRET = crypto.randomBytes(48).toString('hex');
-  await adminSettingsCollection.updateOne(
-    { _id: 'authSecret' },
-    { $set: { secret: AUTH_SECRET } },
-    { upsert: true }
-  );
-}
-
-function signToken(payload) {
-  const body = Buffer.from(JSON.stringify({ ...payload, iat: Date.now() })).toString('base64url');
-  const sig = crypto.createHmac('sha256', AUTH_SECRET).update(body).digest('base64url');
-  return `${body}.${sig}`;
-}
-function verifyToken(token) {
-  if (!token || typeof token !== 'string' || token.indexOf('.') === -1) return null;
-  const [body, sig] = token.split('.');
-  if (!body || !sig) return null;
-  const expected = crypto.createHmac('sha256', AUTH_SECRET).update(body).digest('base64url');
-  const a = Buffer.from(sig);
-  const b = Buffer.from(expected);
-  if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) return null;
-  let payload;
-  try { payload = JSON.parse(Buffer.from(body, 'base64url').toString('utf8')); } catch { return null; }
-  if (!payload || !payload.iat || (Date.now() - payload.iat) > TOKEN_MAX_AGE_MS) return null;
-  return payload; // { u: username, r: 'user' | 'admin', iat }
-}
-// Returns { u, r } for a valid request, or null. `r` is 'admin' or 'user'.
-function getAuth(req) {
-  const header = req.headers['authorization'] || '';
-  const token = header.startsWith('Bearer ') ? header.slice(7) : null;
-  return verifyToken(token);
-}
-
-// ─── Subscription credential masking ────────────────────────────────
-// Account email/password and screen PIN are the actual "keys" being sold.
-// They must only reach the admin, and each customer's own account. For
-// everyone else these values are blanked out before the subscription list
-// leaves the server — so they can never be read from the browser Network
-// tab. The shape of the data is left exactly the same (same accounts,
-// screens, customers) so the app keeps working; only the secret VALUES are
-// removed for people who aren't entitled to see them.
-function maskSubscriptionForViewer(sub, auth) {
-  if (auth && auth.r === 'admin') return sub; // admin sees everything
-  const username = auth && auth.r === 'user' ? auth.u : null;
-  const accounts = (sub.accounts || []).map(acc => {
-    const screens = (acc.screens || []).map(scr => {
-      const screenOwned = !!username && (scr.customers || []).some(c => c.username === username);
-      return {
-        ...scr,
-        pin: screenOwned ? (scr.pin || '') : '',
-        // Never expose any customer's stored password to other viewers.
-        customers: (scr.customers || []).map(c => ({ ...c, password: '' }))
-      };
-    });
-    const accountOwned = !!username && (acc.screens || []).some(scr =>
-      (scr.customers || []).some(c => c.username === username));
-    return {
-      ...acc,
-      password: accountOwned ? (acc.password || '') : '',
-      screens
-    };
-  });
-  return { ...sub, accounts };
-}
-
-// The real account credentials for one specific slot — used only to hand a
-// customer the details for the exact slot they just purchased.
-function slotCredentials(sub, accountId, screenId) {
-  const acc = (sub && sub.accounts || []).find(a => a.id === accountId);
-  const scr = acc && (acc.screens || []).find(s => s.id === screenId);
-  return {
-    email: acc ? (acc.email || '') : '',
-    password: acc ? (acc.password || '') : '',
-    pin: scr ? (scr.pin || '') : ''
-  };
-}
-const BLANK_CREDENTIALS = { email: '', password: '', pin: '' };
-
-// Never send the actual admin password or recovery number to the browser —
-// only whether they have been set. The password is verified server-side by
-// POST /api/admin/login below.
 app.get('/api/admin/settings', async (req, res) => {
   try {
-    const settings = await getAdminSettings();
-    res.json({
-      hasPassword: !!settings.password,
-      hasRecoveryNumber: !!settings.recoveryNumber
-    });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// Admin login: the entered password is checked here on the server and only
-// a yes/no result is returned. The real password never reaches the browser.
-app.post('/api/admin/login', async (req, res) => {
-  try {
-    const { password } = req.body;
-    if (!password) return res.status(400).json({ success: false, error: 'Password is required' });
-    const settings = await getAdminSettings();
-    if (!verifyPassword(password, settings.password)) {
-      return res.status(401).json({ success: false, error: 'Invalid password' });
+    let settings = await adminSettingsCollection.findOne({ _id: ADMIN_SETTINGS_ID });
+    if (!settings) {
+      // First time ever running this — seed sensible defaults.
+      settings = { _id: ADMIN_SETTINGS_ID, password: 'admin123', recoveryNumber: '359609' };
+      await adminSettingsCollection.insertOne(settings);
     }
-    // Upgrade a legacy plain-text admin password to a hash on first login.
-    if (!isHashed(settings.password)) {
-      await adminSettingsCollection.updateOne({ _id: ADMIN_SETTINGS_ID }, { $set: { password: hashPassword(password) } });
-    }
-    res.json({ success: true, token: signToken({ u: 'admin', r: 'admin' }) });
+    res.json({ password: settings.password, recoveryNumber: settings.recoveryNumber || null });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -281,18 +121,14 @@ app.put('/api/admin/settings', async (req, res) => {
   try {
     const { password, recoveryNumber } = req.body;
     const update = {};
-    if (password !== undefined && password !== '') update.password = hashPassword(password);
+    if (password !== undefined && password !== '') update.password = password;
     if (recoveryNumber !== undefined) update.recoveryNumber = recoveryNumber;
     if (Object.keys(update).length === 0) {
       return res.status(400).json({ error: 'Nothing to update' });
     }
     await adminSettingsCollection.updateOne({ _id: ADMIN_SETTINGS_ID }, { $set: update }, { upsert: true });
     const settings = await adminSettingsCollection.findOne({ _id: ADMIN_SETTINGS_ID });
-    res.json({
-      success: true,
-      hasPassword: !!settings.password,
-      hasRecoveryNumber: !!settings.recoveryNumber
-    });
+    res.json({ password: settings.password, recoveryNumber: settings.recoveryNumber || null });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -317,7 +153,7 @@ app.post('/api/admin/recover', async (req, res) => {
     if (String(settings.recoveryNumber).trim() !== String(recoveryNumber).trim()) {
       return res.status(400).json({ error: 'Incorrect recovery number' });
     }
-    await adminSettingsCollection.updateOne({ _id: ADMIN_SETTINGS_ID }, { $set: { password: hashPassword(newPassword) } });
+    await adminSettingsCollection.updateOne({ _id: ADMIN_SETTINGS_ID }, { $set: { password: newPassword } });
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -611,11 +447,8 @@ async function seedData() {
 
 app.get('/api/subscriptions', async (req, res) => {
   try {
-    const auth = getAuth(req);
     const subs = await subscriptionsCollection.find({}).toArray();
-    // Account passwords / PINs are blanked for anyone who isn't the admin or
-    // the customer that owns the slot — see maskSubscriptionForViewer.
-    res.json(subs.map(s => maskSubscriptionForViewer(s, auth)));
+    res.json(subs);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -625,7 +458,7 @@ app.get('/api/subscriptions/:id', async (req, res) => {
   try {
     const sub = await subscriptionsCollection.findOne({ id: req.params.id });
     if (!sub) return res.status(404).json({ error: 'Not found' });
-    res.json(maskSubscriptionForViewer(sub, getAuth(req)));
+    res.json(sub);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -763,22 +596,13 @@ app.post('/api/subscriptions/:id/allocate', async (req, res) => {
       return res.status(400).json({ error: 'accountId, screenId and customer are required' });
     }
 
-    // The real slot credentials are only returned to the logged-in customer
-    // buying it for themselves (or the admin). Everyone else gets blanks —
-    // this stops the allocate endpoint being used to harvest account keys.
-    const auth = getAuth(req);
-    const maySeeCreds = !!auth && (auth.r === 'admin' || auth.u === customer.username);
-
     // Same purchase step submitted twice? Don't add the customer a second
     // time — just return the subscription as it already stands.
     const key = purchaseId ? `allocate:${purchaseId}:${accountId}:${screenId}` : null;
     const claimed = await claimIdempotencyKey(key);
     if (!claimed) {
       const existing = await subscriptionsCollection.findOne({ id: req.params.id });
-      return res.json({
-        ...maskSubscriptionForViewer(existing, auth),
-        claimedCredentials: maySeeCreds ? slotCredentials(existing, accountId, screenId) : BLANK_CREDENTIALS
-      });
+      return res.json(existing);
     }
 
     const customerToInsert = {
@@ -802,10 +626,7 @@ app.post('/api/subscriptions/:id/allocate', async (req, res) => {
       return res.status(404).json({ error: 'Subscription, account, or screen not found' });
     }
     const updated = await subscriptionsCollection.findOne({ id: req.params.id });
-    res.json({
-      ...maskSubscriptionForViewer(updated, auth),
-      claimedCredentials: maySeeCreds ? slotCredentials(updated, accountId, screenId) : BLANK_CREDENTIALS
-    });
+    res.json(updated);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -900,14 +721,14 @@ app.post('/api/users/signup', async (req, res) => {
     }
     const newUser = {
       username,
-      password: hashPassword(password),
+      password,
       whatsapp,
       purchaseCount: 0,
       credits: 0,
       createdAt: new Date()
     };
     await usersCollection.insertOne(newUser);
-    res.json({ success: true, user: sanitizeUser(newUser), token: signToken({ u: newUser.username, r: 'user' }) });
+    res.json({ success: true, user: newUser });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -917,14 +738,10 @@ app.post('/api/users/login', async (req, res) => {
   try {
     const { username, password } = req.body;
     const user = await usersCollection.findOne({ username });
-    if (!user || !verifyPassword(password, user.password)) {
+    if (!user || user.password !== password) {
       return res.status(401).json({ error: 'Invalid credentials' });
     }
-    // Upgrade a legacy plain-text password to a hash on first successful login.
-    if (!isHashed(user.password)) {
-      await usersCollection.updateOne({ username }, { $set: { password: hashPassword(password) } });
-    }
-    res.json({ success: true, user: sanitizeUser(user), token: signToken({ u: user.username, r: 'user' }) });
+    res.json({ success: true, user });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -968,7 +785,7 @@ app.get('/api/users/:username', async (req, res) => {
   try {
     const user = await usersCollection.findOne({ username: req.params.username });
     if (!user) return res.status(404).json({ error: 'User not found' });
-    res.json(sanitizeUser(user));
+    res.json(user);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -984,7 +801,7 @@ app.put('/api/users/:username/incrementPurchase', async (req, res) => {
       return res.status(404).json({ error: 'User not found' });
     }
     const updated = await usersCollection.findOne({ username: req.params.username });
-    res.json(sanitizeUser(updated));
+    res.json(updated);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -1017,7 +834,7 @@ app.post('/api/users/:username/addCredits', async (req, res) => {
       balanceAfter: updated.credits,
       createdAt: new Date()
     });
-    res.json(sanitizeUser(updated));
+    res.json(updated);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -1086,7 +903,7 @@ app.post('/api/users/:username/deductCredits', async (req, res) => {
       balanceAfter: updated.credits,
       createdAt: new Date()
     });
-    res.json(sanitizeUser(updated));
+    res.json(updated);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -1124,7 +941,7 @@ app.put('/api/users/:username', async (req, res) => {
 
     const update = {};
     if (newUsername !== undefined && newUsername !== '') update.username = newUsername;
-    if (password !== undefined && password !== '') update.password = hashPassword(password);
+    if (password !== undefined && password !== '') update.password = password;
     if (whatsapp !== undefined) update.whatsapp = whatsapp;
     if (credits !== undefined) update.credits = credits;
 
@@ -1482,22 +1299,13 @@ app.delete('/api/faqs/:id', async (req, res) => {
 app.get('/api/custom-grants', async (req, res) => {
   try {
     const { username } = req.query;
-    const auth = getAuth(req);
+    const filter = username ? { username } : {};
+    const list = await customGrantsCollection.find(filter).sort({ createdAt: -1 }).toArray();
     if (username) {
-      // Customer-facing fetch — strip the admin-only cost/pricing fields, and
-      // only include the granted account password for the customer themselves
-      // (or the admin), so nobody can read someone else's keys by guessing a
-      // username.
-      const canSeeCreds = !!auth && (auth.r === 'admin' || auth.u === username);
-      const list = await customGrantsCollection.find({ username }).sort({ createdAt: -1 }).toArray();
-      const sanitized = list.map(({ costPerMonth, sellingPrice, matchedSubscriptionId, password, ...rest }) =>
-        canSeeCreds ? { ...rest, password } : rest);
+      // Customer-facing fetch — strip the admin-only cost/pricing fields.
+      const sanitized = list.map(({ costPerMonth, sellingPrice, matchedSubscriptionId, ...rest }) => rest);
       return res.json(sanitized);
     }
-    // No username → the admin's full list (with pricing + keys). Only the
-    // admin may load this; everyone else gets nothing.
-    if (!auth || auth.r !== 'admin') return res.json([]);
-    const list = await customGrantsCollection.find({}).sort({ createdAt: -1 }).toArray();
     res.json(list);
   } catch (err) {
     res.status(500).json({ error: err.message });
