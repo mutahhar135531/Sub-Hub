@@ -308,30 +308,6 @@
     };
     const ADMIN_WHATSAPP = 'https://wa.me/923079163485';
 
-    // ─── AUTH TOKENS ──────────────────────────────────────────
-    // Session tokens issued by the server on admin/user login. Replacing
-    // the old approach (the actual admin password, and full user records,
-    // sitting in localStorage / being sent to every visitor) — a token on
-    // its own can't be used to derive the password, and the server can
-    // expire or revoke it independently of the browser.
-    const getAdminToken = () => localStorage.getItem('adminToken') || '';
-    const setAdminToken = (t) => { if (t) localStorage.setItem('adminToken', t); else localStorage.removeItem('adminToken'); };
-    const getUserToken = () => localStorage.getItem('userToken') || '';
-    const setUserToken = (t) => { if (t) localStorage.setItem('userToken', t); else localStorage.removeItem('userToken'); };
-    // Prefers the admin token when both exist (an admin browsing the site
-    // still counts as admin), otherwise the logged-in user's token.
-    const authHeader = () => {
-      const admin = getAdminToken();
-      if (admin) return { Authorization: `Bearer ${admin}` };
-      const user = getUserToken();
-      if (user) return { Authorization: `Bearer ${user}` };
-      return {};
-    };
-    const adminAuthHeader = () => {
-      const admin = getAdminToken();
-      return admin ? { Authorization: `Bearer ${admin}` } : {};
-    };
-
     // ─── API HELPERS ──────────────────────────────────────────
     const generateOTP = async (userIdentifier = 'Unknown', description = '') => {
       const res = await fetch(`${API_BASE}/api/otp/generate`, {
@@ -353,14 +329,14 @@
 
     const fetchOTPList = async () => {
       const res = await fetch(`${API_BASE}/api/otp/list?t=${Date.now()}`, {
-        headers: { 'Cache-Control': 'no-cache', ...adminAuthHeader() }
+        headers: { 'Cache-Control': 'no-cache' }
       });
       return res.json();
     };
 
     const fetchSubscriptions = async () => {
       const res = await fetch(`${API_BASE}/api/subscriptions?t=${Date.now()}`, {
-        headers: { 'Cache-Control': 'no-cache', ...authHeader() }
+        headers: { 'Cache-Control': 'no-cache' }
       });
       return res.json();
     };
@@ -368,7 +344,7 @@
     const updateSubscription = async (subId, data) => {
       const res = await fetch(`${API_BASE}/api/subscriptions/${subId}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json', ...adminAuthHeader() },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),
       });
       return res.json();
@@ -408,7 +384,7 @@
     const createSubscription = async (data) => {
       const res = await fetch(`${API_BASE}/api/subscriptions`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...adminAuthHeader() },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),
       });
       return res.json();
@@ -417,7 +393,6 @@
     const deleteSubscriptionAPI = async (subId) => {
       const res = await fetch(`${API_BASE}/api/subscriptions/${subId}`, {
         method: 'DELETE',
-        headers: { ...adminAuthHeader() },
       });
       return res.json();
     };
@@ -425,7 +400,6 @@
     const dedupeAccountsAPI = async (subId) => {
       const res = await fetch(`${API_BASE}/api/subscriptions/${subId}/dedupe-accounts`, {
         method: 'POST',
-        headers: { ...adminAuthHeader() },
       });
       const json = await res.json().catch(() => ({}));
       if (!res.ok || json.error) {
@@ -440,7 +414,7 @@
     const allocateCustomer = async (subId, accountId, screenId, customer, purchaseId) => {
       const res = await fetch(`${API_BASE}/api/subscriptions/${subId}/allocate`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...authHeader() },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ accountId, screenId, customer, purchaseId }),
       });
       if (!res.ok) {
@@ -455,7 +429,7 @@
     const editCustomerEntry = async (subId, accountId, screenId, username, data) => {
       const res = await fetch(`${API_BASE}/api/subscriptions/${subId}/accounts/${accountId}/screens/${screenId}/customers/${encodeURIComponent(username)}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json', ...adminAuthHeader() },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),
       });
       if (!res.ok) {
@@ -469,7 +443,6 @@
     const deleteCustomerEntryAPI = async (subId, accountId, screenId, username) => {
       const res = await fetch(`${API_BASE}/api/subscriptions/${subId}/accounts/${accountId}/screens/${screenId}/customers/${encodeURIComponent(username)}`, {
         method: 'DELETE',
-        headers: { ...adminAuthHeader() },
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({ error: 'Failed to delete customer' }));
@@ -481,7 +454,6 @@
     const deleteUserAPI = async (username) => {
       const res = await fetch(`${API_BASE}/api/users/${encodeURIComponent(username)}`, {
         method: 'DELETE',
-        headers: { ...adminAuthHeader() },
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({ error: 'Failed to delete user' }));
@@ -493,7 +465,7 @@
     const updateUserAPI = async (username, data) => {
       const res = await fetch(`${API_BASE}/api/users/${encodeURIComponent(username)}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json', ...adminAuthHeader() },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),
       });
       if (!res.ok) {
@@ -533,17 +505,17 @@
 
     const fetchUser = async (username) => {
       const res = await fetch(`${API_BASE}/api/users/${username}?t=${Date.now()}`, {
-        headers: { 'Cache-Control': 'no-cache', ...authHeader() }
+        headers: { 'Cache-Control': 'no-cache' }
       });
       return res.json();
     };
 
-    // The recovery number lives on the server (a single shared record)
-    // instead of only in each browser's localStorage, so a change made on
-    // one device takes effect everywhere. Requires an admin session.
+    // Admin password + recovery number live on the server (a single shared
+    // record) instead of only in each browser's localStorage, so a change
+    // made on one device takes effect everywhere.
     const fetchAdminSettings = async () => {
       const res = await fetch(`${API_BASE}/api/admin/settings?t=${Date.now()}`, {
-        headers: { 'Cache-Control': 'no-cache', ...adminAuthHeader() }
+        headers: { 'Cache-Control': 'no-cache' }
       });
       return res.json();
     };
@@ -551,35 +523,12 @@
     const updateAdminSettings = async (data) => {
       const res = await fetch(`${API_BASE}/api/admin/settings`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json', ...adminAuthHeader() },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),
       });
       const result = await res.json();
       if (!res.ok) throw result;
       return result;
-    };
-
-    // Logs in as admin: the password is verified entirely server-side and
-    // never sent back — only a session token is. That token (not the
-    // password) is what gets stored in this browser from now on.
-    const adminLoginAPI = async (password) => {
-      const res = await fetch(`${API_BASE}/api/admin/login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ password }),
-      });
-      const result = await res.json();
-      if (!res.ok) throw result;
-      return result;
-    };
-
-    const adminLogoutAPI = async () => {
-      try {
-        await fetch(`${API_BASE}/api/admin/logout`, {
-          method: 'POST',
-          headers: { ...adminAuthHeader() },
-        });
-      } catch (err) { /* best-effort */ }
     };
 
     const recoverAdminPassword = async (recoveryNumber, newPassword) => {
@@ -602,7 +551,7 @@
 
     const fetchAllUsers = async () => {
       const res = await fetch(`${API_BASE}/api/users?t=${Date.now()}`, {
-        headers: { 'Cache-Control': 'no-cache', ...adminAuthHeader() }
+        headers: { 'Cache-Control': 'no-cache' }
       });
       return res.json();
     };
@@ -610,7 +559,7 @@
     const addCredits = async (username, amount, reason) => {
       const res = await fetch(`${API_BASE}/api/users/${username}/addCredits`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...adminAuthHeader() },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ amount, reason }),
       });
       const data = await res.json();
@@ -621,7 +570,7 @@
     const deductCredits = async (username, amount, purchaseId, reason) => {
       const res = await fetch(`${API_BASE}/api/users/${username}/deductCredits`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...authHeader() },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ amount, purchaseId, reason }),
       });
       const data = await res.json();
@@ -637,7 +586,7 @@
     // "Credits" button on the customer portal and by the admin panel.
     const fetchCreditHistory = async (username) => {
       const res = await fetch(`${API_BASE}/api/users/${username}/credit-history?t=${Date.now()}`, {
-        headers: { 'Cache-Control': 'no-cache', ...authHeader() }
+        headers: { 'Cache-Control': 'no-cache' }
       });
       return res.json();
     };
@@ -652,7 +601,7 @@
     const createDeal = async (data) => {
       const res = await fetch(`${API_BASE}/api/deals`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...adminAuthHeader() },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),
       });
       return res.json();
@@ -661,7 +610,7 @@
     const updateDeal = async (dealId, data) => {
       const res = await fetch(`${API_BASE}/api/deals/${dealId}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json', ...adminAuthHeader() },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),
       });
       return res.json();
@@ -670,7 +619,6 @@
     const deleteDeal = async (dealId) => {
       const res = await fetch(`${API_BASE}/api/deals/${dealId}`, {
         method: 'DELETE',
-        headers: { ...adminAuthHeader() },
       });
       return res.json();
     };
@@ -681,7 +629,7 @@
         url += `&startDate=${encodeURIComponent(customStart)}&endDate=${encodeURIComponent(customEnd || '')}`;
       }
       const res = await fetch(url, {
-        headers: { 'Cache-Control': 'no-cache', ...adminAuthHeader() }
+        headers: { 'Cache-Control': 'no-cache' }
       });
       return res.json();
     };
@@ -696,7 +644,7 @@
     const createPromotion = async (data) => {
       const res = await fetch(`${API_BASE}/api/promotions`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...adminAuthHeader() },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),
       });
       return res.json();
@@ -705,7 +653,7 @@
     const updatePromotion = async (promoId, data) => {
       const res = await fetch(`${API_BASE}/api/promotions/${promoId}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json', ...adminAuthHeader() },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),
       });
       return res.json();
@@ -714,7 +662,6 @@
     const deletePromotion = async (promoId) => {
       const res = await fetch(`${API_BASE}/api/promotions/${promoId}`, {
         method: 'DELETE',
-        headers: { ...adminAuthHeader() },
       });
       return res.json();
     };
@@ -722,7 +669,7 @@
     // ─── WAITING CUSTOMERS ──────────────────────────────────────
     const fetchWaitingList = async () => {
       const res = await fetch(`${API_BASE}/api/waiting?t=${Date.now()}`, {
-        headers: { 'Cache-Control': 'no-cache', ...adminAuthHeader() }
+        headers: { 'Cache-Control': 'no-cache' }
       });
       return res.json();
     };
@@ -739,7 +686,7 @@
     };
 
     const removeWaitingCustomer = async (id) => {
-      const res = await fetch(`${API_BASE}/api/waiting/${id}`, { method: 'DELETE', headers: { ...adminAuthHeader() } });
+      const res = await fetch(`${API_BASE}/api/waiting/${id}`, { method: 'DELETE' });
       return res.json();
     };
 
@@ -747,7 +694,7 @@
     const fetchCustomGrants = async (username) => {
       const qs = username ? `username=${encodeURIComponent(username)}&t=${Date.now()}` : `t=${Date.now()}`;
       const res = await fetch(`${API_BASE}/api/custom-grants?${qs}`, {
-        headers: { 'Cache-Control': 'no-cache', ...authHeader() }
+        headers: { 'Cache-Control': 'no-cache' }
       });
       return res.json();
     };
@@ -755,7 +702,7 @@
     const createCustomGrant = async (data) => {
       const res = await fetch(`${API_BASE}/api/custom-grants`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...adminAuthHeader() },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),
       });
       const json = await res.json().catch(() => ({}));
@@ -766,7 +713,7 @@
     };
 
     const deleteCustomGrantAPI = async (id) => {
-      const res = await fetch(`${API_BASE}/api/custom-grants/${id}`, { method: 'DELETE', headers: { ...adminAuthHeader() } });
+      const res = await fetch(`${API_BASE}/api/custom-grants/${id}`, { method: 'DELETE' });
       const json = await res.json().catch(() => ({}));
       if (!res.ok || json.error) {
         throw new Error(json.error || `Failed to remove custom grant (${res.status})`);
@@ -808,7 +755,7 @@
     const addFaq = async (data) => {
       const res = await fetch(`${API_BASE}/api/faqs`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...adminAuthHeader() },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),
       });
       const result = await res.json();
@@ -817,7 +764,7 @@
     };
 
     const deleteFaq = async (id) => {
-      const res = await fetch(`${API_BASE}/api/faqs/${id}`, { method: 'DELETE', headers: { ...adminAuthHeader() } });
+      const res = await fetch(`${API_BASE}/api/faqs/${id}`, { method: 'DELETE' });
       return res.json();
     };
 
@@ -840,7 +787,13 @@
       const [toasts, setToasts] = useState([]);
       const [loading, setLoading] = useState(false);
       const [isAdmin, setIsAdmin] = useState(false);
-      const [recoveryNumber, setRecoveryNumber] = useState(null);
+      const [adminPassword, setAdminPassword] = useState(() => {
+        const saved = localStorage.getItem('adminPassword');
+        return saved || 'admin123';
+      });
+      const [recoveryNumber, setRecoveryNumber] = useState(() => {
+        return localStorage.getItem('adminRecoveryNumber') || null;
+      });
       const [user, setUser] = useState(() => {
         const saved = localStorage.getItem('user');
         return saved ? JSON.parse(saved) : null;
@@ -878,22 +831,26 @@
         }
       };
 
+      useEffect(() => { localStorage.setItem('adminPassword', adminPassword); }, [adminPassword]);
+      useEffect(() => { if (recoveryNumber) localStorage.setItem('adminRecoveryNumber', recoveryNumber); }, [recoveryNumber]);
       useEffect(() => { localStorage.setItem('user', JSON.stringify(user)); }, [user]);
 
-      // Pulls the recovery number from the server — only works once an
-      // admin session token exists (see AdminLogin / AdminDashboard), so
-      // this is safe to call without leaking anything to a regular visitor.
+      // Pull the real, shared admin password/recovery number from the
+      // server as soon as the app loads — the localStorage values above are
+      // just a fast, offline-friendly starting point until this resolves.
       const syncAdminSettings = async () => {
         try {
           const settings = await fetchAdminSettings();
+          if (settings && settings.password) setAdminPassword(settings.password);
           if (settings && settings.recoveryNumber) setRecoveryNumber(settings.recoveryNumber);
         } catch (err) {
           console.error('Failed to sync admin settings:', err);
         }
       };
+      useEffect(() => { syncAdminSettings(); }, []);
 
       return (
-        <AppContext.Provider value={{ toasts, addToast, removeToast, loading, setLoading, isAdmin, setIsAdmin, recoveryNumber, setRecoveryNumber, syncAdminSettings }}>
+        <AppContext.Provider value={{ toasts, addToast, removeToast, loading, setLoading, isAdmin, setIsAdmin, adminPassword, setAdminPassword, recoveryNumber, setRecoveryNumber, syncAdminSettings }}>
           <UserContext.Provider value={{ user, setUser, refreshUser }}>
             {children}
           </UserContext.Provider>
@@ -3671,7 +3628,6 @@
       // Forgot-password flow. mode: null (not active) | 'verify' | 'reset' | 'failed'
       const [forgotMode, setForgotMode] = useState(null);
       const [fpUsername, setFpUsername] = useState('');
-      const [fpResetToken, setFpResetToken] = useState('');
       const [fpWhatsapp, setFpWhatsapp] = useState('');
       const [fpNewUsername, setFpNewUsername] = useState('');
       const [fpNewPassword, setFpNewPassword] = useState('');
@@ -3718,7 +3674,6 @@
           const result = await signUpUser(username.trim(), password.trim(), whatsapp.trim());
           setLoading(false);
           if (result.success) {
-            if (result.token) setUserToken(result.token);
             onLogin(result.user);
             addToast('Account created! Welcome!', 'success');
           } else {
@@ -3728,7 +3683,6 @@
           const result = await loginUser(username.trim(), password.trim());
           setLoading(false);
           if (result.success) {
-            if (result.token) setUserToken(result.token);
             onLogin(result.user);
             addToast('Welcome back!', 'success');
           } else {
@@ -3742,7 +3696,6 @@
         setFpWhatsapp('');
         setFpNewUsername('');
         setFpNewPassword('');
-        setFpResetToken('');
         setForgotMode('verify');
       };
 
@@ -3760,7 +3713,6 @@
           const result = await verifyWhatsapp(fpUsername.trim(), fpWhatsapp.trim());
           if (result.success) {
             setFpNewUsername(fpUsername.trim());
-            setFpResetToken(result.resetToken || '');
             setForgotMode('reset');
           } else {
             setForgotMode('failed');
@@ -3781,8 +3733,7 @@
         try {
           const result = await updateUserAPI(fpUsername.trim(), {
             username: fpNewUsername.trim(),
-            password: fpNewPassword.trim(),
-            resetToken: fpResetToken
+            password: fpNewPassword.trim()
           });
           if (result.error) {
             addToast(result.error, 'error');
@@ -4165,31 +4116,28 @@
       const [password, setPassword] = useState('');
       const [error, setError] = useState('');
       const [loading, setLoading] = useState(false);
-      const { addToast } = useContext(AppContext);
+      const { addToast, adminPassword, setAdminPassword } = useContext(AppContext);
 
       // "Forgot password" recovery flow — verified entirely server-side
       // against the stored recovery number, so it works even if this
-      // browser never had a valid session.
+      // browser's password got out of sync or was never known.
       const [showRecover, setShowRecover] = useState(false);
       const [recoverNumber, setRecoverNumber] = useState('');
       const [recoverNewPassword, setRecoverNewPassword] = useState('');
       const [recoverConfirmPassword, setRecoverConfirmPassword] = useState('');
       const [recoverLoading, setRecoverLoading] = useState(false);
 
-      const handleSubmit = async () => {
+      const handleSubmit = () => {
         if (!password) { setError('Enter password'); return; }
         setLoading(true);
-        try {
-          const result = await adminLoginAPI(password);
-          setAdminToken(result.token);
+        if (password === adminPassword) {
           onLogin();
           addToast('Welcome Admin!', 'success');
-        } catch (err) {
-          setError(err?.error || 'Invalid password');
-          addToast(err?.error || 'Invalid password', 'error');
-        } finally {
-          setLoading(false);
+        } else {
+          setError('Invalid password');
+          addToast('Invalid password', 'error');
         }
+        setLoading(false);
       };
 
       const handleRecover = async () => {
@@ -4208,6 +4156,7 @@
         setRecoverLoading(true);
         try {
           await recoverAdminPassword(recoverNumber.trim(), recoverNewPassword.trim());
+          setAdminPassword(recoverNewPassword.trim());
           addToast('Password reset! You can log in now.', 'success');
           setShowRecover(false);
           setRecoverNumber('');
@@ -4795,12 +4744,8 @@
       const [incomeCustomStart, setIncomeCustomStart] = useState('');
       const [incomeCustomEnd, setIncomeCustomEnd] = useState('');
       const [incomeLoading, setIncomeLoading] = useState(false);
-      const { addToast, recoveryNumber, setRecoveryNumber, syncAdminSettings } = useContext(AppContext);
+      const { addToast, adminPassword, setAdminPassword, recoveryNumber, setRecoveryNumber } = useContext(AppContext);
       const { user, setUser, refreshUser } = useContext(UserContext);
-
-      // Now that we're authenticated as admin (we have a session token),
-      // it's safe to pull the recovery number from the server.
-      useEffect(() => { syncAdminSettings(); }, []);
 
       // ─── Promotions state ────────────────────────────────────────
       const [showPromoModal, setShowPromoModal] = useState(false);
@@ -5651,6 +5596,7 @@
           // the change takes effect on every device immediately, not just
           // the one used to make it.
           await updateAdminSettings({ password: newAdminPassword.trim() });
+          setAdminPassword(newAdminPassword.trim());
           addToast('Admin password updated on all devices!', 'success');
           setNewAdminPassword('');
           setConfirmAdminPassword('');
@@ -8121,7 +8067,7 @@
 
           {activeTab === 'admin' && (
             <section id="admin-section" className="px-4 max-w-7xl mx-auto py-12">
-              {!isAdmin ? <AdminLogin onLogin={() => setIsAdmin(true)} /> : <AdminDashboard subscriptions={subscriptions} setSubscriptions={setSubscriptions} onLogout={() => { adminLogoutAPI(); setAdminToken(null); setIsAdmin(false); navigateTo('/'); }} onBack={() => navigateTo('/')} deals={deals} setDeals={setDeals} promotions={promotions} setPromotions={setPromotions} />}
+              {!isAdmin ? <AdminLogin onLogin={() => setIsAdmin(true)} /> : <AdminDashboard subscriptions={subscriptions} setSubscriptions={setSubscriptions} onLogout={() => { setIsAdmin(false); navigateTo('/'); }} onBack={() => navigateTo('/')} deals={deals} setDeals={setDeals} promotions={promotions} setPromotions={setPromotions} />}
             </section>
           )}
 
