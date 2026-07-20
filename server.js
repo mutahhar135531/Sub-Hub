@@ -25,8 +25,77 @@ app.use((req, res, next) => {
 });
 
 // ─── MongoDB connection ──────────────────────────────────────
-const MONGODB_URI = 'mongodb+srv://elitecinezo_db_user:g485P3ELoeP8REkD@cluster0.tsw1i0i.mongodb.net/subscription_hub?retryWrites=true&w=majority';
+// SECURITY: the connection string (including the DB password) used to be
+// hardcoded here, which means it was exposed to anyone who saw this file.
+// It now comes from an environment variable instead. The old hardcoded
+// value is kept ONLY as a fallback so the app doesn't break before you've
+// set MONGODB_URI on your host — set it, then delete the fallback line
+// below, and rotate the database user's password in MongoDB Atlas (Database
+// Access → edit user → Edit Password) since the old one must be treated as
+// compromised.
+if (!process.env.MONGODB_URI) {
+  console.warn('⚠️  MONGODB_URI env var not set — using a hardcoded fallback. Set MONGODB_URI in your host\'s environment variables and rotate the DB password in MongoDB Atlas.');
+}
+const MONGODB_URI = process.env.MONGODB_URI || 'mongodb+srv://elitecinezo_db_user:g485P3ELoeP8REkD@cluster0.tsw1i0i.mongodb.net/subscription_hub?retryWrites=true&w=majority';
 const DB_NAME = 'subscription_hub';
+
+// ─── Auth: sessions & tokens ──────────────────────────────────
+// Lightweight bearer-token auth. Tokens are random (unguessable), issued
+// on successful login, and checked on every request to a protected route.
+// Stored in memory: simple, and fine for a single server instance — they
+// reset on restart/redeploy (admin/users just log in again). If you ever
+// run more than one server instance, move these Maps to Mongo or Redis so
+// all instances share the same session state.
+const SESSION_TTL_MS = 12 * 60 * 60 * 1000; // 12 hours
+const RESET_TOKEN_TTL_MS = 10 * 60 * 1000; // 10 minutes
+const adminSessions = new Map();  // token -> expiry timestamp
+const userSessions = new Map();   // token -> { username, expiry }
+const resetTokens = new Map();    // token -> { username, expiry } (single-use, forgot-password)
+
+function newToken() {
+  return crypto.randomBytes(32).toString('hex');
+}
+function getBearerToken(req) {
+  const header = req.headers['authorization'] || '';
+  const match = header.match(/^Bearer (.+)$/i);
+  return match ? match[1] : null;
+}
+// Figures out who's calling: an authenticated admin, a logged-in user
+// (and which one), or an anonymous visitor. Routes that return different
+// levels of detail depending on the caller use this instead of a hard
+// require-or-reject check.
+function identify(req) {
+  const token = getBearerToken(req);
+  if (!token) return { role: 'anon' };
+  const adminExp = adminSessions.get(token);
+  if (adminExp && adminExp > Date.now()) return { role: 'admin' };
+  const userSess = userSessions.get(token);
+  if (userSess && userSess.expiry > Date.now()) return { role: 'user', username: userSess.username };
+  return { role: 'anon' };
+}
+// Hard gate for admin-only routes.
+function requireAdmin(req, res, next) {
+  const token = getBearerToken(req);
+  const exp = token && adminSessions.get(token);
+  if (!exp || exp < Date.now()) {
+    return res.status(401).json({ error: 'Admin login required' });
+  }
+  adminSessions.set(token, Date.now() + SESSION_TTL_MS); // sliding expiry
+  next();
+}
+// Gate for routes any signed-in caller (a logged-in user OR an admin) may
+// use, e.g. completing a purchase. Attaches req.auth for the route to use.
+function requireAuth(req, res, next) {
+  const auth = identify(req);
+  if (auth.role === 'anon') return res.status(401).json({ error: 'Please log in first' });
+  req.auth = auth;
+  next();
+}
+// True if the caller is an admin, or is the specific user the route is
+// acting on.
+function isAdminOrSelf(auth, username) {
+  return auth.role === 'admin' || (auth.role === 'user' && auth.username === username);
+}
 
 let db;
 let subscriptionsCollection;
@@ -103,21 +172,52 @@ async function claimIdempotencyKey(key) {
 // takes effect for every device, not just the one that made the change.
 const ADMIN_SETTINGS_ID = 'main';
 
-app.get('/api/admin/settings', async (req, res) => {
+// Log in as admin: verified entirely server-side. On success this issues a
+// random session token — the actual password is never sent back to the
+// browser, here or anywhere else.
+app.post('/api/admin/login', async (req, res) => {
   try {
+    const { password } = req.body;
+    if (!password) return res.status(400).json({ error: 'Password is required' });
     let settings = await adminSettingsCollection.findOne({ _id: ADMIN_SETTINGS_ID });
     if (!settings) {
-      // First time ever running this — seed sensible defaults.
       settings = { _id: ADMIN_SETTINGS_ID, password: 'admin123', recoveryNumber: '359609' };
       await adminSettingsCollection.insertOne(settings);
     }
-    res.json({ password: settings.password, recoveryNumber: settings.recoveryNumber || null });
+    if (String(password) !== String(settings.password)) {
+      return res.status(401).json({ error: 'Invalid password' });
+    }
+    const token = newToken();
+    adminSessions.set(token, Date.now() + SESSION_TTL_MS);
+    res.json({ token });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
-app.put('/api/admin/settings', async (req, res) => {
+app.post('/api/admin/logout', (req, res) => {
+  const token = getBearerToken(req);
+  if (token) adminSessions.delete(token);
+  res.json({ success: true });
+});
+
+// Everything below this point in the admin-settings section requires a
+// valid admin session — including reading the recovery number, which used
+// to be sent to every visitor on every page load.
+app.get('/api/admin/settings', requireAdmin, async (req, res) => {
+  try {
+    let settings = await adminSettingsCollection.findOne({ _id: ADMIN_SETTINGS_ID });
+    if (!settings) {
+      settings = { _id: ADMIN_SETTINGS_ID, password: 'admin123', recoveryNumber: '359609' };
+      await adminSettingsCollection.insertOne(settings);
+    }
+    res.json({ recoveryNumber: settings.recoveryNumber || null });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.put('/api/admin/settings', requireAdmin, async (req, res) => {
   try {
     const { password, recoveryNumber } = req.body;
     const update = {};
@@ -127,8 +227,17 @@ app.put('/api/admin/settings', async (req, res) => {
       return res.status(400).json({ error: 'Nothing to update' });
     }
     await adminSettingsCollection.updateOne({ _id: ADMIN_SETTINGS_ID }, { $set: update }, { upsert: true });
+    // Changing the password invalidates every OTHER existing admin session
+    // so a stolen old token stops working immediately, without logging the
+    // admin who just made the change out of their own session.
+    if (update.password !== undefined) {
+      const currentToken = getBearerToken(req);
+      for (const t of adminSessions.keys()) {
+        if (t !== currentToken) adminSessions.delete(t);
+      }
+    }
     const settings = await adminSettingsCollection.findOne({ _id: ADMIN_SETTINGS_ID });
-    res.json({ password: settings.password, recoveryNumber: settings.recoveryNumber || null });
+    res.json({ recoveryNumber: settings.recoveryNumber || null, success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -154,6 +263,7 @@ app.post('/api/admin/recover', async (req, res) => {
       return res.status(400).json({ error: 'Incorrect recovery number' });
     }
     await adminSettingsCollection.updateOne({ _id: ADMIN_SETTINGS_ID }, { $set: { password: newPassword } });
+    adminSessions.clear(); // force everyone (including a potential attacker) to log in again
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -445,10 +555,40 @@ async function seedData() {
 
 // ─── Routes ──────────────────────────────────────────────────
 
+// Strips account credentials (email/password) and other customers' PII
+// (username/password/whatsapp/email) out of a subscription document,
+// keeping only what's needed to browse/buy: catalog info, screen names,
+// and whether a screen is occupied. If `ownUsername` is given, that one
+// customer's own entries (and the account credentials for the screen(s)
+// they're actually on) are left intact — they need to see the login they
+// paid for.
+function sanitizeSubscriptionForCaller(sub, ownUsername) {
+  const accounts = (sub.accounts || []).map(acc => {
+    const screens = (acc.screens || []).map(scr => {
+      const isOwnScreen = ownUsername && (scr.customers || []).some(c => c.username === ownUsername);
+      const customers = (scr.customers || []).map(c => {
+        if (ownUsername && c.username === ownUsername) return c;
+        return { username: c.username, screens: c.screens }; // just enough to show "occupied"
+      });
+      return { ...scr, pin: isOwnScreen ? scr.pin : undefined, customers };
+    });
+    const hasOwnCustomer = ownUsername && screens.some(s => (s.customers || []).some(c => c.username === ownUsername));
+    return {
+      ...acc,
+      email: hasOwnCustomer ? acc.email : undefined,
+      password: hasOwnCustomer ? acc.password : undefined,
+      screens
+    };
+  });
+  return { ...sub, accounts, costPerMonth: undefined };
+}
+
 app.get('/api/subscriptions', async (req, res) => {
   try {
     const subs = await subscriptionsCollection.find({}).toArray();
-    res.json(subs);
+    const auth = identify(req);
+    if (auth.role === 'admin') return res.json(subs);
+    res.json(subs.map(s => sanitizeSubscriptionForCaller(s, auth.role === 'user' ? auth.username : null)));
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -458,13 +598,15 @@ app.get('/api/subscriptions/:id', async (req, res) => {
   try {
     const sub = await subscriptionsCollection.findOne({ id: req.params.id });
     if (!sub) return res.status(404).json({ error: 'Not found' });
-    res.json(sub);
+    const auth = identify(req);
+    if (auth.role === 'admin') return res.json(sub);
+    res.json(sanitizeSubscriptionForCaller(sub, auth.role === 'user' ? auth.username : null));
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
-app.post('/api/subscriptions', async (req, res) => {
+app.post('/api/subscriptions', requireAdmin, async (req, res) => {
   try {
     const { id, name, type, accounts, costPerMonth, sellingPrice, slots, askFor, description, importantNote, logo } = req.body;
     const existing = await subscriptionsCollection.findOne({ id });
@@ -524,7 +666,7 @@ function dedupeAccounts(accounts) {
   return order;
 }
 
-app.put('/api/subscriptions/:id', async (req, res) => {
+app.put('/api/subscriptions/:id', requireAdmin, async (req, res) => {
   try {
     const { name, type, accounts, costPerMonth, sellingPrice, slots, askFor, description, importantNote, logo } = req.body;
     const update = {};
@@ -555,7 +697,7 @@ app.put('/api/subscriptions/:id', async (req, res) => {
 // One-click cleanup for subscriptions that already have duplicate accounts
 // from before this guard existed — re-runs the same dedupe against
 // whatever's currently saved and reports how many were merged away.
-app.post('/api/subscriptions/:id/dedupe-accounts', async (req, res) => {
+app.post('/api/subscriptions/:id/dedupe-accounts', requireAdmin, async (req, res) => {
   try {
     const sub = await subscriptionsCollection.findOne({ id: req.params.id });
     if (!sub) return res.status(404).json({ error: 'Not found' });
@@ -572,7 +714,7 @@ app.post('/api/subscriptions/:id/dedupe-accounts', async (req, res) => {
   }
 });
 
-app.delete('/api/subscriptions/:id', async (req, res) => {
+app.delete('/api/subscriptions/:id', requireAdmin, async (req, res) => {
   try {
     const result = await subscriptionsCollection.deleteOne({ id: req.params.id });
     if (result.deletedCount === 0) {
@@ -589,7 +731,7 @@ app.delete('/api/subscriptions/:id', async (req, res) => {
 // below only touches the exact account/screen it targets instead of replacing the
 // entire accounts array, so two things happening at once can never wipe each other out.
 
-app.post('/api/subscriptions/:id/allocate', async (req, res) => {
+app.post('/api/subscriptions/:id/allocate', requireAuth, async (req, res) => {
   try {
     const { accountId, screenId, customer, purchaseId } = req.body;
     if (!accountId || !screenId || !customer || !customer.username) {
@@ -632,7 +774,7 @@ app.post('/api/subscriptions/:id/allocate', async (req, res) => {
   }
 });
 
-app.put('/api/subscriptions/:id/accounts/:accountId/screens/:screenId/customers/:username', async (req, res) => {
+app.put('/api/subscriptions/:id/accounts/:accountId/screens/:screenId/customers/:username', requireAdmin, async (req, res) => {
   try {
     const { name, password, whatsapp, expiryDate, months, days, email, newUsername } = req.body;
     const setObj = {};
@@ -671,7 +813,7 @@ app.put('/api/subscriptions/:id/accounts/:accountId/screens/:screenId/customers/
   }
 });
 
-app.delete('/api/subscriptions/:id/accounts/:accountId/screens/:screenId/customers/:username', async (req, res) => {
+app.delete('/api/subscriptions/:id/accounts/:accountId/screens/:screenId/customers/:username', requireAdmin, async (req, res) => {
   try {
     const result = await subscriptionsCollection.updateOne(
       { id: req.params.id },
@@ -728,7 +870,10 @@ app.post('/api/users/signup', async (req, res) => {
       createdAt: new Date()
     };
     await usersCollection.insertOne(newUser);
-    res.json({ success: true, user: newUser });
+    const token = newToken();
+    userSessions.set(token, { username: newUser.username, expiry: Date.now() + SESSION_TTL_MS });
+    const { password: _pw, ...safeUser } = newUser;
+    res.json({ success: true, user: safeUser, token });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -741,7 +886,10 @@ app.post('/api/users/login', async (req, res) => {
     if (!user || user.password !== password) {
       return res.status(401).json({ error: 'Invalid credentials' });
     }
-    res.json({ success: true, user });
+    const token = newToken();
+    userSessions.set(token, { username: user.username, expiry: Date.now() + SESSION_TTL_MS });
+    const { password: _pw, ...safeUser } = user;
+    res.json({ success: true, user: safeUser, token });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -762,13 +910,18 @@ app.post('/api/users/verify-whatsapp', async (req, res) => {
     if (!user || normalize(user.whatsapp) !== normalize(whatsapp)) {
       return res.status(401).json({ success: false, error: 'That WhatsApp number does not match our records for this username.' });
     }
-    res.json({ success: true });
+    // This token — not just knowing the username — is what proves the
+    // WhatsApp check actually happened, and is required by the password
+    // reset below. Single-use and expires quickly.
+    const resetToken = newToken();
+    resetTokens.set(resetToken, { username: user.username, expiry: Date.now() + RESET_TOKEN_TTL_MS });
+    res.json({ success: true, resetToken });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
-app.get('/api/users', async (req, res) => {
+app.get('/api/users', requireAdmin, async (req, res) => {
   try {
     const users = await usersCollection.find({}).toArray();
     const sanitized = users.map(u => {
@@ -781,11 +934,15 @@ app.get('/api/users', async (req, res) => {
   }
 });
 
-app.get('/api/users/:username', async (req, res) => {
+app.get('/api/users/:username', requireAuth, async (req, res) => {
   try {
+    if (!isAdminOrSelf(req.auth, req.params.username)) {
+      return res.status(403).json({ error: 'Not authorized to view this account' });
+    }
     const user = await usersCollection.findOne({ username: req.params.username });
     if (!user) return res.status(404).json({ error: 'User not found' });
-    res.json(user);
+    const { password, ...safe } = user;
+    res.json(safe);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -807,7 +964,7 @@ app.put('/api/users/:username/incrementPurchase', async (req, res) => {
   }
 });
 
-app.post('/api/users/:username/addCredits', async (req, res) => {
+app.post('/api/users/:username/addCredits', requireAdmin, async (req, res) => {
   try {
     const { amount, reason } = req.body;
     if (!amount || amount <= 0) {
@@ -842,8 +999,11 @@ app.post('/api/users/:username/addCredits', async (req, res) => {
 
 // Full credit history for a customer: every add and every spend, with the
 // date/time and what it was for, newest first.
-app.get('/api/users/:username/credit-history', async (req, res) => {
+app.get('/api/users/:username/credit-history', requireAuth, async (req, res) => {
   try {
+    if (!isAdminOrSelf(req.auth, req.params.username)) {
+      return res.status(403).json({ error: 'Not authorized to view this account' });
+    }
     const list = await creditHistoryCollection
       .find({ username: req.params.username })
       .sort({ createdAt: -1 })
@@ -863,8 +1023,11 @@ app.get('/api/users/:username/credit-history', async (req, res) => {
 // the check and the decrement in a single findOneAndUpdate makes it
 // impossible for two concurrent requests to both succeed against the same
 // balance.
-app.post('/api/users/:username/deductCredits', async (req, res) => {
+app.post('/api/users/:username/deductCredits', requireAuth, async (req, res) => {
   try {
+    if (!isAdminOrSelf(req.auth, req.params.username)) {
+      return res.status(403).json({ error: 'Not authorized to modify this account' });
+    }
     const { amount, purchaseId, reason } = req.body;
     if (!amount || amount <= 0) {
       return res.status(400).json({ error: 'Invalid amount' });
@@ -911,7 +1074,7 @@ app.post('/api/users/:username/deductCredits', async (req, res) => {
 
 // Delete a user account (login credentials only — their existing purchased
 // subscription entries are left untouched; remove those separately if needed).
-app.delete('/api/users/:username', async (req, res) => {
+app.delete('/api/users/:username', requireAdmin, async (req, res) => {
   try {
     const result = await usersCollection.deleteOne({ username: req.params.username });
     if (result.deletedCount === 0) {
@@ -929,7 +1092,23 @@ app.delete('/api/users/:username', async (req, res) => {
 app.put('/api/users/:username', async (req, res) => {
   try {
     const oldUsername = req.params.username;
-    const { username: newUsername, password, whatsapp, credits } = req.body;
+    const { username: newUsername, password, whatsapp, credits, resetToken } = req.body;
+
+    // Either an admin is making this change, or the caller just proved
+    // ownership via the WhatsApp verification step (verify-whatsapp) and is
+    // presenting the single-use token that step issued.
+    const auth = identify(req);
+    let authorized = auth.role === 'admin';
+    if (!authorized && resetToken) {
+      const rt = resetTokens.get(resetToken);
+      if (rt && rt.expiry > Date.now() && rt.username === oldUsername) {
+        resetTokens.delete(resetToken); // single-use
+        authorized = true;
+      }
+    }
+    if (!authorized) {
+      return res.status(401).json({ error: 'Not authorized to modify this account' });
+    }
 
     const existingUser = await usersCollection.findOne({ username: oldUsername });
     if (!existingUser) return res.status(404).json({ error: 'User not found' });
@@ -985,7 +1164,7 @@ app.get('/api/deals/active', async (req, res) => {
   }
 });
 
-app.post('/api/deals', async (req, res) => {
+app.post('/api/deals', requireAdmin, async (req, res) => {
   try {
     const { id, subscriptionIds, title, description, actualPrice, discountPrice, active } = req.body;
     if (!id || !subscriptionIds || !subscriptionIds.length || !title || actualPrice == null || discountPrice == null) {
@@ -1012,7 +1191,7 @@ app.post('/api/deals', async (req, res) => {
   }
 });
 
-app.put('/api/deals/:id', async (req, res) => {
+app.put('/api/deals/:id', requireAdmin, async (req, res) => {
   try {
     const { subscriptionIds, title, description, actualPrice, discountPrice, active } = req.body;
     const update = {};
@@ -1036,7 +1215,7 @@ app.put('/api/deals/:id', async (req, res) => {
   }
 });
 
-app.delete('/api/deals/:id', async (req, res) => {
+app.delete('/api/deals/:id', requireAdmin, async (req, res) => {
   try {
     const result = await dealsCollection.deleteOne({ id: req.params.id });
     if (result.deletedCount === 0) {
@@ -1096,7 +1275,7 @@ app.post('/api/otp/verify', async (req, res) => {
   }
 });
 
-app.get('/api/otp/list', async (req, res) => {
+app.get('/api/otp/list', requireAdmin, async (req, res) => {
   try {
     const list = await otpsCollection.find({})
       .sort({ createdAt: -1 })
@@ -1118,7 +1297,7 @@ app.get('/api/promotions', async (req, res) => {
   }
 });
 
-app.post('/api/promotions', async (req, res) => {
+app.post('/api/promotions', requireAdmin, async (req, res) => {
   try {
     const { id, heading, image, active } = req.body;
     if (!id || !heading || !image) {
@@ -1142,7 +1321,7 @@ app.post('/api/promotions', async (req, res) => {
   }
 });
 
-app.put('/api/promotions/:id', async (req, res) => {
+app.put('/api/promotions/:id', requireAdmin, async (req, res) => {
   try {
     const { heading, image, active } = req.body;
     const update = {};
@@ -1163,7 +1342,7 @@ app.put('/api/promotions/:id', async (req, res) => {
   }
 });
 
-app.delete('/api/promotions/:id', async (req, res) => {
+app.delete('/api/promotions/:id', requireAdmin, async (req, res) => {
   try {
     const result = await promotionsCollection.deleteOne({ id: req.params.id });
     if (result.deletedCount === 0) {
@@ -1184,7 +1363,7 @@ app.delete('/api/promotions/:id', async (req, res) => {
 // Either way, nothing is auto-removed: the admin sees it here until they
 // manually mark it fulfilled once the account has been created and given
 // to the customer.
-app.get('/api/waiting', async (req, res) => {
+app.get('/api/waiting', requireAdmin, async (req, res) => {
   try {
     const list = await waitingCollection.find({}).sort({ createdAt: -1 }).toArray();
     res.json(list);
@@ -1234,7 +1413,7 @@ app.post('/api/waiting', async (req, res) => {
   }
 });
 
-app.delete('/api/waiting/:id', async (req, res) => {
+app.delete('/api/waiting/:id', requireAdmin, async (req, res) => {
   try {
     const result = await waitingCollection.deleteOne({ id: req.params.id });
     if (result.deletedCount === 0) {
@@ -1256,7 +1435,7 @@ app.get('/api/faqs', async (req, res) => {
   }
 });
 
-app.post('/api/faqs', async (req, res) => {
+app.post('/api/faqs', requireAdmin, async (req, res) => {
   try {
     const { question, answer, category } = req.body;
     if (!question || !answer) {
@@ -1276,7 +1455,7 @@ app.post('/api/faqs', async (req, res) => {
   }
 });
 
-app.delete('/api/faqs/:id', async (req, res) => {
+app.delete('/api/faqs/:id', requireAdmin, async (req, res) => {
   try {
     const result = await faqsCollection.deleteOne({ id: req.params.id });
     if (result.deletedCount === 0) {
@@ -1299,6 +1478,14 @@ app.delete('/api/faqs/:id', async (req, res) => {
 app.get('/api/custom-grants', async (req, res) => {
   try {
     const { username } = req.query;
+    const auth = identify(req);
+    if (username) {
+      if (!isAdminOrSelf(auth, username)) {
+        return res.status(403).json({ error: 'Not authorized to view these grants' });
+      }
+    } else if (auth.role !== 'admin') {
+      return res.status(401).json({ error: 'Admin login required' });
+    }
     const filter = username ? { username } : {};
     const list = await customGrantsCollection.find(filter).sort({ createdAt: -1 }).toArray();
     if (username) {
@@ -1312,7 +1499,7 @@ app.get('/api/custom-grants', async (req, res) => {
   }
 });
 
-app.post('/api/custom-grants', async (req, res) => {
+app.post('/api/custom-grants', requireAdmin, async (req, res) => {
   try {
     const {
       username, name, whatsapp, subscriptionName, email, password, notes,
@@ -1368,7 +1555,7 @@ app.post('/api/custom-grants', async (req, res) => {
   }
 });
 
-app.delete('/api/custom-grants/:id', async (req, res) => {
+app.delete('/api/custom-grants/:id', requireAdmin, async (req, res) => {
   try {
     const result = await customGrantsCollection.deleteOne({ id: req.params.id });
     if (result.deletedCount === 0) {
@@ -1385,7 +1572,7 @@ app.delete('/api/custom-grants/:id', async (req, res) => {
 // sellingPrice = what YOU charge the customer (your revenue).
 // profit = revenue - cost. All three are reported separately, plus a
 // breakdown by subscription type and an optional custom date range.
-app.get('/api/income', async (req, res) => {
+app.get('/api/income', requireAdmin, async (req, res) => {
   try {
     const { period, startDate: customStart, endDate: customEnd } = req.query;
     const now = new Date();
