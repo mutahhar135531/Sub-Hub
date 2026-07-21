@@ -1586,13 +1586,20 @@ function pinChangeNoteForExpiry(expiryDate, screen) {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
-  // Already handled: the PIN was reset on/after this person's expiry, so
-  // the admin has already dealt with this specific departure — nothing
-  // more to say, regardless of the schedule below.
+  // Already handled: the PIN was reset on/after this person's expiry, and
+  // that reset was recent — so the admin has already dealt with this
+  // specific departure. We require BOTH conditions (not just resetAt >=
+  // exp) because otherwise a reset from a totally unrelated, older
+  // departure on this same screen (or a one-off manual PIN reset months
+  // ago) would permanently silence notices for every future customer
+  // whose expiry happens to fall before that old timestamp.
   if (screen.pinResetAt) {
     const resetAt = new Date(screen.pinResetAt);
     resetAt.setHours(0, 0, 0, 0);
-    if (resetAt >= exp) return null;
+    const sinceReset = Math.round((today - resetAt) / (1000 * 60 * 60 * 24));
+    if (resetAt >= exp && sinceReset >= 0 && sinceReset <= RECENT_PIN_RESET_SUPPRESSION_DAYS) {
+      return null;
+    }
   }
 
   const changeDay = new Date(exp);

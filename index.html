@@ -5935,7 +5935,7 @@
       };
 
       const openEditModal = (subId, accId, screenId, customerIdx, customer) => {
-        setEditingCustomer({ subId, accId, screenId, customerIdx });
+        setEditingCustomer({ subId, accId, screenId, username: customer.username });
         setEditForm({
           name: customer.name || '',
           username: customer.username || '',
@@ -5950,17 +5950,16 @@
       };
       const saveEdit = async () => {
         if (!editingCustomer) return;
-        const { subId, accId, screenId, customerIdx } = editingCustomer;
+        const { subId, accId, screenId, username: originalUsername } = editingCustomer;
         const sub = subscriptions.find(s => s.id === subId);
         if (!sub) { addToast('Subscription not found', 'error'); return; }
         const acc = sub.accounts.find(a => a.id === accId);
         if (!acc) { addToast('Account not found', 'error'); return; }
         const screen = acc.screens.find(s => s.id === screenId);
-        if (!screen || !screen.customers || screen.customers.length <= customerIdx) {
+        if (!screen || !(screen.customers || []).some(c => c.username === originalUsername)) {
           addToast('Customer not found', 'error');
           return;
         }
-        const originalUsername = screen.customers[customerIdx].username;
         try {
           await editCustomerEntry(subId, accId, screenId, originalUsername, {
             name: editForm.name,
