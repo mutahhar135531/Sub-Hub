@@ -296,6 +296,34 @@
 
     const API_BASE = 'https://sub-hub-he32.onrender.com';
 
+    // ─── Auth token helpers ───────────────────────────────────
+    // On login the server hands us a signed token proving who we are. We
+    // send it on data requests so the server knows which account
+    // credentials this viewer is actually allowed to see (their own — or
+    // everything, for the admin) and blanks out the rest. The admin token,
+    // when present, wins so the admin panel gets the full, unmasked data.
+    // Some mobile browsers — especially in-app webviews like WhatsApp/
+    // Instagram/Facebook's built-in browser — silently fail to persist (or
+    // outright block) localStorage. If that happens the login "succeeds"
+    // but the token never actually gets saved, so every later request looks
+    // logged-out to the server and passwords/PINs come back blank. Falling
+    // back to sessionStorage catches most of those cases (it's a different,
+    // more permissive storage bucket), and reading from both means we don't
+    // care which one a given browser actually allowed.
+    const saveAuthToken = (key, token) => {
+      try { localStorage.setItem(key, token); } catch (e) { /* blocked - fall through */ }
+      try { sessionStorage.setItem(key, token); } catch (e) { /* blocked - nothing more we can do */ }
+    };
+    const readAuthToken = (key) => {
+      try { const v = localStorage.getItem(key); if (v) return v; } catch (e) {}
+      try { return sessionStorage.getItem(key); } catch (e) { return null; }
+    };
+    const getAuthToken = () => readAuthToken('adminToken') || readAuthToken('authToken') || null;
+    const authHeaders = (base = {}) => {
+      const token = getAuthToken();
+      return token ? { ...base, 'Authorization': `Bearer ${token}` } : { ...base };
+    };
+
     // A fresh, unique ID generated once per purchase attempt. It's sent to
     // the server with every step of that purchase (credit deduction,
     // saving the allocation, adding a waiting-list entry) so the server can
@@ -336,7 +364,7 @@
 
     const fetchSubscriptions = async () => {
       const res = await fetch(`${API_BASE}/api/subscriptions?t=${Date.now()}`, {
-        headers: { 'Cache-Control': 'no-cache' }
+        headers: authHeaders({ 'Cache-Control': 'no-cache' })
       });
       return res.json();
     };
@@ -414,7 +442,7 @@
     const allocateCustomer = async (subId, accountId, screenId, customer, purchaseId) => {
       const res = await fetch(`${API_BASE}/api/subscriptions/${subId}/allocate`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: authHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({ accountId, screenId, customer, purchaseId }),
       });
       if (!res.ok) {
@@ -481,7 +509,11 @@
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username, password, whatsapp }),
       });
-      return res.json();
+      const data = await res.json();
+      // Remember the login token so later requests can prove who we are and
+      // get this user's own account credentials back.
+      if (data && data.token) saveAuthToken('authToken', data.token);
+      return data;
     };
 
     const loginUser = async (username, password) => {
@@ -490,7 +522,9 @@
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username, password }),
       });
-      return res.json();
+      const data = await res.json();
+      if (data && data.token) saveAuthToken('authToken', data.token);
+      return data;
     };
 
     const verifyWhatsapp = async (username, whatsapp) => {
@@ -518,6 +552,24 @@
         headers: { 'Cache-Control': 'no-cache' }
       });
       return res.json();
+    };
+
+    // Admin login is verified on the server — the password is sent for
+    // checking and only a yes/no comes back. The real admin password is
+    // never downloaded to the browser, so it can't be read from the
+    // Network tab or localStorage.
+    const loginAdmin = async (password) => {
+      const res = await fetch(`${API_BASE}/api/admin/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password }),
+      });
+      const data = await res.json().catch(() => ({}));
+      const success = res.ok && data.success;
+      // Store the admin token so the admin panel's data requests come back
+      // with the full, unmasked account credentials.
+      if (success && data.token) saveAuthToken('adminToken', data.token);
+      return { ...data, success };
     };
 
     const updateAdminSettings = async (data) => {
@@ -694,7 +746,7 @@
     const fetchCustomGrants = async (username) => {
       const qs = username ? `username=${encodeURIComponent(username)}&t=${Date.now()}` : `t=${Date.now()}`;
       const res = await fetch(`${API_BASE}/api/custom-grants?${qs}`, {
-        headers: { 'Cache-Control': 'no-cache' }
+        headers: authHeaders({ 'Cache-Control': 'no-cache' })
       });
       return res.json();
     };
@@ -787,15 +839,19 @@
       const [toasts, setToasts] = useState([]);
       const [loading, setLoading] = useState(false);
       const [isAdmin, setIsAdmin] = useState(false);
-      const [adminPassword, setAdminPassword] = useState(() => {
-        const saved = localStorage.getItem('adminPassword');
-        return saved || 'admin123';
-      });
-      const [recoveryNumber, setRecoveryNumber] = useState(() => {
-        return localStorage.getItem('adminRecoveryNumber') || null;
-      });
+      // Whether a recovery number is set (a flag only). The actual admin
+      // password and recovery number now live only on the server and are
+      // never downloaded to the browser.
+      const [recoveryNumber, setRecoveryNumber] = useState(false);
       const [user, setUser] = useState(() => {
         const saved = localStorage.getItem('user');
+        const token = readAuthToken('authToken');
+        // A cached user with no matching auth token can't actually prove who
+        // they are to the server (this device never got a token, or it was
+        // lost/cleared) — treat that as logged OUT so they're sent back to
+        // the login screen and get a fresh token, instead of looking
+        // "active" while every password/PIN silently comes back blank.
+        if (saved && !token) return null;
         return saved ? JSON.parse(saved) : null;
       });
 
@@ -831,18 +887,22 @@
         }
       };
 
-      useEffect(() => { localStorage.setItem('adminPassword', adminPassword); }, [adminPassword]);
-      useEffect(() => { if (recoveryNumber) localStorage.setItem('adminRecoveryNumber', recoveryNumber); }, [recoveryNumber]);
       useEffect(() => { localStorage.setItem('user', JSON.stringify(user)); }, [user]);
 
-      // Pull the real, shared admin password/recovery number from the
-      // server as soon as the app loads — the localStorage values above are
-      // just a fast, offline-friendly starting point until this resolves.
+      // Clear any admin password / recovery number that older versions of
+      // the app used to cache in this browser — those secrets now live only
+      // on the server and should not linger on the device.
+      useEffect(() => {
+        localStorage.removeItem('adminPassword');
+        localStorage.removeItem('adminRecoveryNumber');
+      }, []);
+
+      // Ask the server only *whether* a recovery number is set (never the
+      // value). Used to decide what the admin settings screen shows.
       const syncAdminSettings = async () => {
         try {
           const settings = await fetchAdminSettings();
-          if (settings && settings.password) setAdminPassword(settings.password);
-          if (settings && settings.recoveryNumber) setRecoveryNumber(settings.recoveryNumber);
+          setRecoveryNumber(!!(settings && settings.hasRecoveryNumber));
         } catch (err) {
           console.error('Failed to sync admin settings:', err);
         }
@@ -850,7 +910,7 @@
       useEffect(() => { syncAdminSettings(); }, []);
 
       return (
-        <AppContext.Provider value={{ toasts, addToast, removeToast, loading, setLoading, isAdmin, setIsAdmin, adminPassword, setAdminPassword, recoveryNumber, setRecoveryNumber, syncAdminSettings }}>
+        <AppContext.Provider value={{ toasts, addToast, removeToast, loading, setLoading, isAdmin, setIsAdmin, recoveryNumber, setRecoveryNumber, syncAdminSettings }}>
           <UserContext.Provider value={{ user, setUser, refreshUser }}>
             {children}
           </UserContext.Provider>
@@ -2421,7 +2481,7 @@
             days: totalDays,
             name: name.trim(),
             username: user.username,
-            password: user.password,
+            password: '', // never store the user's login password in purchase records
             whatsapp: whatsapp.trim(),
             allocated: allocatedData,
             expiryDate: expiry.toISOString().split('T')[0],
@@ -2737,7 +2797,7 @@
             days: totalDays,
             name: name.trim(),
             username: user.username,
-            password: user.password,
+            password: '', // never store the user's login password in purchase records
             whatsapp: whatsapp.trim(),
             allocated: allocatedData,
             expiryDate: expiry.toISOString().split('T')[0],
@@ -3046,7 +3106,7 @@
             days: totalDays,
             name: name.trim(),
             username: user.username,
-            password: user.password,
+            password: '', // never store the user's login password in purchase records
             whatsapp: whatsapp.trim(),
             email: email.trim(),
             customName: isCustom ? customSubName.trim() : undefined,
@@ -3383,7 +3443,7 @@
             days: totalDays,
             name: name.trim(),
             username: user.username,
-            password: user.password,
+            password: '', // never store the user's login password in purchase records
             whatsapp: whatsapp.trim(),
             allocated: allAllocated,
             expiryDate: expiry.toISOString().split('T')[0],
@@ -4116,7 +4176,7 @@
       const [password, setPassword] = useState('');
       const [error, setError] = useState('');
       const [loading, setLoading] = useState(false);
-      const { addToast, adminPassword, setAdminPassword } = useContext(AppContext);
+      const { addToast } = useContext(AppContext);
 
       // "Forgot password" recovery flow — verified entirely server-side
       // against the stored recovery number, so it works even if this
@@ -4127,17 +4187,28 @@
       const [recoverConfirmPassword, setRecoverConfirmPassword] = useState('');
       const [recoverLoading, setRecoverLoading] = useState(false);
 
-      const handleSubmit = () => {
+      // The password is checked on the server (POST /api/admin/login) and
+      // only a yes/no comes back — the real admin password is never sent to
+      // the browser, so it can't be read from the Network tab.
+      const handleSubmit = async () => {
         if (!password) { setError('Enter password'); return; }
         setLoading(true);
-        if (password === adminPassword) {
-          onLogin();
-          addToast('Welcome Admin!', 'success');
-        } else {
-          setError('Invalid password');
-          addToast('Invalid password', 'error');
+        try {
+          const result = await loginAdmin(password);
+          if (result.success) {
+            setError('');
+            onLogin();
+            addToast('Welcome Admin!', 'success');
+          } else {
+            setError('Invalid password');
+            addToast('Invalid password', 'error');
+          }
+        } catch (err) {
+          setError('Login failed. Please try again.');
+          addToast('Login failed. Please try again.', 'error');
+        } finally {
+          setLoading(false);
         }
-        setLoading(false);
       };
 
       const handleRecover = async () => {
@@ -4156,7 +4227,6 @@
         setRecoverLoading(true);
         try {
           await recoverAdminPassword(recoverNumber.trim(), recoverNewPassword.trim());
-          setAdminPassword(recoverNewPassword.trim());
           addToast('Password reset! You can log in now.', 'success');
           setShowRecover(false);
           setRecoverNumber('');
@@ -4744,7 +4814,7 @@
       const [incomeCustomStart, setIncomeCustomStart] = useState('');
       const [incomeCustomEnd, setIncomeCustomEnd] = useState('');
       const [incomeLoading, setIncomeLoading] = useState(false);
-      const { addToast, adminPassword, setAdminPassword, recoveryNumber, setRecoveryNumber } = useContext(AppContext);
+      const { addToast, recoveryNumber, setRecoveryNumber } = useContext(AppContext);
       const { user, setUser, refreshUser } = useContext(UserContext);
 
       // ─── Promotions state ────────────────────────────────────────
@@ -5037,6 +5107,12 @@
           if (!silent) addToast('Failed to refresh data', 'error');
         }
       };
+
+      // As soon as the admin panel opens, quietly pull a fresh copy of the
+      // subscriptions with the admin token attached — this is what loads the
+      // full, unmasked account credentials for management (the app-level copy
+      // was fetched before login and has them hidden).
+      useEffect(() => { refreshData(true); }, []);
 
       // ─── Subscription CRUD ──────────────────────────────────────
       const handleLogoUpload = (e) => {
@@ -5596,7 +5672,6 @@
           // the change takes effect on every device immediately, not just
           // the one used to make it.
           await updateAdminSettings({ password: newAdminPassword.trim() });
-          setAdminPassword(newAdminPassword.trim());
           addToast('Admin password updated on all devices!', 'success');
           setNewAdminPassword('');
           setConfirmAdminPassword('');
@@ -5614,7 +5689,7 @@
         }
         try {
           await updateAdminSettings({ recoveryNumber: num });
-          setRecoveryNumber(num);
+          setRecoveryNumber(true);
           addToast('Recovery number saved!', 'success');
           setNewRecoveryNumber('');
         } catch (err) {
@@ -5996,7 +6071,7 @@
                 <h3 className="text-lg font-semibold text-white mb-1"><i className="fas fa-key text-yellow-400 mr-2"></i> Recovery Number</h3>
                 <p className="text-white/40 text-sm mb-4">
                   {recoveryNumber
-                    ? <>If you ever forget your admin password, use this number on the login screen to reset it. Currently set to: <span className="text-white font-semibold">{recoveryNumber}</span></>
+                    ? <>A recovery number is set. If you ever forget your admin password, enter this number on the login screen to reset it. <span className="text-white font-semibold">(Hidden for security — enter a new one below to change it.)</span></>
                     : 'Set a recovery number now, so if you ever forget your admin password you can reset it from the login screen instead of getting locked out.'}
                 </p>
                 <div className="space-y-3">
@@ -7690,9 +7765,19 @@
           // They touch different accounts/screens, so it's safe to save them all at
           // once instead of one-by-one — this is the only step the customer actually
           // has to wait on, so keeping it fast matters most here.
-          await Promise.all(allocations.map(allot => {
+          await Promise.all(allocations.map(async (allot) => {
             const subIdForAllot = allot.subscriptionId || data.subscriptionId;
-            return allocateCustomer(subIdForAllot, allot.accountId, allot.screenId, customerPayload, data.purchaseId);
+            const resp = await allocateCustomer(subIdForAllot, allot.accountId, allot.screenId, customerPayload, data.purchaseId);
+            // The server returns the real credentials for the slot we just
+            // purchased. Use them so the confirmation screen shows the actual
+            // email/password/PIN — the full master list is now hidden from
+            // the browser, so we can't read them from there anymore.
+            const creds = resp && resp.claimedCredentials;
+            if (creds) {
+              if (creds.email) allot.accountEmail = creds.email;
+              if (creds.password) allot.accountPassword = creds.password;
+              if (creds.pin) allot.screenPin = creds.pin;
+            }
           }));
 
           await Promise.all(waitingEntries.map(entry => addWaitingCustomer({
@@ -7759,6 +7844,8 @@
       const handleLogout = () => {
         setUser(null);
         setCustomerData(null);
+        localStorage.removeItem('authToken'); // drop the login token
+        try { sessionStorage.removeItem('authToken'); } catch (e) {}
         resetFlow();
         navigateTo('/');
         addToast('Logged out.', 'info');
@@ -8067,7 +8154,7 @@
 
           {activeTab === 'admin' && (
             <section id="admin-section" className="px-4 max-w-7xl mx-auto py-12">
-              {!isAdmin ? <AdminLogin onLogin={() => setIsAdmin(true)} /> : <AdminDashboard subscriptions={subscriptions} setSubscriptions={setSubscriptions} onLogout={() => { setIsAdmin(false); navigateTo('/'); }} onBack={() => navigateTo('/')} deals={deals} setDeals={setDeals} promotions={promotions} setPromotions={setPromotions} />}
+              {!isAdmin ? <AdminLogin onLogin={() => setIsAdmin(true)} /> : <AdminDashboard subscriptions={subscriptions} setSubscriptions={setSubscriptions} onLogout={() => { setIsAdmin(false); localStorage.removeItem('adminToken'); try { sessionStorage.removeItem('adminToken'); } catch (e) {} navigateTo('/'); }} onBack={() => navigateTo('/')} deals={deals} setDeals={setDeals} promotions={promotions} setPromotions={setPromotions} />}
             </section>
           )}
 
