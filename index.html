@@ -1026,9 +1026,18 @@
     // expiry dates) plus any admin broadcast notices. Requires a user
     // session — see /api/my-notes on the server.
     const fetchMyNotes = async () => {
-      const res = await fetch(`${API_BASE}/api/my-notes?t=${Date.now()}`, {
-        headers: authHeaders({ 'Cache-Control': 'no-cache' })
-      });
+      // Deliberately bypass authHeaders()/getAuthToken() here: those prefer
+      // an adminToken over an authToken if both exist in this browser (e.g.
+      // the same laptop used to run the admin panel AND test the customer
+      // view). /api/my-notes only accepts a customer ('user') token and
+      // rejects admin tokens outright, so on a browser with both stored the
+      // generic helper would silently send the wrong one and this would
+      // always come back empty. Reading 'authToken' directly guarantees we
+      // always send the customer's own token, on every device.
+      const token = readAuthToken('authToken');
+      const headers = { 'Cache-Control': 'no-cache' };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+      const res = await fetch(`${API_BASE}/api/my-notes?t=${Date.now()}`, { headers });
       if (!res.ok) return [];
       return res.json();
     };
