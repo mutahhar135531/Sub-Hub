@@ -121,7 +121,7 @@ function sanitizeUser(user) {
 async function getAdminSettings() {
   let settings = await adminSettingsCollection.findOne({ _id: ADMIN_SETTINGS_ID });
   if (!settings) {
-    settings = { _id: ADMIN_SETTINGS_ID, password: 'admin123', recoveryNumber: '359609' };
+    settings = { _id: ADMIN_SETTINGS_ID, password: 'admin123', recoveryNumber: '359609', theme: 'classic' };
     await adminSettingsCollection.insertOne(settings);
   }
   return settings;
@@ -294,7 +294,8 @@ app.get('/api/admin/settings', async (req, res) => {
     const settings = await getAdminSettings();
     res.json({
       hasPassword: !!settings.password,
-      hasRecoveryNumber: !!settings.recoveryNumber
+      hasRecoveryNumber: !!settings.recoveryNumber,
+      theme: settings.theme || 'classic'
     });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -323,10 +324,19 @@ app.post('/api/admin/login', async (req, res) => {
 
 app.put('/api/admin/settings', async (req, res) => {
   try {
-    const { password, recoveryNumber } = req.body;
+    const { password, recoveryNumber, theme } = req.body;
     const update = {};
     if (password !== undefined && password !== '') update.password = hashPassword(password);
     if (recoveryNumber !== undefined) update.recoveryNumber = recoveryNumber;
+    // Only ever store a theme id we actually ship — an unrecognized value
+    // here would otherwise silently break every visitor's page.
+    const VALID_THEMES = ['classic', 'spiderman'];
+    if (theme !== undefined) {
+      if (!VALID_THEMES.includes(theme)) {
+        return res.status(400).json({ error: 'Unknown theme' });
+      }
+      update.theme = theme;
+    }
     if (Object.keys(update).length === 0) {
       return res.status(400).json({ error: 'Nothing to update' });
     }
@@ -335,7 +345,8 @@ app.put('/api/admin/settings', async (req, res) => {
     res.json({
       success: true,
       hasPassword: !!settings.password,
-      hasRecoveryNumber: !!settings.recoveryNumber
+      hasRecoveryNumber: !!settings.recoveryNumber,
+      theme: settings.theme || 'classic'
     });
   } catch (err) {
     res.status(500).json({ error: err.message });
