@@ -357,7 +357,7 @@
 
     const fetchOTPList = async () => {
       const res = await fetch(`${API_BASE}/api/otp/list?t=${Date.now()}`, {
-        headers: { 'Cache-Control': 'no-cache' }
+        headers: authHeaders({ 'Cache-Control': 'no-cache' })
       });
       return res.json();
     };
@@ -372,7 +372,7 @@
     const updateSubscription = async (subId, data) => {
       const res = await fetch(`${API_BASE}/api/subscriptions/${subId}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: authHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify(data),
       });
       return res.json();
@@ -412,7 +412,7 @@
     const createSubscription = async (data) => {
       const res = await fetch(`${API_BASE}/api/subscriptions`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: authHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify(data),
       });
       return res.json();
@@ -421,6 +421,7 @@
     const deleteSubscriptionAPI = async (subId) => {
       const res = await fetch(`${API_BASE}/api/subscriptions/${subId}`, {
         method: 'DELETE',
+        headers: authHeaders(),
       });
       return res.json();
     };
@@ -428,6 +429,7 @@
     const dedupeAccountsAPI = async (subId) => {
       const res = await fetch(`${API_BASE}/api/subscriptions/${subId}/dedupe-accounts`, {
         method: 'POST',
+        headers: authHeaders(),
       });
       const json = await res.json().catch(() => ({}));
       if (!res.ok || json.error) {
@@ -457,7 +459,7 @@
     const editCustomerEntry = async (subId, accountId, screenId, username, data) => {
       const res = await fetch(`${API_BASE}/api/subscriptions/${subId}/accounts/${accountId}/screens/${screenId}/customers/${encodeURIComponent(username)}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: authHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify(data),
       });
       if (!res.ok) {
@@ -471,6 +473,7 @@
     const deleteCustomerEntryAPI = async (subId, accountId, screenId, username) => {
       const res = await fetch(`${API_BASE}/api/subscriptions/${subId}/accounts/${accountId}/screens/${screenId}/customers/${encodeURIComponent(username)}`, {
         method: 'DELETE',
+        headers: authHeaders(),
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({ error: 'Failed to delete customer' }));
@@ -482,6 +485,7 @@
     const deleteUserAPI = async (username) => {
       const res = await fetch(`${API_BASE}/api/users/${encodeURIComponent(username)}`, {
         method: 'DELETE',
+        headers: authHeaders(),
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({ error: 'Failed to delete user' }));
@@ -603,15 +607,16 @@
 
     const fetchAllUsers = async () => {
       const res = await fetch(`${API_BASE}/api/users?t=${Date.now()}`, {
-        headers: { 'Cache-Control': 'no-cache' }
+        headers: authHeaders({ 'Cache-Control': 'no-cache' })
       });
+      if (!res.ok) return [];
       return res.json();
     };
 
     const addCredits = async (username, amount, reason) => {
       const res = await fetch(`${API_BASE}/api/users/${username}/addCredits`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: authHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({ amount, reason }),
       });
       const data = await res.json();
@@ -653,7 +658,7 @@
     const createDeal = async (data) => {
       const res = await fetch(`${API_BASE}/api/deals`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: authHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify(data),
       });
       return res.json();
@@ -662,7 +667,7 @@
     const updateDeal = async (dealId, data) => {
       const res = await fetch(`${API_BASE}/api/deals/${dealId}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: authHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify(data),
       });
       return res.json();
@@ -671,6 +676,7 @@
     const deleteDeal = async (dealId) => {
       const res = await fetch(`${API_BASE}/api/deals/${dealId}`, {
         method: 'DELETE',
+        headers: authHeaders(),
       });
       return res.json();
     };
@@ -681,8 +687,9 @@
         url += `&startDate=${encodeURIComponent(customStart)}&endDate=${encodeURIComponent(customEnd || '')}`;
       }
       const res = await fetch(url, {
-        headers: { 'Cache-Control': 'no-cache' }
+        headers: authHeaders({ 'Cache-Control': 'no-cache' })
       });
+      if (!res.ok) return {};
       return res.json();
     };
 
@@ -696,7 +703,7 @@
     const createPromotion = async (data) => {
       const res = await fetch(`${API_BASE}/api/promotions`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: authHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify(data),
       });
       return res.json();
@@ -705,7 +712,7 @@
     const updatePromotion = async (promoId, data) => {
       const res = await fetch(`${API_BASE}/api/promotions/${promoId}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: authHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify(data),
       });
       return res.json();
@@ -714,6 +721,7 @@
     const deletePromotion = async (promoId) => {
       const res = await fetch(`${API_BASE}/api/promotions/${promoId}`, {
         method: 'DELETE',
+        headers: authHeaders(),
       });
       return res.json();
     };
@@ -721,8 +729,9 @@
     // ─── WAITING CUSTOMERS ──────────────────────────────────────
     const fetchWaitingList = async () => {
       const res = await fetch(`${API_BASE}/api/waiting?t=${Date.now()}`, {
-        headers: { 'Cache-Control': 'no-cache' }
+        headers: authHeaders({ 'Cache-Control': 'no-cache' })
       });
+      if (!res.ok) return [];
       return res.json();
     };
 
@@ -738,7 +747,7 @@
     };
 
     const removeWaitingCustomer = async (id) => {
-      const res = await fetch(`${API_BASE}/api/waiting/${id}`, { method: 'DELETE' });
+      const res = await fetch(`${API_BASE}/api/waiting/${id}`, { method: 'DELETE', headers: authHeaders() });
       return res.json();
     };
 
@@ -754,7 +763,7 @@
     const createCustomGrant = async (data) => {
       const res = await fetch(`${API_BASE}/api/custom-grants`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: authHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify(data),
       });
       const json = await res.json().catch(() => ({}));
@@ -765,7 +774,7 @@
     };
 
     const deleteCustomGrantAPI = async (id) => {
-      const res = await fetch(`${API_BASE}/api/custom-grants/${id}`, { method: 'DELETE' });
+      const res = await fetch(`${API_BASE}/api/custom-grants/${id}`, { method: 'DELETE', headers: authHeaders() });
       const json = await res.json().catch(() => ({}));
       if (!res.ok || json.error) {
         throw new Error(json.error || `Failed to remove custom grant (${res.status})`);
@@ -807,7 +816,7 @@
     const addFaq = async (data) => {
       const res = await fetch(`${API_BASE}/api/faqs`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: authHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify(data),
       });
       const result = await res.json();
@@ -816,7 +825,7 @@
     };
 
     const deleteFaq = async (id) => {
-      const res = await fetch(`${API_BASE}/api/faqs/${id}`, { method: 'DELETE' });
+      const res = await fetch(`${API_BASE}/api/faqs/${id}`, { method: 'DELETE', headers: authHeaders() });
       return res.json();
     };
 
@@ -5070,14 +5079,14 @@
       const loadUsers = async () => {
         try {
           const data = await fetchAllUsers();
-          setUsersList(data);
+          setUsersList(Array.isArray(data) ? data : []);
         } catch (err) { console.error(err); }
       };
 
       const loadWaiting = async () => {
         try {
           const data = await fetchWaitingList();
-          setWaitingList(data);
+          setWaitingList(Array.isArray(data) ? data : []);
         } catch (err) { console.error(err); }
       };
 
