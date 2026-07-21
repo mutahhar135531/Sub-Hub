@@ -4104,15 +4104,24 @@
     // Fetched fresh every time the customer opens their dashboard — see
     // GET /api/my-notes.
     function NotesBoard({ username }) {
-      const [notes, setNotes] = useState([]);
-      const [loading, setLoading] = useState(true);
+      // Cache-first, same pattern used for subscriptions: show whatever was
+      // seen last time immediately (no blank/loading gap), then quietly
+      // refresh from the network and swap in anything new. Only the very
+      // first-ever visit (nothing cached yet) has to wait on the network.
+      const [notes, setNotes] = useState(() => (username ? readCache('notes_' + username) : []));
+      const [loading, setLoading] = useState(() => !username || readCache('notes_' + username).length === 0);
 
       useEffect(() => {
-        if (!username) { setLoading(false); return; }
-        setLoading(true);
+        if (!username) { setNotes([]); setLoading(false); return; }
+        setNotes(readCache('notes_' + username));
+        setLoading(readCache('notes_' + username).length === 0);
         fetchMyNotes()
-          .then(data => setNotes(Array.isArray(data) ? data : []))
-          .catch(() => setNotes([]))
+          .then(data => {
+            const list = Array.isArray(data) ? data : [];
+            setNotes(list);
+            writeCache('notes_' + username, list);
+          })
+          .catch(() => {})
           .finally(() => setLoading(false));
       }, [username]);
 

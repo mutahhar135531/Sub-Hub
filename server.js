@@ -1572,11 +1572,12 @@ app.delete('/api/notices/:id', async (req, res) => {
 // before, the day of, or already handled — and if so, which message (if
 // any) belongs on the notes board today.
 //
-// RECENT_PIN_RESET_SUPPRESSION_DAYS: if this screen's PIN was JUST reset
-// (within this many days), the 2-day/1-day advance notices for the NEXT
-// change are skipped — only the "today" message fires — so customers
-// aren't warned repeatedly when changes cluster close together. Tune this
-// if that feels too aggressive or too lax.
+// RECENT_PIN_RESET_SUPPRESSION_DAYS: a PIN reset only counts as "this
+// person's departure was already handled" if it happened on/after their
+// own expiry AND within this many days — an old reset (from a different,
+// unrelated departure on this same screen, or routine PIN rotation) must
+// never permanently silence notices for someone else. Tune this if that
+// feels too aggressive or too lax.
 const RECENT_PIN_RESET_SUPPRESSION_DAYS = 7;
 function pinChangeNoteForExpiry(expiryDate, screen) {
   if (!expiryDate) return null;
@@ -1606,13 +1607,6 @@ function pinChangeNoteForExpiry(expiryDate, screen) {
   changeDay.setDate(changeDay.getDate() + 1);
   const daysToChange = Math.round((changeDay - today) / (1000 * 60 * 60 * 24));
   if (daysToChange < 0 || daysToChange > 2) return null;
-
-  if (screen.pinResetAt && daysToChange !== 0) {
-    const resetAt = new Date(screen.pinResetAt);
-    resetAt.setHours(0, 0, 0, 0);
-    const sinceReset = Math.round((today - resetAt) / (1000 * 60 * 60 * 24));
-    if (sinceReset >= 0 && sinceReset <= RECENT_PIN_RESET_SUPPRESSION_DAYS) return null;
-  }
 
   if (daysToChange === 2) return "For your security, we'll be changing this screen's PIN soon. We'll update it here — stay tuned!";
   if (daysToChange === 1) return "For your security, we'll be changing this screen's PIN tomorrow. We'll update it here — stay tuned!";
