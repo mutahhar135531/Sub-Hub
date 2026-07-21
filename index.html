@@ -2184,13 +2184,43 @@
       return pickMostRoom(chosenAccountSlots, roomLeft);
     };
 
-    const allocateScreens = (availableSlots, count, username, whatsapp, requestedScreenId = null) => {
+    const allocateScreens = (availableSlots, count, username, whatsapp, requestedScreenId = null, sameAccount = false) => {
       const notUsedByUser = availableSlots.filter(slot => {
         const customers = slot.screen.customers || [];
         if (customers.some(c => c.username === username)) return false;
         if (customers.some(c => c.whatsapp === whatsapp)) return false;
         return true;
       });
+
+      // "Same account" mode: every screen must come from one single
+      // account (e.g. someone buying 5 screens who wants them all under
+      // the one account rather than spread across several). If no single
+      // account has enough room for all of them, this fails outright
+      // rather than silently spreading across accounts — the caller
+      // decides whether to offer "Separate Accounts" as a fallback.
+      if (sameAccount && count > 1) {
+        const byAccount = {};
+        notUsedByUser.forEach(slot => {
+          const free = 3 - (slot.screen.customers ? slot.screen.customers.length : 0);
+          if (free <= 0) return;
+          const accId = slot.account.id;
+          if (!byAccount[accId]) byAccount[accId] = [];
+          byAccount[accId].push(slot);
+        });
+        const qualifying = Object.values(byAccount).filter(group => group.length >= count);
+        if (qualifying.length === 0) return { error: 'no_single_account' };
+
+        const totalCustomersEverywhere = availableSlots.reduce((sum, slot) => sum + (slot.screen.customers ? slot.screen.customers.length : 0), 0);
+        const isVirgin = totalCustomersEverywhere === 0;
+        const roomLeft = (slot) => 3 - (slot.screen.customers ? slot.screen.customers.length : 0);
+        const groupRoomLeft = (group) => group.reduce((sum, slot) => sum + roomLeft(slot), 0);
+        const bestRoom = Math.max(...qualifying.map(groupRoomLeft));
+        const tiedGroups = qualifying.filter(group => groupRoomLeft(group) === bestRoom);
+        const chosenGroup = isVirgin ? tiedGroups[0] : tiedGroups[Math.floor(Math.random() * tiedGroups.length)];
+
+        const sortedByRoom = [...chosenGroup].sort((a, b) => roomLeft(b) - roomLeft(a));
+        return sortedByRoom.slice(0, count);
+      }
 
       let allocated = [];
       const excludeIds = [];
@@ -2296,6 +2326,7 @@
       const [loading, setLoading] = useState(false);
       const [specificScreen, setSpecificScreen] = useState(false);
       const [selectedScreenId, setSelectedScreenId] = useState('');
+      const [sameAccount, setSameAccount] = useState(false);
       const [useCredits, setUseCredits] = useState(false);
       const { addToast } = useContext(AppContext);
       const { user: currentUser, setUser } = useContext(UserContext);
@@ -2424,16 +2455,27 @@
 
         if (canAllocate) {
           let requestedId = specificScreen ? selectedScreenId : null;
-          let allocationResult = allocateScreens(allAvailableSlots, screens, user.username, whatsapp.trim(), requestedId);
+          let allocationResult = allocateScreens(allAvailableSlots, screens, user.username, whatsapp.trim(), requestedId, sameAccount);
           let allocated = null;
           if (allocationResult.error) {
             if (specificScreen) {
-              const autoResult = allocateScreens(allAvailableSlots, screens, user.username, whatsapp.trim(), null);
+              const autoResult = allocateScreens(allAvailableSlots, screens, user.username, whatsapp.trim(), null, sameAccount);
               if (autoResult.error) {
                 isWaiting = true;
               } else {
                 allocated = autoResult;
                 addToast('The requested screen is not available. We\'ve assigned you another screen.', 'warning');
+              }
+            } else if (sameAccount && allocationResult.error === 'no_single_account') {
+              // No single account currently has room for all of them —
+              // fall back to spreading across accounts rather than
+              // silently failing or queuing the whole purchase.
+              const spreadResult = allocateScreens(allAvailableSlots, screens, user.username, whatsapp.trim(), null, false);
+              if (spreadResult.error) {
+                isWaiting = true;
+              } else {
+                allocated = spreadResult;
+                addToast('No single account currently has room for all your screens, so they\'ve been split across accounts instead.', 'warning');
               }
             } else {
               isWaiting = true;
@@ -2531,6 +2573,21 @@
                 </select>
               </div>
             </div>
+            {screens > 1 && (
+              <div className="bg-red-500/5 rounded-xl p-4 border border-red-500/10">
+                <label className="text-white/50 text-sm font-medium block mb-2">How should your {screens} screens be set up?</label>
+                <div className="grid sm:grid-cols-2 gap-3">
+                  <button type="button" onClick={() => setSameAccount(false)} className={`text-left rounded-xl p-3 border transition ${!sameAccount ? 'border-red-500 bg-red-500/10' : 'border-white/10 hover:border-white/20'}`}>
+                    <p className="text-white text-sm font-semibold"><i className="fas fa-random mr-2"></i> Separate Accounts</p>
+                    <p className="text-white/40 text-xs mt-1">Each screen may come from a different account.</p>
+                  </button>
+                  <button type="button" onClick={() => setSameAccount(true)} className={`text-left rounded-xl p-3 border transition ${sameAccount ? 'border-red-500 bg-red-500/10' : 'border-white/10 hover:border-white/20'}`}>
+                    <p className="text-white text-sm font-semibold"><i className="fas fa-layer-group mr-2"></i> Single Account</p>
+                    <p className="text-white/40 text-xs mt-1">All {screens} screens come from the same account.</p>
+                  </button>
+                </div>
+              </div>
+            )}
             {durationType === 'months' ? (
               <div><label className="text-white/50 text-sm font-medium">Months</label>
                 <select value={months} onChange={(e) => setMonths(Number(e.target.value))} className="input-neon mt-1">
@@ -4798,7 +4855,7 @@
       const [viewingCreds, setViewingCreds] = useState(null);
       const [credsLoading, setCredsLoading] = useState(false);
       const [grantModalUser, setGrantModalUser] = useState(null);
-      const [grantForm, setGrantForm] = useState({ subscriptionId: '', name: '', whatsapp: '', screens: 1, durationType: 'months', months: 1, days: 30 });
+      const [grantForm, setGrantForm] = useState({ subscriptionId: '', name: '', whatsapp: '', screens: 1, sameAccount: false, durationType: 'months', months: 1, days: 30 });
       const [grantLoading, setGrantLoading] = useState(false);
       // "Custom" grant mode: manually fulfilling a subscription that isn't
       // in the regular accounts/screens catalog (out of stock, or not
@@ -5347,7 +5404,7 @@
       };
       const closeGrantModal = () => {
         setGrantModalUser(null);
-        setGrantForm({ subscriptionId: '', name: '', whatsapp: '', screens: 1, durationType: 'months', months: 1, days: 30 });
+        setGrantForm({ subscriptionId: '', name: '', whatsapp: '', screens: 1, sameAccount: false, durationType: 'months', months: 1, days: 30 });
         setGrantMode('catalog');
         setCustomGrantForm({ subscriptionName: '', email: '', password: '', notes: '', matchedSubscriptionId: '', costPerMonth: '', sellingPrice: '' });
       };
@@ -5370,7 +5427,11 @@
               const used = screen.customers?.length || 0;
               if (used < 3) availableSlots.push({ account: acc, screen, used });
             }));
-            const result = allocateScreens(availableSlots, grantForm.screens || 1, grantModalUser, grantForm.whatsapp.trim(), null);
+            let result = allocateScreens(availableSlots, grantForm.screens || 1, grantModalUser, grantForm.whatsapp.trim(), null, grantForm.sameAccount);
+            if (result.error === 'no_single_account') {
+              result = allocateScreens(availableSlots, grantForm.screens || 1, grantModalUser, grantForm.whatsapp.trim(), null, false);
+              if (!result.error) addToast('No single account had room for all screens — split across accounts instead.', 'warning');
+            }
             if (!result || result.error) { addToast('No screens available for this subscription right now.', 'error'); setGrantLoading(false); return; }
             allocations = result;
           } else if (sub.type === 'amazon') {
@@ -7376,6 +7437,19 @@
                     <div>
                       <label className="text-white/50 text-sm">Screens</label>
                       <input type="number" min="1" max="5" value={grantForm.screens} onChange={(e) => setGrantForm({ ...grantForm, screens: Number(e.target.value) })} className="input-neon mt-1" />
+                      {grantForm.screens > 1 && (
+                        <div className="mt-3 bg-red-500/5 rounded-xl p-3 border border-red-500/10">
+                          <label className="text-white/50 text-sm block mb-2">How should these {grantForm.screens} screens be set up?</label>
+                          <div className="grid sm:grid-cols-2 gap-2">
+                            <button type="button" onClick={() => setGrantForm({ ...grantForm, sameAccount: false })} className={`text-left rounded-lg p-2.5 border transition ${!grantForm.sameAccount ? 'border-red-500 bg-red-500/10' : 'border-white/10 hover:border-white/20'}`}>
+                              <p className="text-white text-xs font-semibold"><i className="fas fa-random mr-1.5"></i> Separate Accounts</p>
+                            </button>
+                            <button type="button" onClick={() => setGrantForm({ ...grantForm, sameAccount: true })} className={`text-left rounded-lg p-2.5 border transition ${grantForm.sameAccount ? 'border-red-500 bg-red-500/10' : 'border-white/10 hover:border-white/20'}`}>
+                              <p className="text-white text-xs font-semibold"><i className="fas fa-layer-group mr-1.5"></i> Single Account</p>
+                            </button>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   )}
                   <div>
