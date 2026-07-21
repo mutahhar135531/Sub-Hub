@@ -58,6 +58,8 @@
       --t-panel: 10,15,30;               /* dark navy panels instead of neutral grey */
       --t-text: #eaf0ff;
       --t-web-opacity: 1;
+      --spidey-corner-web: url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%20100%20100%27%3E%3Cg%20fill%3D%27none%27%20stroke%3D%27%23ffffff%27%20stroke-width%3D%272%27%20stroke-linecap%3D%27round%27%3E%3Cpath%20d%3D%27M100%200%20L55%20100%27%2F%3E%3Cpath%20d%3D%27M100%2015%20L40%2095%27%2F%3E%3Cpath%20d%3D%27M100%2032%20L28%2080%27%2F%3E%3Cpath%20d%3D%27M100%2050%20L20%2060%27%2F%3E%3Cpath%20d%3D%27M80%200%20L100%2065%27%2F%3E%3Cpath%20d%3D%27M60%200%20L100%2045%27%2F%3E%3Cpath%20d%3D%27M100%200%20L100%2032%27%2F%3E%3Cpath%20d%3D%27M88%2010%20Q60%2020%2035%2065%27%2F%3E%3Cpath%20d%3D%27M94%2025%20Q68%2035%2045%2078%27%2F%3E%3Cpath%20d%3D%27M98%2042%20Q75%2050%2055%2090%27%2F%3E%3C%2Fg%3E%3C%2Fsvg%3E");
+      --spidey-face: url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%20300%20300%27%3E%3Cg%20fill%3D%27none%27%20stroke%3D%27%23ffffff%27%20stroke-width%3D%274%27%3E%3Cpath%20d%3D%27M150%2020%20C60%2020%2030%20100%2040%20170%20C48%20230%2090%20280%20150%20280%20C210%20280%20252%20230%20260%20170%20C270%20100%20240%2020%20150%2020%20Z%27%2F%3E%3C%2Fg%3E%3Cg%20fill%3D%27%23ffffff%27%3E%3Cpath%20d%3D%27M95%20120%20C70%20130%2065%20165%2085%20190%20C100%20208%20130%20205%20140%20180%20C150%20150%20130%20115%2095%20120%20Z%27%2F%3E%3Cpath%20d%3D%27M205%20120%20C230%20130%20235%20165%20215%20190%20C200%20208%20170%20205%20160%20180%20C150%20150%20170%20115%20205%20120%20Z%27%2F%3E%3C%2Fg%3E%3Cg%20fill%3D%27none%27%20stroke%3D%27%23ffffff%27%20stroke-width%3D%271.5%27%20opacity%3D%270.6%27%3E%3Cpath%20d%3D%27M150%2020%20L150%20280%27%2F%3E%3Cpath%20d%3D%27M40%20170%20L260%20170%27%2F%3E%3Cpath%20d%3D%27M60%2070%20L240%20230%27%2F%3E%3Cpath%20d%3D%27M240%2070%20L60%20230%27%2F%3E%3C%2Fg%3E%3C%2Fsvg%3E");
     }
     /* Faint tiled spider-web behind the whole page, only visible when the
        Spider-Man theme sets --t-web-opacity to 1. Kept subtle so text on
@@ -74,6 +76,96 @@
     .web-corner { position:absolute; top:0; right:0; width:120px; height:120px; pointer-events:none; opacity:0; overflow:hidden; }
     html[data-theme="spiderman"] .web-corner { opacity:0.12; }
     .web-corner svg { width:100%; height:100%; }
+
+    /* ─── SPIDER-MAN AMBIENT DECORATION ───────────────────────
+       Everything below is scoped to html[data-theme="spiderman"] only —
+       the classic theme never sees any of it. Two moving parts, added as
+       ::before/::after so no extra markup is needed anywhere:
+         1. a faint web fixed in a corner, gently swaying, like it's
+            catching a breeze (cards + buttons on hover).
+         2. a thread that lowers a tiny spider down from the corner and
+            reels it back in, on a loop (cards + headings continuously,
+            buttons only while hovered — a little "web-shot" moment). */
+    @keyframes spidey-sway { 0%,100% { transform:rotate(0deg); } 50% { transform:rotate(-6deg); } }
+    @keyframes spidey-drop-loop {
+      0%, 12%   { height:0;    opacity:0; }
+      22%       { opacity:1; }
+      45%, 68%  { height:34px; opacity:1; }
+      88%       { opacity:1; }
+      100%      { height:0;    opacity:0; }
+    }
+    /* Shared "drop" look — a 1px thread ending in a small two-tone spider
+       body — reused by every ::after below via background layers so no
+       extra markup is needed anywhere. */
+    .deal-card, .promo-card, .sub-carousel-card, .hero-bg h1, h2.neon-text { position:relative; }
+    html[data-theme="spiderman"] .deal-card::before,
+    html[data-theme="spiderman"] .promo-card::before,
+    html[data-theme="spiderman"] .sub-carousel-card::before {
+      content:''; position:absolute; top:0; right:0; width:56px; height:56px;
+      background-image:var(--spidey-corner-web); background-size:contain; background-repeat:no-repeat; background-position:top right;
+      opacity:0.3; pointer-events:none; z-index:2; transform-origin:top right;
+      animation:spidey-sway 4.5s ease-in-out infinite;
+    }
+    html[data-theme="spiderman"] .deal-card::after,
+    html[data-theme="spiderman"] .promo-card::after,
+    html[data-theme="spiderman"] .sub-carousel-card::after,
+    html[data-theme="spiderman"] .hero-bg h1::after,
+    html[data-theme="spiderman"] h2.neon-text::after {
+      content:''; position:absolute; top:0; right:18px; width:10px; height:0;
+      pointer-events:none; z-index:2; opacity:0;
+      background-image:
+        linear-gradient(rgba(255,255,255,0.6), rgba(255,255,255,0.6)),
+        radial-gradient(circle at 50% 100%, var(--t-primary-hex) 0 3px, var(--t-secondary-hex) 3px 4px, transparent 5px);
+      background-repeat:no-repeat, no-repeat;
+      background-position:50% 0, 50% 100%;
+      background-size:1px 100%, 9px 9px;
+      animation:spidey-drop-loop 7s ease-in-out infinite;
+    }
+    /* Stagger the loop per card type so a whole row doesn't drop in
+       perfect unison, and nudge the heading versions into place since
+       they sit on inline text rather than a boxed card. */
+    html[data-theme="spiderman"] .promo-card::after { animation-delay:1.4s; }
+    html[data-theme="spiderman"] .sub-carousel-card::after { animation-delay:2.8s; }
+    html[data-theme="spiderman"] h2.neon-text::after { animation-delay:.7s; right:-16px; }
+    html[data-theme="spiderman"] .hero-bg h1::after { top:-34px; right:6%; animation-delay:2.1s; }
+
+    /* Big, faint Spider-Man mask watermark sitting behind the hero copy. */
+    .hero-bg::before {
+      content:''; position:absolute; top:50%; right:-8%; width:560px; height:560px; max-width:70%;
+      transform:translateY(-50%); background-image:var(--spidey-face); background-size:contain; background-repeat:no-repeat;
+      opacity:0; pointer-events:none; z-index:0;
+    }
+    html[data-theme="spiderman"] .hero-bg::before { opacity:0.07; }
+
+    /* Buttons: a web fades in on hover and a tiny spider drops from the
+       top-right corner for as long as you're hovering. */
+    .btn-neon, .btn-neon-outline, .btn-neon-sm { position:relative; }
+    html[data-theme="spiderman"] .btn-neon::before,
+    html[data-theme="spiderman"] .btn-neon-outline::before,
+    html[data-theme="spiderman"] .btn-neon-sm::before {
+      content:''; position:absolute; top:-4px; right:-4px; width:34px; height:34px;
+      background-image:var(--spidey-corner-web); background-size:contain; background-repeat:no-repeat; background-position:top right;
+      opacity:0; transform:scale(0.6); transform-origin:top right; pointer-events:none;
+      transition:opacity .25s ease, transform .25s ease;
+    }
+    html[data-theme="spiderman"] .btn-neon:hover::before,
+    html[data-theme="spiderman"] .btn-neon-outline:hover::before,
+    html[data-theme="spiderman"] .btn-neon-sm:hover::before { opacity:0.85; transform:scale(1); }
+    html[data-theme="spiderman"] .btn-neon::after,
+    html[data-theme="spiderman"] .btn-neon-outline::after,
+    html[data-theme="spiderman"] .btn-neon-sm::after {
+      content:''; position:absolute; top:-2px; right:6px; width:8px; height:0; opacity:0; pointer-events:none;
+      background-image:
+        linear-gradient(rgba(255,255,255,0.7), rgba(255,255,255,0.7)),
+        radial-gradient(circle at 50% 100%, var(--t-primary-hex) 0 3px, var(--t-secondary-hex) 3px 4px, transparent 5px);
+      background-repeat:no-repeat, no-repeat;
+      background-position:50% 0, 50% 100%;
+      background-size:1px 100%, 8px 8px;
+      transition:height .35s ease .1s, opacity .2s ease .1s;
+    }
+    html[data-theme="spiderman"] .btn-neon:hover::after,
+    html[data-theme="spiderman"] .btn-neon-outline:hover::after,
+    html[data-theme="spiderman"] .btn-neon-sm:hover::after { height:26px; opacity:1; }
 
     /* ===== RED/BLACK NEON THEME ===== */
     * { margin:0; padding:0; box-sizing:border-box; }
@@ -138,7 +230,7 @@
     /* ─── DEAL CARDS ────────────────────────────────────────── */
     .deal-card { background:rgba(var(--t-panel),0.90); backdrop-filter:blur(12px); border:2px solid rgba(var(--t-primary),0.25); border-radius:16px; padding:14px 14px; transition:all .3s ease; position:relative; overflow:hidden; display:flex; flex-direction:column; height:100%; min-height:160px; }
     .deal-card:hover { border-color:var(--t-primary-hex); box-shadow:0 0 30px rgba(var(--t-primary),0.12); transform:translateY(-2px); }
-    .deal-card .discount-badge { position:absolute; top:8px; right:8px; background:linear-gradient(135deg,var(--t-primary-hex),var(--t-primary-dark)); color:#fff; font-weight:700; padding:2px 10px; border-radius:40px; font-size:.6rem; box-shadow:0 0 16px rgba(var(--t-primary),0.3); }
+    .deal-card .discount-badge { position:absolute; top:8px; right:8px; background:linear-gradient(135deg,var(--t-primary-hex),var(--t-primary-dark)); color:#fff; font-weight:700; padding:2px 10px; border-radius:40px; font-size:.6rem; box-shadow:0 0 16px rgba(var(--t-primary),0.3); z-index:3; }
     .deal-price-original { color:rgba(255,255,255,0.3); font-size:.8rem; text-decoration:line-through; }
     .deal-price-discount { color:#34d399; font-size:1.4rem; font-weight:800; text-shadow:0 0 20px rgba(52,211,153,0.12); }
     .deal-sub-badges { display:flex; flex-wrap:wrap; gap:3px; margin-top:4px; }
