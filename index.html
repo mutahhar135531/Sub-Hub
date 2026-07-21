@@ -4943,15 +4943,25 @@
       // How many screens have an expired customer whose PIN hasn't been
       // reset yet — shown as a badge on the Subscriptions tab so it's
       // impossible to miss even without scrolling through every card.
+      // Uses the same local-midnight, whole-day comparison as
+      // screenNeedsReset / the customer portal's activeEntries filter —
+      // see the comment on screenNeedsReset for why that matters.
       const expiredScreensCount = useMemo(() => {
-        const now = new Date();
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
         let count = 0;
         (subscriptions || []).forEach(sub => (sub.accounts || []).forEach(acc => (acc.screens || []).forEach(screen => {
           const needsReset = (screen.customers || []).some(c => {
             if (!c.expiryDate) return false;
             const exp = new Date(c.expiryDate);
-            if (isNaN(exp.getTime()) || exp >= now) return false;
-            if (screen.pinResetAt && new Date(screen.pinResetAt) > exp) return false;
+            if (isNaN(exp.getTime())) return false;
+            exp.setHours(0, 0, 0, 0);
+            if (exp >= today) return false;
+            if (screen.pinResetAt) {
+              const resetAt = new Date(screen.pinResetAt);
+              resetAt.setHours(0, 0, 0, 0);
+              if (resetAt > exp) return false;
+            }
             return true;
           });
           if (needsReset) count++;
@@ -6044,14 +6054,35 @@
       // customer could still be using it. Once the admin hits "Gen PIN",
       // pinResetAt moves to "now", which is after the expiry, so it stops
       // flagging automatically — no manual dismissal needed.
+      //
+      // IMPORTANT: this must use the SAME local-midnight, whole-day
+      // comparison as the customer portal's own "activeEntries" filter
+      // (see getStatus/activeEntries above). Previously this compared
+      // against the exact current timestamp instead of local midnight,
+      // which — combined with dates being stored as UTC-midnight strings —
+      // caused the blink to fire several hours *before* the customer's
+      // expiry day was actually over in local time (Pakistan is UTC+5).
+      // That meant admins would see the reminder and regenerate the PIN
+      // while the customer was still legitimately shown as active in
+      // their own portal, making the fix look like it "didn't work."
+      // Zeroing both sides to local midnight keeps this in sync: the
+      // screen only blinks once that customer has genuinely disappeared
+      // from their own dashboard (the day after expiry).
       const screenNeedsReset = (screen) => {
         if (!screen.customers || screen.customers.length === 0) return false;
-        const now = new Date();
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
         return screen.customers.some(c => {
           if (!c.expiryDate) return false;
           const exp = new Date(c.expiryDate);
-          if (isNaN(exp.getTime()) || exp >= now) return false;
-          if (screen.pinResetAt && new Date(screen.pinResetAt) > exp) return false;
+          if (isNaN(exp.getTime())) return false;
+          exp.setHours(0, 0, 0, 0);
+          if (exp >= today) return false;
+          if (screen.pinResetAt) {
+            const resetAt = new Date(screen.pinResetAt);
+            resetAt.setHours(0, 0, 0, 0);
+            if (resetAt > exp) return false;
+          }
           return true;
         });
       };
