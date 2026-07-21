@@ -40,6 +40,7 @@ let faqsCollection;
 let processedPurchasesCollection;
 let creditHistoryCollection;
 let adminSettingsCollection;
+let noticesCollection;
 
 // ─── SUBSCRIPTION COSTS (Monthly) ──────────────────────────
 const SUBSCRIPTION_COSTS = {
@@ -73,6 +74,7 @@ async function connectDB() {
   processedPurchasesCollection = db.collection('processedPurchases');
   creditHistoryCollection = db.collection('creditHistory');
   adminSettingsCollection = db.collection('adminSettings');
+  noticesCollection = db.collection('notices');
   await ensureAuthSecret(); // load or create the server-only token-signing secret
   console.log('✅ Connected to MongoDB');
 }
@@ -195,6 +197,48 @@ function getAuth(req) {
   const header = req.headers['authorization'] || '';
   const token = header.startsWith('Bearer ') ? header.slice(7) : null;
   return verifyToken(token);
+}
+// Hard gate for admin-only routes — several management endpoints (users
+// list, OTP log, income, FAQs/deals/promotions/waiting writes, etc.) only
+// checked auth loosely or not at all, meaning anyone who knew the URL
+// could call them without ever logging in as admin. This closes that gap.
+function requireAdmin(req, res, next) {
+  const auth = getAuth(req);
+  if (!auth || auth.r !== 'admin') {
+    return res.status(401).json({ error: 'Admin login required' });
+  }
+  next();
+}
+
+// Short-lived, single-purpose token proving "this caller just verified
+// their WhatsApp number matches this username" — issued by
+// /api/users/verify-whatsapp and required by PUT /api/users/:username
+// before a password reset. Without this, anyone who knew a username could
+// change its password with no verification at all. Deliberately separate
+// from the normal login token (which lasts 30 days): this one expires in
+// minutes and is only ever accepted for the one username it was issued
+// for. It's not single-use (no server-side storage, to keep this route
+// stateless like the rest of the auth here) but the short window keeps
+// the exposure small.
+const RESET_TOKEN_MAX_AGE_MS = 1000 * 60 * 10; // 10 minutes
+function signResetToken(username) {
+  const body = Buffer.from(JSON.stringify({ u: username, t: 'reset', iat: Date.now() })).toString('base64url');
+  const sig = crypto.createHmac('sha256', AUTH_SECRET).update(body).digest('base64url');
+  return `${body}.${sig}`;
+}
+function verifyResetToken(token, username) {
+  if (!token || typeof token !== 'string' || token.indexOf('.') === -1) return false;
+  const [body, sig] = token.split('.');
+  if (!body || !sig) return false;
+  const expected = crypto.createHmac('sha256', AUTH_SECRET).update(body).digest('base64url');
+  const a = Buffer.from(sig);
+  const b = Buffer.from(expected);
+  if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) return false;
+  let payload;
+  try { payload = JSON.parse(Buffer.from(body, 'base64url').toString('utf8')); } catch { return false; }
+  if (!payload || payload.t !== 'reset' || payload.u !== username) return false;
+  if (!payload.iat || (Date.now() - payload.iat) > RESET_TOKEN_MAX_AGE_MS) return false;
+  return true;
 }
 
 // ─── Subscription credential masking ────────────────────────────────
@@ -631,7 +675,7 @@ app.get('/api/subscriptions/:id', async (req, res) => {
   }
 });
 
-app.post('/api/subscriptions', async (req, res) => {
+app.post('/api/subscriptions', requireAdmin, async (req, res) => {
   try {
     const { id, name, type, accounts, costPerMonth, sellingPrice, slots, askFor, description, importantNote, logo } = req.body;
     const existing = await subscriptionsCollection.findOne({ id });
@@ -691,7 +735,7 @@ function dedupeAccounts(accounts) {
   return order;
 }
 
-app.put('/api/subscriptions/:id', async (req, res) => {
+app.put('/api/subscriptions/:id', requireAdmin, async (req, res) => {
   try {
     const { name, type, accounts, costPerMonth, sellingPrice, slots, askFor, description, importantNote, logo } = req.body;
     const update = {};
@@ -722,7 +766,7 @@ app.put('/api/subscriptions/:id', async (req, res) => {
 // One-click cleanup for subscriptions that already have duplicate accounts
 // from before this guard existed — re-runs the same dedupe against
 // whatever's currently saved and reports how many were merged away.
-app.post('/api/subscriptions/:id/dedupe-accounts', async (req, res) => {
+app.post('/api/subscriptions/:id/dedupe-accounts', requireAdmin, async (req, res) => {
   try {
     const sub = await subscriptionsCollection.findOne({ id: req.params.id });
     if (!sub) return res.status(404).json({ error: 'Not found' });
@@ -739,7 +783,7 @@ app.post('/api/subscriptions/:id/dedupe-accounts', async (req, res) => {
   }
 });
 
-app.delete('/api/subscriptions/:id', async (req, res) => {
+app.delete('/api/subscriptions/:id', requireAdmin, async (req, res) => {
   try {
     const result = await subscriptionsCollection.deleteOne({ id: req.params.id });
     if (result.deletedCount === 0) {
@@ -811,7 +855,7 @@ app.post('/api/subscriptions/:id/allocate', async (req, res) => {
   }
 });
 
-app.put('/api/subscriptions/:id/accounts/:accountId/screens/:screenId/customers/:username', async (req, res) => {
+app.put('/api/subscriptions/:id/accounts/:accountId/screens/:screenId/customers/:username', requireAdmin, async (req, res) => {
   try {
     const { name, password, whatsapp, expiryDate, months, days, email, newUsername } = req.body;
     const setObj = {};
@@ -850,7 +894,7 @@ app.put('/api/subscriptions/:id/accounts/:accountId/screens/:screenId/customers/
   }
 });
 
-app.delete('/api/subscriptions/:id/accounts/:accountId/screens/:screenId/customers/:username', async (req, res) => {
+app.delete('/api/subscriptions/:id/accounts/:accountId/screens/:screenId/customers/:username', requireAdmin, async (req, res) => {
   try {
     const result = await subscriptionsCollection.updateOne(
       { id: req.params.id },
@@ -945,13 +989,13 @@ app.post('/api/users/verify-whatsapp', async (req, res) => {
     if (!user || normalize(user.whatsapp) !== normalize(whatsapp)) {
       return res.status(401).json({ success: false, error: 'That WhatsApp number does not match our records for this username.' });
     }
-    res.json({ success: true });
+    res.json({ success: true, resetToken: signResetToken(username) });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
-app.get('/api/users', async (req, res) => {
+app.get('/api/users', requireAdmin, async (req, res) => {
   try {
     const users = await usersCollection.find({}).toArray();
     const sanitized = users.map(u => {
@@ -990,7 +1034,7 @@ app.put('/api/users/:username/incrementPurchase', async (req, res) => {
   }
 });
 
-app.post('/api/users/:username/addCredits', async (req, res) => {
+app.post('/api/users/:username/addCredits', requireAdmin, async (req, res) => {
   try {
     const { amount, reason } = req.body;
     if (!amount || amount <= 0) {
@@ -1094,7 +1138,7 @@ app.post('/api/users/:username/deductCredits', async (req, res) => {
 
 // Delete a user account (login credentials only — their existing purchased
 // subscription entries are left untouched; remove those separately if needed).
-app.delete('/api/users/:username', async (req, res) => {
+app.delete('/api/users/:username', requireAdmin, async (req, res) => {
   try {
     const result = await usersCollection.deleteOne({ username: req.params.username });
     if (result.deletedCount === 0) {
@@ -1112,7 +1156,13 @@ app.delete('/api/users/:username', async (req, res) => {
 app.put('/api/users/:username', async (req, res) => {
   try {
     const oldUsername = req.params.username;
-    const { username: newUsername, password, whatsapp, credits } = req.body;
+    const { username: newUsername, password, whatsapp, credits, resetToken } = req.body;
+
+    const auth = getAuth(req);
+    const authorized = (auth && auth.r === 'admin') || verifyResetToken(resetToken, oldUsername);
+    if (!authorized) {
+      return res.status(401).json({ error: 'Not authorized to modify this account' });
+    }
 
     const existingUser = await usersCollection.findOne({ username: oldUsername });
     if (!existingUser) return res.status(404).json({ error: 'User not found' });
@@ -1168,7 +1218,7 @@ app.get('/api/deals/active', async (req, res) => {
   }
 });
 
-app.post('/api/deals', async (req, res) => {
+app.post('/api/deals', requireAdmin, async (req, res) => {
   try {
     const { id, subscriptionIds, title, description, actualPrice, discountPrice, active } = req.body;
     if (!id || !subscriptionIds || !subscriptionIds.length || !title || actualPrice == null || discountPrice == null) {
@@ -1195,7 +1245,7 @@ app.post('/api/deals', async (req, res) => {
   }
 });
 
-app.put('/api/deals/:id', async (req, res) => {
+app.put('/api/deals/:id', requireAdmin, async (req, res) => {
   try {
     const { subscriptionIds, title, description, actualPrice, discountPrice, active } = req.body;
     const update = {};
@@ -1219,7 +1269,7 @@ app.put('/api/deals/:id', async (req, res) => {
   }
 });
 
-app.delete('/api/deals/:id', async (req, res) => {
+app.delete('/api/deals/:id', requireAdmin, async (req, res) => {
   try {
     const result = await dealsCollection.deleteOne({ id: req.params.id });
     if (result.deletedCount === 0) {
@@ -1279,7 +1329,7 @@ app.post('/api/otp/verify', async (req, res) => {
   }
 });
 
-app.get('/api/otp/list', async (req, res) => {
+app.get('/api/otp/list', requireAdmin, async (req, res) => {
   try {
     const list = await otpsCollection.find({})
       .sort({ createdAt: -1 })
@@ -1301,7 +1351,7 @@ app.get('/api/promotions', async (req, res) => {
   }
 });
 
-app.post('/api/promotions', async (req, res) => {
+app.post('/api/promotions', requireAdmin, async (req, res) => {
   try {
     const { id, heading, image, active } = req.body;
     if (!id || !heading || !image) {
@@ -1325,7 +1375,7 @@ app.post('/api/promotions', async (req, res) => {
   }
 });
 
-app.put('/api/promotions/:id', async (req, res) => {
+app.put('/api/promotions/:id', requireAdmin, async (req, res) => {
   try {
     const { heading, image, active } = req.body;
     const update = {};
@@ -1346,7 +1396,7 @@ app.put('/api/promotions/:id', async (req, res) => {
   }
 });
 
-app.delete('/api/promotions/:id', async (req, res) => {
+app.delete('/api/promotions/:id', requireAdmin, async (req, res) => {
   try {
     const result = await promotionsCollection.deleteOne({ id: req.params.id });
     if (result.deletedCount === 0) {
@@ -1367,7 +1417,7 @@ app.delete('/api/promotions/:id', async (req, res) => {
 // Either way, nothing is auto-removed: the admin sees it here until they
 // manually mark it fulfilled once the account has been created and given
 // to the customer.
-app.get('/api/waiting', async (req, res) => {
+app.get('/api/waiting', requireAdmin, async (req, res) => {
   try {
     const list = await waitingCollection.find({}).sort({ createdAt: -1 }).toArray();
     res.json(list);
@@ -1417,7 +1467,7 @@ app.post('/api/waiting', async (req, res) => {
   }
 });
 
-app.delete('/api/waiting/:id', async (req, res) => {
+app.delete('/api/waiting/:id', requireAdmin, async (req, res) => {
   try {
     const result = await waitingCollection.deleteOne({ id: req.params.id });
     if (result.deletedCount === 0) {
@@ -1439,7 +1489,7 @@ app.get('/api/faqs', async (req, res) => {
   }
 });
 
-app.post('/api/faqs', async (req, res) => {
+app.post('/api/faqs', requireAdmin, async (req, res) => {
   try {
     const { question, answer, category } = req.body;
     if (!question || !answer) {
@@ -1459,13 +1509,151 @@ app.post('/api/faqs', async (req, res) => {
   }
 });
 
-app.delete('/api/faqs/:id', async (req, res) => {
+app.delete('/api/faqs/:id', requireAdmin, async (req, res) => {
   try {
     const result = await faqsCollection.deleteOne({ id: req.params.id });
     if (result.deletedCount === 0) {
       return res.status(404).json({ error: 'FAQ not found' });
     }
     res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ---- Notices (customer notes board) ----
+// Two kinds of entries can appear on a customer's board:
+//  1. Auto-generated security heads-up messages — computed fresh on every
+//     request, not stored — about an upcoming PIN change on a screen this
+//     customer shares with someone else whose subscription is expiring.
+//  2. Admin broadcast messages, sent from the Admin Portal to every
+//     customer at once and stored here.
+app.get('/api/notices', async (req, res) => {
+  try {
+    const auth = getAuth(req);
+    if (!auth || auth.r !== 'admin') return res.status(401).json({ error: 'Admin login required' });
+    const list = await noticesCollection.find({}).sort({ createdAt: -1 }).toArray();
+    res.json(list);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/notices', async (req, res) => {
+  try {
+    const auth = getAuth(req);
+    if (!auth || auth.r !== 'admin') return res.status(401).json({ error: 'Admin login required' });
+    const { message } = req.body;
+    if (!message || !message.trim()) return res.status(400).json({ error: 'message is required' });
+    const entry = { id: Date.now().toString(), message: message.trim(), createdAt: new Date() };
+    await noticesCollection.insertOne(entry);
+    res.json(entry);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.delete('/api/notices/:id', async (req, res) => {
+  try {
+    const auth = getAuth(req);
+    if (!auth || auth.r !== 'admin') return res.status(401).json({ error: 'Admin login required' });
+    const result = await noticesCollection.deleteOne({ id: req.params.id });
+    if (result.deletedCount === 0) return res.status(404).json({ error: 'Notice not found' });
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// A shared screen's PIN gets regenerated the day AFTER a departing
+// customer's expiry (once the admin has had a chance to get their
+// access/device back). This works out, for one "someone else on my screen
+// is expiring" event, whether today is 2 days before that change, 1 day
+// before, the day of, or already handled — and if so, which message (if
+// any) belongs on the notes board today.
+//
+// RECENT_PIN_RESET_SUPPRESSION_DAYS: if this screen's PIN was JUST reset
+// (within this many days), the 2-day/1-day advance notices for the NEXT
+// change are skipped — only the "today" message fires — so customers
+// aren't warned repeatedly when changes cluster close together. Tune this
+// if that feels too aggressive or too lax.
+const RECENT_PIN_RESET_SUPPRESSION_DAYS = 7;
+function pinChangeNoteForExpiry(expiryDate, screen) {
+  if (!expiryDate) return null;
+  const exp = new Date(expiryDate);
+  if (isNaN(exp.getTime())) return null;
+  exp.setHours(0, 0, 0, 0);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  // Already handled: the PIN was reset on/after this person's expiry, so
+  // the admin has already dealt with this specific departure — nothing
+  // more to say, regardless of the schedule below.
+  if (screen.pinResetAt) {
+    const resetAt = new Date(screen.pinResetAt);
+    resetAt.setHours(0, 0, 0, 0);
+    if (resetAt >= exp) return null;
+  }
+
+  const changeDay = new Date(exp);
+  changeDay.setDate(changeDay.getDate() + 1);
+  const daysToChange = Math.round((changeDay - today) / (1000 * 60 * 60 * 24));
+  if (daysToChange < 0 || daysToChange > 2) return null;
+
+  if (screen.pinResetAt && daysToChange !== 0) {
+    const resetAt = new Date(screen.pinResetAt);
+    resetAt.setHours(0, 0, 0, 0);
+    const sinceReset = Math.round((today - resetAt) / (1000 * 60 * 60 * 24));
+    if (sinceReset >= 0 && sinceReset <= RECENT_PIN_RESET_SUPPRESSION_DAYS) return null;
+  }
+
+  if (daysToChange === 2) return "For your security, we'll be changing this screen's PIN soon. We'll update it here — stay tuned!";
+  if (daysToChange === 1) return "For your security, we'll be changing this screen's PIN tomorrow. We'll update it here — stay tuned!";
+  if (daysToChange === 0) return "For your security, we're changing this screen's PIN today. We'll update it here — stay tuned!";
+  return null;
+}
+
+app.get('/api/my-notes', async (req, res) => {
+  try {
+    const auth = getAuth(req);
+    if (!auth) return res.status(401).json({ error: 'Please log in first' });
+    if (auth.r !== 'user') return res.status(400).json({ error: 'This endpoint is for a logged-in customer' });
+    const username = auth.u;
+
+    const subs = await subscriptionsCollection.find({}).toArray();
+    const securityNotes = [];
+    for (const sub of subs) {
+      for (const acc of (sub.accounts || [])) {
+        for (const screen of (acc.screens || [])) {
+          const customers = screen.customers || [];
+          if (!customers.some(c => c.username === username)) continue; // not my screen
+          for (const other of customers) {
+            if (other.username === username) continue; // that's the departing person, not the screen-mate reading this
+            const msg = pinChangeNoteForExpiry(other.expiryDate, screen);
+            if (msg) {
+              securityNotes.push({
+                id: `pin-${sub.id}-${acc.id}-${screen.id}-${other.username}`,
+                type: 'security',
+                message: `${sub.name} — ${screen.name}: ${msg}`,
+                date: new Date().toISOString()
+              });
+            }
+          }
+        }
+      }
+    }
+
+    const broadcasts = await noticesCollection.find({}).sort({ createdAt: -1 }).toArray();
+    const broadcastNotes = broadcasts.map(n => ({
+      id: `broadcast-${n.id}`,
+      type: 'broadcast',
+      message: n.message,
+      date: n.createdAt
+    }));
+
+    const combined = [...securityNotes, ...broadcastNotes];
+    combined.sort((a, b) => new Date(b.date) - new Date(a.date));
+    res.json(combined);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -1504,7 +1692,7 @@ app.get('/api/custom-grants', async (req, res) => {
   }
 });
 
-app.post('/api/custom-grants', async (req, res) => {
+app.post('/api/custom-grants', requireAdmin, async (req, res) => {
   try {
     const {
       username, name, whatsapp, subscriptionName, email, password, notes,
@@ -1560,7 +1748,7 @@ app.post('/api/custom-grants', async (req, res) => {
   }
 });
 
-app.delete('/api/custom-grants/:id', async (req, res) => {
+app.delete('/api/custom-grants/:id', requireAdmin, async (req, res) => {
   try {
     const result = await customGrantsCollection.deleteOne({ id: req.params.id });
     if (result.deletedCount === 0) {
@@ -1577,7 +1765,7 @@ app.delete('/api/custom-grants/:id', async (req, res) => {
 // sellingPrice = what YOU charge the customer (your revenue).
 // profit = revenue - cost. All three are reported separately, plus a
 // breakdown by subscription type and an optional custom date range.
-app.get('/api/income', async (req, res) => {
+app.get('/api/income', requireAdmin, async (req, res) => {
   try {
     const { period, startDate: customStart, endDate: customEnd } = req.query;
     const now = new Date();
