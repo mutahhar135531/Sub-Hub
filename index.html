@@ -528,24 +528,6 @@
     const ADMIN_WHATSAPP = 'https://wa.me/923079163485';
 
     // ─── API HELPERS ──────────────────────────────────────────
-    const generateOTP = async (userIdentifier = 'Unknown', description = '') => {
-      const res = await fetch(`${API_BASE}/api/otp/generate`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userIdentifier, description }),
-      });
-      return res.json();
-    };
-
-    const verifyOTP = async (otp) => {
-      const res = await fetch(`${API_BASE}/api/otp/verify`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ otp }),
-      });
-      return res.json();
-    };
-
     const fetchOTPList = async () => {
       const res = await fetch(`${API_BASE}/api/otp/list?t=${Date.now()}`, {
         headers: authHeaders({ 'Cache-Control': 'no-cache' })
@@ -815,11 +797,11 @@
       return data;
     };
 
-    const deductCredits = async (username, amount, purchaseId, reason) => {
+    const deductCredits = async (username, amount, purchaseId, reason, priceContext) => {
       const res = await fetch(`${API_BASE}/api/users/${username}/deductCredits`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ amount, purchaseId, reason }),
+        body: JSON.stringify({ amount, purchaseId, reason, ...(priceContext || {}) }),
       });
       const data = await res.json();
       // IMPORTANT: fetch() does NOT throw on 4xx/5xx responses, so without
@@ -2397,35 +2379,6 @@
       );
     }
 
-    // ─── HELPER: OTP FLOW ────────────────────────────────────
-    const useOTPFlow = (setStep, setOtpTimer, addToast, userIdentifier, description = '') => {
-      const generateOTPAPI = async () => {
-        try {
-          const result = await generateOTP(userIdentifier || 'User', description);
-          if (result.success) {
-            setOtpTimer(60);
-            setStep('otp');
-            addToast('OTP generated! Check admin portal.', 'success');
-          } else {
-            addToast('Failed to generate OTP', 'error');
-          }
-        } catch (err) {
-          addToast('Error contacting server', 'error');
-        }
-      };
-      const verifyOTPAPI = async (otp) => {
-        try {
-          const result = await verifyOTP(otp);
-          if (result.success) return { ok: true };
-          return { ok: false, error: result.error || 'Invalid OTP', expired: !!result.expired };
-        } catch (err) {
-          addToast('Error verifying OTP', 'error');
-          return { ok: false, error: 'Error verifying OTP', expired: false };
-        }
-      };
-      return { generateOTPAPI, verifyOTPAPI };
-    };
-
     // ─── SMART ALLOCATION ALGORITHM ──────────────────────────
     // ─── Smart screen allocation ────────────────────────────────
     // Always hands the customer the account/screen with the MOST room left
@@ -2618,19 +2571,14 @@
       const [months, setMonths] = useState(1);
       const [days, setDays] = useState(30);
       const [step, setStep] = useState('plan');
-      const [otp, setOtp] = useState(['', '', '', '']);
-      const [otpError, setOtpError] = useState('');
-      const [otpTimer, setOtpTimer] = useState(0);
       const [name, setName] = useState('');
       const [whatsapp, setWhatsapp] = useState(user?.whatsapp || '');
       const [loading, setLoading] = useState(false);
       const [specificScreen, setSpecificScreen] = useState(false);
       const [selectedScreenId, setSelectedScreenId] = useState('');
       const [sameAccount, setSameAccount] = useState(false);
-      const [useCredits, setUseCredits] = useState(false);
       const { addToast } = useContext(AppContext);
       const { user: currentUser, setUser } = useContext(UserContext);
-      const otpRefs = useRef([]);
       // Guards against double-purchase from a double-click/double-tap on the
       // purchase button. This is a ref (not state) checked synchronously at
       // the very top of completePurchase, so it blocks a second click even
@@ -2674,59 +2622,6 @@
         return (currentUser?.credits || 0) >= creditsNeeded && creditsNeeded > 0;
       }, [currentUser, creditsNeeded]);
 
-      const getDescription = () => {
-        const durationStr = durationType === 'months' ? `${months} month${months > 1 ? 's' : ''}` : `${days} days`;
-        return `Netflix - ${screens} screen${screens > 1 ? 's' : ''}, ${durationStr}`;
-      };
-
-      const { generateOTPAPI, verifyOTPAPI } = useOTPFlow(setStep, setOtpTimer, addToast, user?.username || 'Netflix User',
-        getDescription());
-
-      const handleGenerateOTP = async () => {
-        if (!name.trim()) { addToast('Please enter your full name', 'error'); return; }
-        if (!whatsapp.trim()) { addToast('WhatsApp number is required', 'error'); return; }
-        if (whatsapp.trim() !== user?.whatsapp) {
-          addToast('WhatsApp number must match your sign-up number', 'error');
-          return;
-        }
-        // No accounts/screens added for this subscription yet (or all full).
-        // We still let the purchase go ahead — it'll be recorded as a
-        // waiting request for the admin instead of an active account.
-        if (canAllocate && specificScreen && !selectedScreenId) {
-          addToast('Please select a specific screen', 'error');
-          return;
-        }
-        setOtp(['', '', '', '']);
-        setOtpError('');
-        await generateOTPAPI();
-      };
-
-      useEffect(() => {
-        if (otpTimer > 0) {
-          const timer = setTimeout(() => setOtpTimer(otpTimer - 1), 1000);
-          return () => clearTimeout(timer);
-        }
-      }, [otpTimer]);
-
-      const handleOtpChange = (idx, val) => {
-        if (!/^\d*$/.test(val)) return;
-        const newOtp = [...otp];
-        newOtp[idx] = val.slice(0, 1);
-        setOtp(newOtp);
-        if (val && idx < 3) otpRefs.current[idx + 1]?.focus();
-      };
-
-      const handleVerifyOtp = async () => {
-        const entered = otp.join('');
-        if (entered.length !== 4) { setOtpError('Enter all 4 digits'); return; }
-        const result = await verifyOTPAPI(entered);
-        if (result.ok) {
-          setOtpError('');
-          setStep('details');
-        } else {
-          setOtpError(result.error);
-        }
-      };
 
       const completePurchase = async (useCreditsFlag = false) => {
         // Block re-entrant calls: if a purchase is already in flight (from
@@ -2804,7 +2699,8 @@
 
         if (useCreditsFlag) {
           try {
-            const updatedUser = await deductCredits(user.username, creditsNeeded, purchaseId, `Purchased ${subscription.name}`);
+            const totalMonths = durationType === 'months' ? months : Math.ceil(days / 30);
+            const updatedUser = await deductCredits(user.username, creditsNeeded, purchaseId, `Purchased ${subscription.name}`, { subscriptionId: subscription.id, months: totalMonths });
             setUser(updatedUser);
             addToast(`✅ ${creditsNeeded} credits deducted. Subscription activated!`, 'success');
           } catch (err) {
@@ -2929,68 +2825,23 @@
                 {user?.whatsapp && <p className="text-xs text-white/30 mt-1">(locked to your sign‑up number)</p>}
               </div>
             </div>
-            {currentUser && (
-              <div className="bg-green-500/10 rounded-xl p-4 border border-green-500/20">
-                <div className="flex items-center gap-3">
-                  <input type="checkbox" checked={useCredits} onChange={(e) => setUseCredits(e.target.checked)} disabled={!canUseCredits} className="w-4 h-4 accent-green-400" />
-                  <label className="text-white/70 text-sm">Pay with Credits ({creditsNeeded} credits needed, you have {currentUser.credits || 0})</label>
+            {currentUser ? (
+              canUseCredits ? (
+                <div className="bg-green-500/10 rounded-xl p-4 border border-green-500/20">
+                  <p className="text-white/70 text-sm"><i className="fas fa-coins mr-2 text-green-400"></i> This will cost <span className="text-green-400 font-semibold">{creditsNeeded} credits</span>. You have {currentUser.credits || 0}.</p>
                 </div>
-                {!canUseCredits && useCredits && <p className="text-red-400 text-xs mt-1">Insufficient credits. Please use OTP or add credits.</p>}
+              ) : (
+                <div className="bg-yellow-500/10 rounded-xl p-4 border border-yellow-500/20">
+                  <p className="text-yellow-400 text-sm"><i className="fas fa-exclamation-circle mr-2"></i> You need {creditsNeeded} credits for this purchase but only have {currentUser.credits || 0}. Please top up your credits to continue.</p>
+                </div>
+              )
+            ) : (
+              <div className="bg-yellow-500/10 rounded-xl p-4 border border-yellow-500/20">
+                <p className="text-yellow-400 text-sm"><i className="fas fa-exclamation-circle mr-2"></i> Please log in to purchase with credits.</p>
               </div>
             )}
-            {useCredits && canUseCredits ? (
-              <button onClick={handlePayWithCredits} disabled={loading} className="btn-neon w-full py-3 bg-green-600 hover:bg-green-700">
-                {loading ? <span className="spinner"></span> : <><i className="fas fa-coins mr-2"></i> Pay with Credits</>}
-              </button>
-            ) : (
-              <button onClick={handleGenerateOTP} className="btn-neon w-full py-3">
-                <i className="fas fa-key mr-2"></i> Get OTP
-              </button>
-            )}
-          </div>
-        );
-      }
-
-      if (step === 'otp') {
-        return (
-          <div className="space-y-6">
-            <button onClick={() => setStep('plan')} className="text-red-400 hover:text-red-300 text-sm"><i className="fas fa-arrow-left mr-2"></i> Back</button>
-            <h2 className="text-2xl font-bold text-white">Enter OTP</h2>
-            <p className="text-white/40 text-sm">
-              {otpTimer > 0 ? `Enter the 4-digit OTP. Expires in ${otpTimer}s` : 'Enter the 4-digit OTP.'}
-            </p>
-            <div className="flex gap-3 justify-center">
-              {[0,1,2,3].map(idx => (
-                <input key={idx} ref={el => otpRefs.current[idx] = el} type="text" inputMode="numeric" pattern="[0-9]*" autoComplete="one-time-code" className="otp-input" maxLength="1" value={otp[idx]} onChange={(e) => handleOtpChange(idx, e.target.value)} onKeyDown={(e) => { if (e.key === 'Backspace' && !otp[idx] && idx > 0) otpRefs.current[idx - 1]?.focus(); }} autoFocus={idx === 0} disabled={otpTimer <= 0} />
-              ))}
-            </div>
-            {otpError && <p className="text-red-400 text-sm text-center">{otpError}</p>}
-            {otpTimer <= 0 ? (
-              <div className="text-center space-y-3">
-                <p className="text-yellow-400 text-sm font-medium"><i className="fas fa-clock mr-2"></i> Time is up! Please request a new OTP.</p>
-                <button onClick={handleGenerateOTP} className="btn-neon w-full py-3"><i className="fas fa-redo mr-2"></i> Send OTP Again</button>
-              </div>
-            ) : (
-              <button onClick={handleVerifyOtp} className="btn-neon w-full py-3"><i className="fas fa-check mr-2"></i> Verify OTP</button>
-            )}
-          </div>
-        );
-      }
-
-      if (step === 'details') {
-        return (
-          <div className="space-y-6 relative">
-            <ProcessingOverlay show={loading} />
-            <button onClick={() => setStep('otp')} className="text-red-400 hover:text-red-300 text-sm"><i className="fas fa-arrow-left mr-2"></i> Back</button>
-            <h2 className="text-2xl font-bold text-white"><i className="fas fa-user-check text-red-400 mr-3"></i> Confirm Details</h2>
-            <div className="bg-red-500/5 rounded-xl p-4 border border-red-500/10 space-y-2">
-              <p><span className="text-white/50">Name:</span> <span className="text-white">{name}</span></p>
-              <p><span className="text-white/50">Username:</span> <span className="text-white">{user.username}</span></p>
-              <p><span className="text-white/50">WhatsApp:</span> <span className="text-white">{whatsapp}</span></p>
-              <p><span className="text-white/50">Plan:</span> <span className="text-white">{screens} screen(s) for {durationType === 'months' ? months + ' month(s)' : days + ' day(s)'}</span></p>
-            </div>
-            <button onClick={() => { if (isSubmittingRef.current) { addToast('Please wait, your purchase is already processing…', 'info'); return; } completePurchase(false); }} disabled={loading} className="btn-neon w-full py-3">
-              {loading ? <span className="spinner"></span> : <><i className="fas fa-check-circle mr-2"></i> Complete Purchase</>}
+            <button onClick={handlePayWithCredits} disabled={loading || !canUseCredits} className="btn-neon w-full py-3 bg-green-600 hover:bg-green-700 disabled:opacity-40 disabled:cursor-not-allowed">
+              {loading ? <span className="spinner"></span> : <><i className="fas fa-coins mr-2"></i> Pay with Credits</>}
             </button>
           </div>
         );
@@ -3004,16 +2855,11 @@
       const [months, setMonths] = useState(1);
       const [days, setDays] = useState(30);
       const [step, setStep] = useState('plan');
-      const [otp, setOtp] = useState(['', '', '', '']);
-      const [otpError, setOtpError] = useState('');
-      const [otpTimer, setOtpTimer] = useState(0);
       const [name, setName] = useState('');
       const [whatsapp, setWhatsapp] = useState(user?.whatsapp || '');
       const [loading, setLoading] = useState(false);
-      const [useCredits, setUseCredits] = useState(false);
       const { addToast } = useContext(AppContext);
       const { user: currentUser, setUser } = useContext(UserContext);
-      const otpRefs = useRef([]);
       const isSubmittingRef = useRef(false);
 
       const availableSlots = useMemo(() => {
@@ -3035,53 +2881,6 @@
       const canUseCredits = useMemo(() => {
         return (currentUser?.credits || 0) >= creditsNeeded && creditsNeeded > 0;
       }, [currentUser, creditsNeeded]);
-
-      const getDescription = () => {
-        const durationStr = durationType === 'months' ? `${months} month${months > 1 ? 's' : ''}` : `${days} days`;
-        return `Amazon Prime - 1 screen, ${durationStr}`;
-      };
-
-      const { generateOTPAPI, verifyOTPAPI } = useOTPFlow(setStep, setOtpTimer, addToast, user?.username ||
-        'Amazon User', getDescription());
-
-      const handleGenerateOTP = async () => {
-        if (!name.trim()) { addToast('Please enter your full name', 'error'); return; }
-        if (!whatsapp.trim()) { addToast('WhatsApp number is required', 'error'); return; }
-        if (whatsapp.trim() !== user?.whatsapp) {
-          addToast('WhatsApp number must match your sign-up number', 'error');
-          return;
-        }
-        setOtp(['', '', '', '']);
-        setOtpError('');
-        await generateOTPAPI();
-      };
-
-      useEffect(() => {
-        if (otpTimer > 0) {
-          const timer = setTimeout(() => setOtpTimer(otpTimer - 1), 1000);
-          return () => clearTimeout(timer);
-        }
-      }, [otpTimer]);
-
-      const handleOtpChange = (idx, val) => {
-        if (!/^\d*$/.test(val)) return;
-        const newOtp = [...otp];
-        newOtp[idx] = val.slice(0, 1);
-        setOtp(newOtp);
-        if (val && idx < 3) otpRefs.current[idx + 1]?.focus();
-      };
-
-      const handleVerifyOtp = async () => {
-        const entered = otp.join('');
-        if (entered.length !== 4) { setOtpError('Enter all 4 digits'); return; }
-        const result = await verifyOTPAPI(entered);
-        if (result.ok) {
-          setOtpError('');
-          setStep('details');
-        } else {
-          setOtpError(result.error);
-        }
-      };
 
       const completePurchase = async (useCreditsFlag = false) => {
         if (isSubmittingRef.current) return;
@@ -3128,7 +2927,7 @@
 
         if (useCreditsFlag) {
           try {
-            const updatedUser = await deductCredits(user.username, creditsNeeded, purchaseId, `Purchased ${subscription.name}`);
+            const updatedUser = await deductCredits(user.username, creditsNeeded, purchaseId, `Purchased ${subscription.name}`, { subscriptionId: subscription.id, months: totalMonths });
             setUser(updatedUser);
             addToast(`✅ ${creditsNeeded} credits deducted.`, 'success');
           } catch (err) {
@@ -3215,68 +3014,23 @@
                 {user?.whatsapp && <p className="text-xs text-white/30 mt-1">(locked to your sign‑up number)</p>}
               </div>
             </div>
-            {currentUser && (
-              <div className="bg-green-500/10 rounded-xl p-4 border border-green-500/20">
-                <div className="flex items-center gap-3">
-                  <input type="checkbox" checked={useCredits} onChange={(e) => setUseCredits(e.target.checked)} disabled={!canUseCredits} className="w-4 h-4 accent-green-400" />
-                  <label className="text-white/70 text-sm">Pay with Credits ({creditsNeeded} credits needed, you have {currentUser.credits || 0})</label>
+            {currentUser ? (
+              canUseCredits ? (
+                <div className="bg-green-500/10 rounded-xl p-4 border border-green-500/20">
+                  <p className="text-white/70 text-sm"><i className="fas fa-coins mr-2 text-green-400"></i> This will cost <span className="text-green-400 font-semibold">{creditsNeeded} credits</span>. You have {currentUser.credits || 0}.</p>
                 </div>
-                {!canUseCredits && useCredits && <p className="text-red-400 text-xs mt-1">Insufficient credits. Please use OTP or add credits.</p>}
+              ) : (
+                <div className="bg-yellow-500/10 rounded-xl p-4 border border-yellow-500/20">
+                  <p className="text-yellow-400 text-sm"><i className="fas fa-exclamation-circle mr-2"></i> You need {creditsNeeded} credits for this purchase but only have {currentUser.credits || 0}. Please top up your credits to continue.</p>
+                </div>
+              )
+            ) : (
+              <div className="bg-yellow-500/10 rounded-xl p-4 border border-yellow-500/20">
+                <p className="text-yellow-400 text-sm"><i className="fas fa-exclamation-circle mr-2"></i> Please log in to purchase with credits.</p>
               </div>
             )}
-            {useCredits && canUseCredits ? (
-              <button onClick={handlePayWithCredits} disabled={loading} className="btn-neon w-full py-3 bg-green-600 hover:bg-green-700">
-                {loading ? <span className="spinner"></span> : <><i className="fas fa-coins mr-2"></i> Pay with Credits</>}
-              </button>
-            ) : (
-              <button onClick={handleGenerateOTP} className="btn-neon w-full py-3">
-                <i className="fas fa-key mr-2"></i> Get OTP
-              </button>
-            )}
-          </div>
-        );
-      }
-
-      if (step === 'otp') {
-        return (
-          <div className="space-y-6">
-            <button onClick={() => setStep('plan')} className="text-red-400 hover:text-red-300 text-sm"><i className="fas fa-arrow-left mr-2"></i> Back</button>
-            <h2 className="text-2xl font-bold text-white">Enter OTP</h2>
-            <p className="text-white/40 text-sm">
-              {otpTimer > 0 ? `Enter the 4-digit OTP. Expires in ${otpTimer}s` : 'Enter the 4-digit OTP.'}
-            </p>
-            <div className="flex gap-3 justify-center">
-              {[0,1,2,3].map(idx => (
-                <input key={idx} ref={el => otpRefs.current[idx] = el} type="text" inputMode="numeric" pattern="[0-9]*" autoComplete="one-time-code" className="otp-input" maxLength="1" value={otp[idx]} onChange={(e) => handleOtpChange(idx, e.target.value)} onKeyDown={(e) => { if (e.key === 'Backspace' && !otp[idx] && idx > 0) otpRefs.current[idx - 1]?.focus(); }} autoFocus={idx === 0} disabled={otpTimer <= 0} />
-              ))}
-            </div>
-            {otpError && <p className="text-red-400 text-sm text-center">{otpError}</p>}
-            {otpTimer <= 0 ? (
-              <div className="text-center space-y-3">
-                <p className="text-yellow-400 text-sm font-medium"><i className="fas fa-clock mr-2"></i> Time is up! Please request a new OTP.</p>
-                <button onClick={handleGenerateOTP} className="btn-neon w-full py-3"><i className="fas fa-redo mr-2"></i> Send OTP Again</button>
-              </div>
-            ) : (
-              <button onClick={handleVerifyOtp} className="btn-neon w-full py-3"><i className="fas fa-check mr-2"></i> Verify OTP</button>
-            )}
-          </div>
-        );
-      }
-
-      if (step === 'details') {
-        return (
-          <div className="space-y-6 relative">
-            <ProcessingOverlay show={loading} />
-            <button onClick={() => setStep('otp')} className="text-red-400 hover:text-red-300 text-sm"><i className="fas fa-arrow-left mr-2"></i> Back</button>
-            <h2 className="text-2xl font-bold text-white"><i className="fas fa-user-check text-red-400 mr-3"></i> Confirm Details</h2>
-            <div className="bg-red-500/5 rounded-xl p-4 border border-red-500/10 space-y-2">
-              <p><span className="text-white/50">Name:</span> <span className="text-white">{name}</span></p>
-              <p><span className="text-white/50">Username:</span> <span className="text-white">{user.username}</span></p>
-              <p><span className="text-white/50">WhatsApp:</span> <span className="text-white">{whatsapp}</span></p>
-              <p><span className="text-white/50">Plan:</span> <span className="text-white">1 screen for {durationType === 'months' ? months + ' month(s)' : days + ' day(s)'}</span></p>
-            </div>
-            <button onClick={() => { if (isSubmittingRef.current) { addToast('Please wait, your purchase is already processing…', 'info'); return; } completePurchase(false); }} disabled={loading} className="btn-neon w-full py-3">
-              {loading ? <span className="spinner"></span> : <><i className="fas fa-check-circle mr-2"></i> Complete</>}
+            <button onClick={handlePayWithCredits} disabled={loading || !canUseCredits} className="btn-neon w-full py-3 bg-green-600 hover:bg-green-700 disabled:opacity-40 disabled:cursor-not-allowed">
+              {loading ? <span className="spinner"></span> : <><i className="fas fa-coins mr-2"></i> Pay with Credits</>}
             </button>
           </div>
         );
@@ -3288,18 +3042,13 @@
     function SimpleSubscriptionFlow({ subscription, onBack, onComplete, user }) {
       const [months, setMonths] = useState(1);
       const [step, setStep] = useState('plan');
-      const [otp, setOtp] = useState(['', '', '', '']);
-      const [otpError, setOtpError] = useState('');
-      const [otpTimer, setOtpTimer] = useState(0);
       const [name, setName] = useState('');
       const [whatsapp, setWhatsapp] = useState(user?.whatsapp || '');
       const [email, setEmail] = useState('');
       const [customSubName, setCustomSubName] = useState('');
       const [loading, setLoading] = useState(false);
-      const [useCredits, setUseCredits] = useState(false);
       const { addToast } = useContext(AppContext);
       const { user: currentUser, setUser } = useContext(UserContext);
-      const otpRefs = useRef([]);
       const isSubmittingRef = useRef(false);
 
       const isCanva = subscription.type === 'canva';
@@ -3317,68 +3066,6 @@
       const canUseCredits = useMemo(() => {
         return (currentUser?.credits || 0) >= creditsNeeded && creditsNeeded > 0;
       }, [currentUser, creditsNeeded]);
-
-      const getDescription = () => {
-        const subName = isCustom ? customSubName : subscription.name;
-        return `${subName} - ${months} month${months > 1 ? 's' : ''}`;
-      };
-
-      const { generateOTPAPI, verifyOTPAPI } = useOTPFlow(setStep, setOtpTimer, addToast, user
-        ?.username || 'User', getDescription());
-
-      const handleGenerateOTP = async () => {
-        if (!name.trim()) { addToast('Please enter your full name', 'error'); return; }
-        if (!whatsapp.trim()) { addToast('WhatsApp number is required', 'error'); return; }
-        if (whatsapp.trim() !== user?.whatsapp) {
-          addToast('WhatsApp number must match your sign-up number', 'error');
-          return;
-        }
-        if (isCustom && !customSubName.trim()) {
-          addToast('Please enter the subscription name', 'error');
-          return;
-        }
-        if (requiresEmail && !email.trim()) {
-          addToast('Email is required for this subscription', 'error');
-          return;
-        }
-        if ((isChatGPT || isCanva) && !email.trim()) {
-          addToast('Email is required for this subscription', 'error');
-          return;
-        }
-        setOtp(['', '', '', '']);
-        setOtpError('');
-        await generateOTPAPI();
-      };
-
-      useEffect(() => {
-        if (otpTimer > 0) {
-          const timer = setTimeout(() => setOtpTimer(otpTimer - 1), 1000);
-          return () => clearTimeout(timer);
-        }
-      }, [otpTimer]);
-
-      const handleOtpChange = (idx, val) => {
-        if (!/^\d*$/.test(val)) return;
-        const newOtp = [...otp];
-        newOtp[idx] = val.slice(0, 1);
-        setOtp(newOtp);
-        if (val && idx < 3) otpRefs.current[idx + 1]?.focus();
-      };
-
-      const handleVerifyOtp = async () => {
-        if (isSubmittingRef.current) return;
-        const entered = otp.join('');
-        if (entered.length !== 4) { setOtpError('Enter all 4 digits'); return; }
-        setLoading(true);
-        const result = await verifyOTPAPI(entered);
-        if (result.ok) {
-          setOtpError('');
-          completePurchase(false);
-        } else {
-          setOtpError(result.error);
-          setLoading(false);
-        }
-      };
 
       const completePurchase = async (useCreditsFlag = false) => {
         if (isSubmittingRef.current) return;
@@ -3438,7 +3125,7 @@
 
         if (useCreditsFlag) {
           try {
-            const updatedUser = await deductCredits(user.username, creditsNeeded, purchaseId, `Purchased ${subscription.name}`);
+            const updatedUser = await deductCredits(user.username, creditsNeeded, purchaseId, `Purchased ${subscription.name}`, { subscriptionId: subscription.id, months });
             setUser(updatedUser);
             addToast(`✅ ${creditsNeeded} credits deducted.`, 'success');
           } catch (err) {
@@ -3548,53 +3235,34 @@
                 </p>
               </div>
             )}
-            {currentUser && creditsNeeded > 0 && (
-              <div className="bg-green-500/10 rounded-xl p-4 border border-green-500/20">
-                <div className="flex items-center gap-3">
-                  <input type="checkbox" checked={useCredits} onChange={(e) => setUseCredits(e.target.checked)} disabled={!canUseCredits} className="w-4 h-4 accent-green-400" />
-                  <label className="text-white/70 text-sm">Pay with Credits ({creditsNeeded} credits needed, you have {currentUser.credits || 0})</label>
+            {creditsNeeded > 0 && (
+              currentUser ? (
+                canUseCredits ? (
+                  <div className="bg-green-500/10 rounded-xl p-4 border border-green-500/20">
+                    <p className="text-white/70 text-sm"><i className="fas fa-coins mr-2 text-green-400"></i> This will cost <span className="text-green-400 font-semibold">{creditsNeeded} credits</span>. You have {currentUser.credits || 0}.</p>
+                  </div>
+                ) : (
+                  <div className="bg-yellow-500/10 rounded-xl p-4 border border-yellow-500/20">
+                    <p className="text-yellow-400 text-sm"><i className="fas fa-exclamation-circle mr-2"></i> You need {creditsNeeded} credits for this purchase but only have {currentUser.credits || 0}. Please top up your credits to continue.</p>
+                  </div>
+                )
+              ) : (
+                <div className="bg-yellow-500/10 rounded-xl p-4 border border-yellow-500/20">
+                  <p className="text-yellow-400 text-sm"><i className="fas fa-exclamation-circle mr-2"></i> Please log in to purchase with credits.</p>
                 </div>
-                {!canUseCredits && useCredits && <p className="text-red-400 text-xs mt-1">Insufficient credits. Please use OTP or add credits.</p>}
-              </div>
+              )
             )}
-            {useCredits && canUseCredits ? (
-              <button onClick={handlePayWithCredits} disabled={loading} className="btn-neon w-full py-3 bg-green-600 hover:bg-green-700">
-                {loading ? <span className="spinner"></span> : <><i className="fas fa-coins mr-2"></i> Pay with Credits</>}
-              </button>
-            ) : (
-              <button onClick={handleGenerateOTP} className="btn-neon w-full py-3">
-                <i className="fas fa-key mr-2"></i> Get OTP
-              </button>
-            )}
-          </div>
-        );
-      }
-
-      if (step === 'otp') {
-        return (
-          <div className="space-y-6 relative">
-            <ProcessingOverlay show={loading} />
-            <button onClick={() => setStep('plan')} className="text-red-400 hover:text-red-300 text-sm"><i className="fas fa-arrow-left mr-2"></i> Back</button>
-            <h2 className="text-2xl font-bold text-white">Enter OTP</h2>
-            <p className="text-white/40 text-sm">
-              {otpTimer > 0 ? `Enter the 4-digit OTP. Expires in ${otpTimer}s` : 'Enter the 4-digit OTP.'}
-            </p>
-            <div className="flex gap-3 justify-center">
-              {[0,1,2,3].map(idx => (
-                <input key={idx} ref={el => otpRefs.current[idx] = el} type="text" inputMode="numeric" pattern="[0-9]*" autoComplete="one-time-code" className="otp-input" maxLength="1" value={otp[idx]} onChange={(e) => handleOtpChange(idx, e.target.value)} onKeyDown={(e) => { if (e.key === 'Backspace' && !otp[idx] && idx > 0) otpRefs.current[idx - 1]?.focus(); }} autoFocus={idx === 0} disabled={otpTimer <= 0} />
-              ))}
-            </div>
-            {otpError && <p className="text-red-400 text-sm text-center">{otpError}</p>}
-            {otpTimer <= 0 ? (
-              <div className="text-center space-y-3">
-                <p className="text-yellow-400 text-sm font-medium"><i className="fas fa-clock mr-2"></i> Time is up! Please request a new OTP.</p>
-                <button onClick={handleGenerateOTP} className="btn-neon w-full py-3"><i className="fas fa-redo mr-2"></i> Send OTP Again</button>
-              </div>
-            ) : (
-              <button onClick={handleVerifyOtp} disabled={loading} className="btn-neon w-full py-3">
-                {loading ? <span className="spinner"></span> : <><i className="fas fa-check mr-2"></i> Verify & Complete</>}
-              </button>
-            )}
+            <button
+              onClick={() => {
+                if (creditsNeeded > 0) { handlePayWithCredits(); return; }
+                if (isSubmittingRef.current) { addToast('Please wait, your purchase is already processing…', 'info'); return; }
+                completePurchase(false);
+              }}
+              disabled={loading || (creditsNeeded > 0 && !canUseCredits)}
+              className="btn-neon w-full py-3 bg-green-600 hover:bg-green-700 disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              {loading ? <span className="spinner"></span> : creditsNeeded > 0 ? <><i className="fas fa-coins mr-2"></i> Pay with Credits</> : <><i className="fas fa-check-circle mr-2"></i> Complete Purchase</>}
+            </button>
           </div>
         );
       }
@@ -3606,14 +3274,9 @@
       const [step, setStep] = useState('plan');
       const [name, setName] = useState('');
       const [whatsapp, setWhatsapp] = useState(user?.whatsapp || '');
-      const [otp, setOtp] = useState(['', '', '', '']);
-      const [otpError, setOtpError] = useState('');
-      const [otpTimer, setOtpTimer] = useState(0);
       const [loading, setLoading] = useState(false);
-      const [useCredits, setUseCredits] = useState(false);
       const { addToast } = useContext(AppContext);
       const { user: currentUser, setUser } = useContext(UserContext);
-      const otpRefs = useRef([]);
       const isSubmittingRef = useRef(false);
 
       const dealSubs = useMemo(() => {
@@ -3624,55 +3287,6 @@
       const creditsNeeded = deal.discountPrice;
       const canUseCredits = (currentUser?.credits || 0) >= creditsNeeded && creditsNeeded > 0;
 
-      const getDescription = () => {
-        const subNames = dealSubs.map(s => s.name).join(' + ');
-        return `Deal: ${deal.title} - ${subNames}`;
-      };
-
-      const { generateOTPAPI, verifyOTPAPI } = useOTPFlow(setStep, setOtpTimer, addToast,
-        user?.username || 'Deal User', getDescription());
-
-      const handleGenerateOTP = async () => {
-        if (!name.trim()) { addToast('Please enter your full name', 'error'); return; }
-        if (!whatsapp.trim()) { addToast('WhatsApp number is required', 'error'); return; }
-        if (user && whatsapp.trim() !== user?.whatsapp) {
-          addToast('WhatsApp number must match your sign-up number', 'error');
-          return;
-        }
-        setOtp(['', '', '', '']);
-        setOtpError('');
-        await generateOTPAPI();
-      };
-
-      useEffect(() => {
-        if (otpTimer > 0) {
-          const timer = setTimeout(() => setOtpTimer(otpTimer - 1), 1000);
-          return () => clearTimeout(timer);
-        }
-      }, [otpTimer]);
-
-      const handleOtpChange = (idx, val) => {
-        if (!/^\d*$/.test(val)) return;
-        const newOtp = [...otp];
-        newOtp[idx] = val.slice(0, 1);
-        setOtp(newOtp);
-        if (val && idx < 3) otpRefs.current[idx + 1]?.focus();
-      };
-
-      const handleVerifyOtp = async () => {
-        if (isSubmittingRef.current) return;
-        const entered = otp.join('');
-        if (entered.length !== 4) { setOtpError('Enter all 4 digits'); return; }
-        setLoading(true);
-        const result = await verifyOTPAPI(entered);
-        if (result.ok) {
-          setOtpError('');
-          completePurchase(false);
-        } else {
-          setOtpError(result.error);
-          setLoading(false);
-        }
-      };
       const completePurchase = async (useCreditsFlag = false) => {
         if (isSubmittingRef.current) return;
         isSubmittingRef.current = true;
@@ -3692,7 +3306,7 @@
 
         if (useCreditsFlag) {
           try {
-            const updatedUser = await deductCredits(user.username, creditsNeeded, purchaseId, `Purchased ${deal.title}`);
+            const updatedUser = await deductCredits(user.username, creditsNeeded, purchaseId, `Purchased ${deal.title}`, { dealId: deal.id });
             setUser(updatedUser);
             addToast(`✅ ${creditsNeeded} credits deducted.`, 'success');
           } catch (err) {
@@ -3873,53 +3487,24 @@
                 {user?.whatsapp && <p className="text-xs text-white/30 mt-1">(locked to your sign‑up number)</p>}
               </div>
             </div>
-            {currentUser && (
-              <div className="bg-green-500/10 rounded-xl p-4 border border-green-500/20">
-                <div className="flex items-center gap-3">
-                  <input type="checkbox" checked={useCredits} onChange={(e) => setUseCredits(e.target.checked)} disabled={!canUseCredits} className="w-4 h-4 accent-green-400" />
-                  <label className="text-white/70 text-sm">Pay with Credits ({creditsNeeded} credits needed, you have {currentUser.credits || 0})</label>
+            {currentUser ? (
+              canUseCredits ? (
+                <div className="bg-green-500/10 rounded-xl p-4 border border-green-500/20">
+                  <p className="text-white/70 text-sm"><i className="fas fa-coins mr-2 text-green-400"></i> This will cost <span className="text-green-400 font-semibold">{creditsNeeded} credits</span>. You have {currentUser.credits || 0}.</p>
                 </div>
-                {!canUseCredits && useCredits && <p className="text-red-400 text-xs mt-1">Insufficient credits. Please use OTP or add credits.</p>}
+              ) : (
+                <div className="bg-yellow-500/10 rounded-xl p-4 border border-yellow-500/20">
+                  <p className="text-yellow-400 text-sm"><i className="fas fa-exclamation-circle mr-2"></i> You need {creditsNeeded} credits for this purchase but only have {currentUser.credits || 0}. Please top up your credits to continue.</p>
+                </div>
+              )
+            ) : (
+              <div className="bg-yellow-500/10 rounded-xl p-4 border border-yellow-500/20">
+                <p className="text-yellow-400 text-sm"><i className="fas fa-exclamation-circle mr-2"></i> Please log in to purchase with credits.</p>
               </div>
             )}
-            {useCredits && canUseCredits ? (
-              <button onClick={handlePayWithCredits} disabled={loading} className="btn-neon w-full py-3 bg-green-600 hover:bg-green-700">
-                {loading ? <span className="spinner"></span> : <><i className="fas fa-coins mr-2"></i> Pay with Credits</>}
-              </button>
-            ) : (
-              <button onClick={handleGenerateOTP} className="btn-neon w-full py-3">
-                <i className="fas fa-key mr-2"></i> Get OTP
-              </button>
-            )}
-          </div>
-        );
-      }
-
-      if (step === 'otp') {
-        return (
-          <div className="space-y-6 relative">
-            <ProcessingOverlay show={loading} />
-            <button onClick={() => setStep('plan')} className="text-red-400 hover:text-red-300 text-sm"><i className="fas fa-arrow-left mr-2"></i> Back</button>
-            <h2 className="text-2xl font-bold text-white">Enter OTP</h2>
-            <p className="text-white/40 text-sm">
-              {otpTimer > 0 ? `Enter the 4-digit OTP. Expires in ${otpTimer}s` : 'Enter the 4-digit OTP.'}
-            </p>
-            <div className="flex gap-3 justify-center">
-              {[0,1,2,3].map(idx => (
-                <input key={idx} ref={el => otpRefs.current[idx] = el} type="text" inputMode="numeric" pattern="[0-9]*" autoComplete="one-time-code" className="otp-input" maxLength="1" value={otp[idx]} onChange={(e) => handleOtpChange(idx, e.target.value)} onKeyDown={(e) => { if (e.key === 'Backspace' && !otp[idx] && idx > 0) otpRefs.current[idx - 1]?.focus(); }} autoFocus={idx === 0} disabled={otpTimer <= 0} />
-              ))}
-            </div>
-            {otpError && <p className="text-red-400 text-sm text-center">{otpError}</p>}
-            {otpTimer <= 0 ? (
-              <div className="text-center space-y-3">
-                <p className="text-yellow-400 text-sm font-medium"><i className="fas fa-clock mr-2"></i> Time is up! Please request a new OTP.</p>
-                <button onClick={handleGenerateOTP} className="btn-neon w-full py-3"><i className="fas fa-redo mr-2"></i> Send OTP Again</button>
-              </div>
-            ) : (
-              <button onClick={handleVerifyOtp} disabled={loading} className="btn-neon w-full py-3">
-                {loading ? <span className="spinner"></span> : <><i className="fas fa-check mr-2"></i> Verify & Complete</>}
-              </button>
-            )}
+            <button onClick={handlePayWithCredits} disabled={loading || !canUseCredits} className="btn-neon w-full py-3 bg-green-600 hover:bg-green-700 disabled:opacity-40 disabled:cursor-not-allowed">
+              {loading ? <span className="spinner"></span> : <><i className="fas fa-coins mr-2"></i> Pay with Credits</>}
+            </button>
           </div>
         );
       }
@@ -4348,7 +3933,7 @@
       );
     }
 
-    // ─── NOTES BOARD (customer portal) ─────────────────────────
+    // ─── NOTICE BOARD (customer portal) ────────────────────────
     // Shows two kinds of messages to a signed-in customer: automatic
     // security heads-up notes about an upcoming PIN change on a screen
     // they share with someone else, and admin broadcast announcements.
@@ -4381,7 +3966,7 @@
       return (
         <div className="glass-panel max-w-4xl mx-auto mb-2">
           <h3 className="text-white/70 font-semibold text-sm mb-3 inline-flex items-center gap-2">
-            <i className="fas fa-thumbtack text-red-400"></i> Notes Board
+            <i className="fas fa-thumbtack text-red-400"></i> Notice Board
           </h3>
           <div className="space-y-2">
             {notes.map(note => (
@@ -5023,24 +4608,19 @@
       {
         id: 'buy-subscription', category: 'Purchases & Payments',
         question: 'How do I buy a subscription?',
-        answer: 'Browse Subscriptions, pick the one you want, choose your plan (screens/months), and fill in your name and WhatsApp number. Then either pay with credits or request an OTP to confirm. Once confirmed, your login details show up instantly in your Customer Portal.',
+        answer: 'Browse Subscriptions, pick the one you want, choose your plan (screens/months), fill in your name and WhatsApp number, then tap "Pay with Credits". Once confirmed, your login details show up instantly in your Customer Portal.',
         action: { label: 'Browse Subscriptions', type: 'subscriptions' }
       },
       {
         id: 'buy-credits', category: 'Purchases & Payments',
         question: 'How do I buy or add credits?',
-        answer: "Credits are topped up by our team, not purchased inside the app directly. Message us on WhatsApp with how many credits you'd like — once your payment is confirmed, we'll add them to your account right away.",
+        answer: "Credits are topped up by our team, not purchased inside the app directly. Message us on WhatsApp with how many credits you'd like — once your payment is confirmed, we'll add them to your account right away. Credits are the only way to pay for a subscription in the app.",
         action: { label: 'Chat on WhatsApp', type: 'whatsapp' }
       },
       {
-        id: 'pay-credits', category: 'Purchases & Payments',
-        question: 'Can I pay with credits instead of an OTP?',
-        answer: 'Yes. On any subscription\'s purchase page, if you have enough credits you\'ll see a "Pay with Credits" toggle — turn it on and your purchase completes instantly, no OTP needed.'
-      },
-      {
-        id: 'otp-issue', category: 'Purchases & Payments',
-        question: "I didn't receive my OTP. What should I do?",
-        answer: 'OTPs are sent instantly and expire after a short time. Double check your WhatsApp number exactly matches your sign-up number, then tap "Get OTP" again. Still nothing? Reach out to support and we\'ll sort it out.',
+        id: 'insufficient-credits', category: 'Purchases & Payments',
+        question: "I don't have enough credits to buy a subscription. What do I do?",
+        answer: 'Message our team on WhatsApp to top up your credit balance — once your payment is confirmed, we\'ll add the credits to your account and you can complete the purchase right away.',
         action: { label: 'Chat on WhatsApp', type: 'whatsapp' }
       },
       {
@@ -5417,7 +4997,7 @@
           const entry = await createNotice(newNoticeMessage.trim());
           setNoticesList(prev => [entry, ...prev]);
           setNewNoticeMessage('');
-          addToast('Broadcast sent — every customer will see it on their Notes Board.', 'success');
+          addToast('Broadcast sent — every customer will see it on their Notice Board.', 'success');
         } catch (err) {
           addToast(err.error || err.message || 'Failed to send broadcast', 'error');
         }
@@ -7624,7 +7204,7 @@
             <div className="space-y-4">
               <div className="glass-panel">
                 <h3 className="text-lg font-bold text-white mb-1"><i className="fas fa-bullhorn mr-2 text-red-400"></i> Send a Broadcast Message</h3>
-                <p className="text-white/40 text-sm mb-4">This appears on every customer's Notes Board (the same place the automatic "PIN changing soon" security notices show up). Use it for anything you want all customers to see — maintenance windows, price changes, holidays, etc.</p>
+                <p className="text-white/40 text-sm mb-4">This appears on every customer's Notice Board (the same place the automatic "PIN changing soon" security notices show up). Use it for anything you want all customers to see — maintenance windows, price changes, holidays, etc.</p>
                 <div className="space-y-3">
                   <div>
                     <label className="text-white/50 text-sm font-medium">Message</label>
