@@ -734,7 +734,7 @@
 
     const fetchUser = async (username) => {
       const res = await fetch(`${API_BASE}/api/users/${username}?t=${Date.now()}`, {
-        headers: { 'Cache-Control': 'no-cache' }
+        headers: authHeaders({ 'Cache-Control': 'no-cache' })
       });
       return res.json();
     };

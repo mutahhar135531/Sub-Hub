@@ -1023,7 +1023,10 @@ app.get('/api/users/:username', async (req, res) => {
   try {
     const user = await usersCollection.findOne({ username: req.params.username });
     if (!user) return res.status(404).json({ error: 'User not found' });
-    res.json(sanitizeUser(user));
+    const auth = getAuth(req);
+    const isOwner = auth && auth.r === 'user' && auth.u === user.username;
+    const isAdmin = auth && auth.r === 'admin';
+    res.json((isAdmin || isOwner) ? user : sanitizeUser(user));
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
