@@ -4830,6 +4830,20 @@
         }
       };
 
+      // Copies a list of WhatsApp numbers, one per line, so they can be
+      // pasted straight into WhatsApp/Excel/wherever. Used by the "Copy
+      // Numbers" buttons on the Overview expiring-soon list and each
+      // subscription's customer list.
+      const copyWhatsappNumbers = (numbers, label) => {
+        const nums = (numbers || []).map(n => (n || '').toString().trim()).filter(Boolean);
+        if (nums.length === 0) {
+          addToast('No numbers to copy', 'error');
+          return;
+        }
+        navigator?.clipboard?.writeText(nums.join('\n'));
+        addToast(`Copied ${nums.length} number${nums.length > 1 ? 's' : ''}${label ? ` (${label})` : ''}!`, 'success');
+      };
+
       // ─── Promotions state ────────────────────────────────────────
       const [showPromoModal, setShowPromoModal] = useState(false);
       const [editingPromo, setEditingPromo] = useState(null);
@@ -6406,7 +6420,10 @@
                 if (expiring.length > 0) {
                   return (
                     <div className="glass-panel border-yellow-500/30">
-                      <h3 className="text-lg font-semibold text-yellow-400 mb-3"><i className="fas fa-clock mr-2"></i> Expiring Soon (Next 24h)</h3>
+                      <div className="flex flex-wrap justify-between items-center gap-2 mb-3">
+                        <h3 className="text-lg font-semibold text-yellow-400"><i className="fas fa-clock mr-2"></i> Expiring Soon (Next 24h)</h3>
+                        <button onClick={() => copyWhatsappNumbers(expiring.map(item => item.whatsapp), 'Expiring Soon')} className="btn-neon-outline text-xs px-3 py-1.5"><i className="fas fa-copy mr-2"></i> Copy Numbers</button>
+                      </div>
                       <div className="overflow-x-auto">
                         <table className="admin-table text-sm">
                           <thead><tr><th>Customer</th><th>WhatsApp</th><th>Subscription</th><th>Screen</th><th>Expiry</th><th>Status</th></tr></thead>
@@ -6773,20 +6790,23 @@
                 if (records.length === 0) return null;
                 return (
                   <div key={sub.id} className="glass-panel">
-                    <h4 className="text-white font-semibold mb-3">
-                      {sub.type === 'netflix' ? (
-                        <span className="netflix-logo" style={{ fontSize: '1rem' }}>
-                          <svg viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg" style={{ width: '1.2rem', height: '1.2rem', verticalAlign: 'middle', marginRight: '4px' }}>
-                            <path d="M5.5 2.5v19.5l5-2.5V5l-5 2.5zM12 2.5v19.5l5-2.5V5L12 2.5z" />
-                            <path d="M18.5 2.5v19.5l5-2.5V5l-5 2.5z" />
-                          </svg> Netflix
-                        </span>
-                      ) : (
-                        <>
-                          <i className={`fas fa-${sub.type === 'amazon' ? 'amazon' : sub.type === 'youtube' ? 'youtube' : sub.type === 'spotify' ? 'spotify' : sub.type === 'chatgpt' ? 'robot' : sub.type === 'canva' ? 'paint-brush' : sub.type === 'capcut' ? 'video' : sub.type === 'hbomax' ? 'tv' : sub.type === 'crunchyroll' ? 'play' : sub.type === 'chaupal' ? 'film' : 'crown'} mr-2`} style={{ color: sub.type === 'amazon' ? '#ff9900' : sub.type === 'youtube' ? '#ff0000' : sub.type === 'spotify' ? '#1db954' : sub.type === 'chatgpt' ? '#10a37f' : sub.type === 'canva' ? '#00c4cc' : sub.type === 'capcut' ? '#00d4ff' : sub.type === 'hbomax' ? '#5822b4' : sub.type === 'crunchyroll' ? '#f47521' : sub.type === 'chaupal' ? '#e74c3c' : 'var(--t-primary-hex)' }}></i> {sub.name}
-                        </>
-                      )} ({records.length})
-                    </h4>
+                    <div className="flex flex-wrap justify-between items-center gap-2 mb-3">
+                      <h4 className="text-white font-semibold">
+                        {sub.type === 'netflix' ? (
+                          <span className="netflix-logo" style={{ fontSize: '1rem' }}>
+                            <svg viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg" style={{ width: '1.2rem', height: '1.2rem', verticalAlign: 'middle', marginRight: '4px' }}>
+                              <path d="M5.5 2.5v19.5l5-2.5V5l-5 2.5zM12 2.5v19.5l5-2.5V5L12 2.5z" />
+                              <path d="M18.5 2.5v19.5l5-2.5V5l-5 2.5z" />
+                            </svg> Netflix
+                          </span>
+                        ) : (
+                          <>
+                            <i className={`fas fa-${sub.type === 'amazon' ? 'amazon' : sub.type === 'youtube' ? 'youtube' : sub.type === 'spotify' ? 'spotify' : sub.type === 'chatgpt' ? 'robot' : sub.type === 'canva' ? 'paint-brush' : sub.type === 'capcut' ? 'video' : sub.type === 'hbomax' ? 'tv' : sub.type === 'crunchyroll' ? 'play' : sub.type === 'chaupal' ? 'film' : 'crown'} mr-2`} style={{ color: sub.type === 'amazon' ? '#ff9900' : sub.type === 'youtube' ? '#ff0000' : sub.type === 'spotify' ? '#1db954' : sub.type === 'chatgpt' ? '#10a37f' : sub.type === 'canva' ? '#00c4cc' : sub.type === 'capcut' ? '#00d4ff' : sub.type === 'hbomax' ? '#5822b4' : sub.type === 'crunchyroll' ? '#f47521' : sub.type === 'chaupal' ? '#e74c3c' : 'var(--t-primary-hex)' }}></i> {sub.name}
+                          </>
+                        )} ({records.length})
+                      </h4>
+                      <button onClick={() => copyWhatsappNumbers(records.map(r => r.customer?.whatsapp), sub.name)} className="btn-neon-outline text-xs px-3 py-1.5"><i className="fas fa-copy mr-2"></i> Copy Numbers</button>
+                    </div>
                     <div className="overflow-x-auto">
                       <table className="admin-table text-sm">
                         <thead><tr><th>Name</th><th>Username</th><th>WhatsApp</th><th>Screen</th><th>Account</th><th>Purchased</th><th>Expiry</th><th>Status</th><th>Actions</th></tr></thead>
