@@ -5212,6 +5212,7 @@
       const [addUserForm, setAddUserForm] = useState({ username: '', password: '', whatsapp: '', credits: 50 });
       const [addUserLoading, setAddUserLoading] = useState(false);
       const [viewingCreds, setViewingCreds] = useState(null);
+      const [showCredPassword, setShowCredPassword] = useState(false);
       const [credsLoading, setCredsLoading] = useState(false);
       const [grantModalUser, setGrantModalUser] = useState(null);
       const [grantForm, setGrantForm] = useState({ subscriptionId: '', name: '', whatsapp: '', screens: 1, sameAccount: false, durationType: 'months', months: 1, days: 30 });
@@ -5812,7 +5813,7 @@
           setCredsLoading(false);
         }
       };
-      const closeCredsModal = () => setViewingCreds(null);
+      const closeCredsModal = () => { setViewingCreds(null); setShowCredPassword(false); };
 
       const openGrantModal = (u) => {
         setGrantModalUser(u.username);
@@ -7884,7 +7885,10 @@
                     </span>
                   </div>
                   <div className="detail-row"><span className="label">Password</span>
-                    <span className="value">{viewingCreds.password}
+                    <span className="value">{showCredPassword ? viewingCreds.password : '••••••••'}
+                      <button className="copy-btn" onClick={() => setShowCredPassword(!showCredPassword)} title={showCredPassword ? 'Hide password' : 'Show password'}>
+                        <i className={`fas ${showCredPassword ? 'fa-eye-slash' : 'fa-eye'}`}></i>
+                      </button>
                       <button className="copy-btn" onClick={() => { navigator?.clipboard?.writeText(viewingCreds.password); addToast('Copied!', 'success'); }}><i className="fas fa-copy"></i></button>
                     </span>
                   </div>

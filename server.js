@@ -76,6 +76,7 @@ async function connectDB() {
   adminSettingsCollection = db.collection('adminSettings');
   noticesCollection = db.collection('notices');
   await ensureAuthSecret(); // load or create the server-only token-signing secret
+  await ensureCredKey(); // load or create the server-only customer-password encryption key
   console.log('✅ Connected to MongoDB');
 }
 
@@ -152,6 +153,70 @@ function verifyPassword(plain, stored) {
     return a.length === b.length && crypto.timingSafeEqual(a, b);
   }
   return String(plain) === String(stored); // legacy plain-text (pre-hashing)
+}
+
+// ─── Reversible encryption for CUSTOMER passwords ───────────────────
+// The admin password above uses a one-way hash on purpose — nobody, not
+// even the admin, should ever be able to recover it, only reset it.
+// Customer passwords are different: admin has a legitimate day-to-day need
+// to actually look one up (e.g. reminding a customer what they signed up
+// with), which a one-way hash can never allow no matter how it's called.
+// AES-256-GCM keeps them encrypted at rest — safe if the database is ever
+// exposed — while still letting the server decrypt the real value back out
+// for an authorized viewer. The key lives only in the database, never in
+// the code, and is generated once the first time the server ever runs.
+let CRED_KEY = null;
+async function ensureCredKey() {
+  const doc = await adminSettingsCollection.findOne({ _id: 'credKey' });
+  if (doc && doc.key) { CRED_KEY = Buffer.from(doc.key, 'hex'); return; }
+  CRED_KEY = crypto.randomBytes(32);
+  await adminSettingsCollection.updateOne({ _id: 'credKey' }, { $set: { key: CRED_KEY.toString('hex') } }, { upsert: true });
+}
+function encryptCustomerPassword(plain) {
+  const iv = crypto.randomBytes(12);
+  const cipher = crypto.createCipheriv('aes-256-gcm', CRED_KEY, iv);
+  const encrypted = Buffer.concat([cipher.update(String(plain), 'utf8'), cipher.final()]);
+  const tag = cipher.getAuthTag();
+  return `enc$${iv.toString('hex')}$${tag.toString('hex')}$${encrypted.toString('hex')}`;
+}
+function isEncrypted(stored) {
+  return typeof stored === 'string' && stored.startsWith('enc$');
+}
+// Returns the real plaintext password, or null if it can't be decrypted
+// (wrong format, tampered, or key mismatch).
+function decryptCustomerPassword(stored) {
+  if (!isEncrypted(stored)) return null;
+  const parts = stored.split('$');
+  if (parts.length !== 4) return null;
+  const [, ivHex, tagHex, dataHex] = parts;
+  try {
+    const decipher = crypto.createDecipheriv('aes-256-gcm', CRED_KEY, Buffer.from(ivHex, 'hex'));
+    decipher.setAuthTag(Buffer.from(tagHex, 'hex'));
+    const decrypted = Buffer.concat([decipher.update(Buffer.from(dataHex, 'hex')), decipher.final()]);
+    return decrypted.toString('utf8');
+  } catch {
+    return null;
+  }
+}
+// Verifies a login attempt against whatever format the stored value
+// happens to be in — encrypted (current), scrypt-hashed (briefly used),
+// or legacy plain-text (original) — so nobody who signed up under an
+// older version of this code is ever locked out.
+function verifyCustomerPassword(plain, stored) {
+  if (stored == null) return false;
+  if (isEncrypted(stored)) {
+    const decrypted = decryptCustomerPassword(stored);
+    return decrypted !== null && decrypted === String(plain);
+  }
+  if (isHashed(stored)) {
+    const [, salt, hash] = stored.split('$');
+    let derived;
+    try { derived = crypto.scryptSync(String(plain), salt, 64).toString('hex'); } catch { return false; }
+    const a = Buffer.from(hash, 'hex');
+    const b = Buffer.from(derived, 'hex');
+    return a.length === b.length && crypto.timingSafeEqual(a, b);
+  }
+  return String(plain) === String(stored);
 }
 
 // ─── Auth tokens (stateless, HMAC-signed) ───────────────────────────
@@ -955,7 +1020,7 @@ app.post('/api/users/signup', async (req, res) => {
     }
     const newUser = {
       username,
-      password: hashPassword(password),
+      password: encryptCustomerPassword(password),
       whatsapp,
       purchaseCount: 0,
       credits: 0,
@@ -972,12 +1037,14 @@ app.post('/api/users/login', async (req, res) => {
   try {
     const { username, password } = req.body;
     const user = await usersCollection.findOne({ username });
-    if (!user || !verifyPassword(password, user.password)) {
+    if (!user || !verifyCustomerPassword(password, user.password)) {
       return res.status(401).json({ error: 'Invalid credentials' });
     }
-    // Upgrade a legacy plain-text password to a hash on first successful login.
-    if (!isHashed(user.password)) {
-      await usersCollection.updateOne({ username }, { $set: { password: hashPassword(password) } });
+    // Upgrade a legacy plain-text or scrypt-hashed password to reversible
+    // encryption on first successful login — this is the only moment the
+    // server ever has the real plaintext in hand to do that with.
+    if (!isEncrypted(user.password)) {
+      await usersCollection.updateOne({ username }, { $set: { password: encryptCustomerPassword(password) } });
     }
     res.json({ success: true, user: sanitizeUser(user), token: signToken({ u: user.username, r: 'user' }) });
   } catch (err) {
@@ -1026,7 +1093,15 @@ app.get('/api/users/:username', async (req, res) => {
     const auth = getAuth(req);
     const isOwner = auth && auth.r === 'user' && auth.u === user.username;
     const isAdmin = auth && auth.r === 'admin';
-    res.json((isAdmin || isOwner) ? user : sanitizeUser(user));
+    if (isAdmin || isOwner) {
+      // Hand back the real password, not the encrypted string sitting in
+      // the database — decrypt it here so it's only ever the raw stored
+      // value or the actual plaintext, never something in between that
+      // looks like a password but isn't one.
+      const decrypted = decryptCustomerPassword(user.password);
+      return res.json({ ...user, password: decrypted !== null ? decrypted : user.password });
+    }
+    res.json(sanitizeUser(user));
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -1188,7 +1263,7 @@ app.put('/api/users/:username', async (req, res) => {
 
     const update = {};
     if (newUsername !== undefined && newUsername !== '') update.username = newUsername;
-    if (password !== undefined && password !== '') update.password = hashPassword(password);
+    if (password !== undefined && password !== '') update.password = encryptCustomerPassword(password);
     if (whatsapp !== undefined) update.whatsapp = whatsapp;
     if (credits !== undefined) update.credits = credits;
 
