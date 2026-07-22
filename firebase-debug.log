@@ -154,3 +154,10 @@
 [debug] [2026-07-22T05:35:07.811Z] >>> [apiv2][body] POST https://upload-firebasehosting.googleapis.com/upload/sites/sub-hub-d948f/versions/937af5213b86f633/files/0cb95a525ad702938bd38112c45ab12de3e20c48d2a4716f27a87a9643f3f29f [stream]
 [debug] [2026-07-22T05:35:08.455Z] <<< [apiv2][status] POST https://upload-firebasehosting.googleapis.com/upload/sites/sub-hub-d948f/versions/937af5213b86f633/files/0cb95a525ad702938bd38112c45ab12de3e20c48d2a4716f27a87a9643f3f29f 400
 [debug] [2026-07-22T05:35:08.456Z] <<< [apiv2][body] POST https://upload-firebasehosting.googleapis.com/upload/sites/sub-hub-d948f/versions/937af5213b86f633/files/0cb95a525ad702938bd38112c45ab12de3e20c48d2a4716f27a87a9643f3f29f [stream]
+[debug] [2026-07-22T05:35:10.067Z] [uploadQueue] Retrying task 0cb95a525ad702938bd38112c45ab12de3e20c48d2a4716f27a87a9643f3f29f
+[debug] [2026-07-22T05:35:10.069Z] Checked if tokens are valid: true, expires at: 1784701507464
+[debug] [2026-07-22T05:35:10.069Z] Checked if tokens are valid: true, expires at: 1784701507464
+[debug] [2026-07-22T05:35:10.069Z] >>> [apiv2][query] POST https://upload-firebasehosting.googleapis.com/upload/sites/sub-hub-d948f/versions/937af5213b86f633/files/0cb95a525ad702938bd38112c45ab12de3e20c48d2a4716f27a87a9643f3f29f [none]
+[debug] [2026-07-22T05:35:10.069Z] >>> [apiv2][body] POST https://upload-firebasehosting.googleapis.com/upload/sites/sub-hub-d948f/versions/937af5213b86f633/files/0cb95a525ad702938bd38112c45ab12de3e20c48d2a4716f27a87a9643f3f29f [stream]
+[debug] [2026-07-22T05:35:10.600Z] <<< [apiv2][status] POST https://upload-firebasehosting.googleapis.com/upload/sites/sub-hub-d948f/versions/937af5213b86f633/files/0cb95a525ad702938bd38112c45ab12de3e20c48d2a4716f27a87a9643f3f29f 400
+[debug] [2026-07-22T05:35:10.601Z] <<< [apiv2][body] POST https://upload-firebasehosting.googleapis.com/upload/sites/sub-hub-d948f/versions/937af5213b86f633/files/0cb95a525ad702938bd38112c45ab12de3e20c48d2a4716f27a87a9643f3f29f [stream]
