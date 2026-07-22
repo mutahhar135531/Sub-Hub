@@ -1,0 +1,17 @@
+[debug] [2026-07-22T09:03:17.201Z] ----------------------------------------------------------------------
+[debug] [2026-07-22T09:03:17.203Z] Command:       C:\Program Files\nodejs\node.exe C:\Users\Hp\AppData\Roaming\npm\node_modules\firebase-tools\lib\bin\firebase.js deploy
+[debug] [2026-07-22T09:03:17.203Z] CLI Version:   15.24.0
+[debug] [2026-07-22T09:03:17.203Z] Platform:      win32
+[debug] [2026-07-22T09:03:17.203Z] Node Version:  v24.18.0
+[debug] [2026-07-22T09:03:17.204Z] Detected Agent: unknown
+[debug] [2026-07-22T09:03:17.204Z] Time:          Wed Jul 22 2026 14:03:17 GMT+0500 (Pakistan Standard Time)
+[debug] [2026-07-22T09:03:17.204Z] ----------------------------------------------------------------------
+[debug] 
+[debug] [2026-07-22T09:03:18.804Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
+[debug] [2026-07-22T09:03:18.805Z] > authorizing via signed-in user (webseriesworldoff@gmail.com)
+[debug] [2026-07-22T09:03:18.805Z] [iam] checking project sub-hub-d948f for permissions ["firebase.projects.get","firebasehosting.sites.update"]
+[debug] [2026-07-22T09:03:18.816Z] Checked if tokens are valid: true, expires at: 1784712207924
+[debug] [2026-07-22T09:03:18.816Z] Checked if tokens are valid: true, expires at: 1784712207924
+[debug] [2026-07-22T09:03:18.817Z] >>> [apiv2][query] POST https://cloudresourcemanager.googleapis.com/v1/projects/sub-hub-d948f:testIamPermissions [none]
+[debug] [2026-07-22T09:03:18.817Z] >>> [apiv2][(partial)header] POST https://cloudresourcemanager.googleapis.com/v1/projects/sub-hub-d948f:testIamPermissions  x-goog-user-project=sub-hub-d948f
+[debug] [2026-07-22T09:03:18.817Z] >>> [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/sub-hub-d948f:testIamPermissions {"permissions":["firebase.projects.get","firebasehosting.sites.update"]}
