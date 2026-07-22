@@ -1094,12 +1094,14 @@ app.get('/api/users/:username', async (req, res) => {
     const isOwner = auth && auth.r === 'user' && auth.u === user.username;
     const isAdmin = auth && auth.r === 'admin';
     if (isAdmin || isOwner) {
-      // Hand back the real password, not the encrypted string sitting in
-      // the database — decrypt it here so it's only ever the raw stored
-      // value or the actual plaintext, never something in between that
-      // looks like a password but isn't one.
+      // Hand back the real password, decrypted — never the raw stored
+      // string. If it can't be decrypted (e.g. this account's password
+      // predates reversible encryption and is still an old one-way scrypt
+      // hash, which by design can never be turned back into plaintext),
+      // say so explicitly instead of leaking the hash itself: it would
+      // look like a password to whoever's viewing it, but isn't one.
       const decrypted = decryptCustomerPassword(user.password);
-      return res.json({ ...user, password: decrypted !== null ? decrypted : user.password });
+      return res.json({ ...user, password: decrypted, passwordAvailable: decrypted !== null });
     }
     res.json(sanitizeUser(user));
   } catch (err) {
