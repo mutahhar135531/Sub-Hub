@@ -1020,7 +1020,10 @@
       const headers = { 'Cache-Control': 'no-cache' };
       if (token) headers['Authorization'] = `Bearer ${token}`;
       const res = await fetch(`${API_BASE}/api/my-notes?t=${Date.now()}`, { headers });
-      if (!res.ok) return [];
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error || `my-notes request failed (${res.status})`);
+      }
       return res.json();
     };
 
@@ -3957,7 +3960,7 @@
             setNotes(list);
             writeCache('notes_' + username, list);
           })
-          .catch(() => {})
+          .catch(err => console.error('Failed to load notes board:', err))
           .finally(() => setLoading(false));
       }, [username]);
 
