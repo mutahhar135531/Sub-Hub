@@ -41,6 +41,8 @@ let processedPurchasesCollection;
 let creditHistoryCollection;
 let adminSettingsCollection;
 let noticesCollection;
+let socialServicesCollection;
+let socialOrdersCollection;
 
 // ─── SUBSCRIPTION COSTS (Monthly) ──────────────────────────
 const SUBSCRIPTION_COSTS = {
@@ -75,6 +77,8 @@ async function connectDB() {
   creditHistoryCollection = db.collection('creditHistory');
   adminSettingsCollection = db.collection('adminSettings');
   noticesCollection = db.collection('notices');
+  socialServicesCollection = db.collection('socialServices');
+  socialOrdersCollection = db.collection('socialOrders');
   await ensureAuthSecret(); // load or create the server-only token-signing secret
   await ensureCredKey(); // load or create the server-only customer-password encryption key
   console.log('✅ Connected to MongoDB');
@@ -1405,6 +1409,188 @@ app.delete('/api/deals/:id', requireAdmin, async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
+
+// ─── SOCIAL MEDIA SERVICES ────────────────────────────────────
+// A "platform" (Instagram, TikTok, etc) holds a list of "services"
+// (Followers, Likes, Comments...) each priced per 1000 units, and each
+// declaring which inputs it needs from the customer (account link and/or
+// video link — a service can require either, both, or neither).
+app.get('/api/social-services', async (req, res) => {
+  try {
+    const platforms = await socialServicesCollection.find({}).toArray();
+    res.json(platforms);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/social-services', requireAdmin, async (req, res) => {
+  try {
+    const { id, name, icon, logo } = req.body;
+    if (!id || !name) return res.status(400).json({ error: 'Platform name is required' });
+    const existing = await socialServicesCollection.findOne({ id });
+    if (existing) return res.status(400).json({ error: 'Platform id already exists' });
+    const platform = { id, name, icon: icon || '', logo: logo || '', services: [], createdAt: new Date() };
+    await socialServicesCollection.insertOne(platform);
+    res.json(platform);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.put('/api/social-services/:id', requireAdmin, async (req, res) => {
+  try {
+    const { name, icon, logo } = req.body;
+    const update = {};
+    if (name !== undefined) update.name = name;
+    if (icon !== undefined) update.icon = icon;
+    if (logo !== undefined) update.logo = logo;
+    const result = await socialServicesCollection.updateOne({ id: req.params.id }, { $set: update });
+    if (result.matchedCount === 0) return res.status(404).json({ error: 'Platform not found' });
+    const updated = await socialServicesCollection.findOne({ id: req.params.id });
+    res.json(updated);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.delete('/api/social-services/:id', requireAdmin, async (req, res) => {
+  try {
+    const result = await socialServicesCollection.deleteOne({ id: req.params.id });
+    if (result.deletedCount === 0) return res.status(404).json({ error: 'Platform not found' });
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// A service's requiredFields is a subset of ['accountLink','videoLink'] —
+// whatever's listed there is what the customer gets asked for before they
+// can send the order.
+app.post('/api/social-services/:id/services', requireAdmin, async (req, res) => {
+  try {
+    const { name, costPrice, sellingPrice, requiredFields } = req.body;
+    if (!name) return res.status(400).json({ error: 'Service name is required' });
+    const platform = await socialServicesCollection.findOne({ id: req.params.id });
+    if (!platform) return res.status(404).json({ error: 'Platform not found' });
+    const service = {
+      id: Date.now().toString(),
+      name,
+      costPrice: costPrice || 0,
+      sellingPrice: sellingPrice || 0,
+      requiredFields: Array.isArray(requiredFields) ? requiredFields.filter(f => ['accountLink', 'videoLink'].includes(f)) : [],
+      active: true
+    };
+    await socialServicesCollection.updateOne({ id: req.params.id }, { $push: { services: service } });
+    const updated = await socialServicesCollection.findOne({ id: req.params.id });
+    res.json(updated);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.put('/api/social-services/:id/services/:serviceId', requireAdmin, async (req, res) => {
+  try {
+    const { name, costPrice, sellingPrice, requiredFields, active } = req.body;
+    const platform = await socialServicesCollection.findOne({ id: req.params.id });
+    if (!platform) return res.status(404).json({ error: 'Platform not found' });
+    const services = (platform.services || []).map(s => {
+      if (s.id !== req.params.serviceId) return s;
+      return {
+        ...s,
+        name: name !== undefined ? name : s.name,
+        costPrice: costPrice !== undefined ? costPrice : s.costPrice,
+        sellingPrice: sellingPrice !== undefined ? sellingPrice : s.sellingPrice,
+        requiredFields: requiredFields !== undefined ? requiredFields.filter(f => ['accountLink', 'videoLink'].includes(f)) : s.requiredFields,
+        active: active !== undefined ? active : s.active
+      };
+    });
+    await socialServicesCollection.updateOne({ id: req.params.id }, { $set: { services } });
+    const updated = await socialServicesCollection.findOne({ id: req.params.id });
+    res.json(updated);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.delete('/api/social-services/:id/services/:serviceId', requireAdmin, async (req, res) => {
+  try {
+    const platform = await socialServicesCollection.findOne({ id: req.params.id });
+    if (!platform) return res.status(404).json({ error: 'Platform not found' });
+    const services = (platform.services || []).filter(s => s.id !== req.params.serviceId);
+    await socialServicesCollection.updateOne({ id: req.params.id }, { $set: { services } });
+    const updated = await socialServicesCollection.findOne({ id: req.params.id });
+    res.json(updated);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ─── SOCIAL MEDIA ORDERS ──────────────────────────────────────
+// Customers don't need an account to order — same as the rest of the
+// site's WhatsApp-driven flow, this just also keeps a record the admin
+// can see and track from the dashboard.
+app.get('/api/social-orders', requireAdmin, async (req, res) => {
+  try {
+    const orders = await socialOrdersCollection.find({}).sort({ createdAt: -1 }).toArray();
+    res.json(orders);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/social-orders', async (req, res) => {
+  try {
+    const { platformId, platformName, serviceId, serviceName, quantity, accountLink, videoLink, name, whatsapp, price } = req.body;
+    if (!platformName || !serviceName || !quantity || !whatsapp) {
+      return res.status(400).json({ error: 'Missing required fields' });
+    }
+    const order = {
+      id: Date.now().toString(),
+      platformId: platformId || '',
+      platformName,
+      serviceId: serviceId || '',
+      serviceName,
+      quantity: Number(quantity) || 0,
+      accountLink: accountLink || '',
+      videoLink: videoLink || '',
+      name: name || '',
+      whatsapp,
+      price: Number(price) || 0,
+      status: 'pending',
+      createdAt: new Date()
+    };
+    await socialOrdersCollection.insertOne(order);
+    res.json(order);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.put('/api/social-orders/:id', requireAdmin, async (req, res) => {
+  try {
+    const { status } = req.body;
+    const update = {};
+    if (status !== undefined) update.status = status;
+    const result = await socialOrdersCollection.updateOne({ id: req.params.id }, { $set: update });
+    if (result.matchedCount === 0) return res.status(404).json({ error: 'Order not found' });
+    const updated = await socialOrdersCollection.findOne({ id: req.params.id });
+    res.json(updated);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.delete('/api/social-orders/:id', requireAdmin, async (req, res) => {
+  try {
+    const result = await socialOrdersCollection.deleteOne({ id: req.params.id });
+    if (result.deletedCount === 0) return res.status(404).json({ error: 'Order not found' });
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 
 // ---- OTP ----
 app.post('/api/otp/generate', async (req, res) => {

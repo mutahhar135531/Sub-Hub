@@ -864,6 +864,101 @@
       return res.json();
     };
 
+    // ─── Social Media Services ─────────────────────────────────
+    const fetchSocialServices = async () => {
+      const res = await fetch(`${API_BASE}/api/social-services?t=${Date.now()}`, {
+        headers: { 'Cache-Control': 'no-cache' }
+      });
+      return res.json();
+    };
+
+    const createSocialPlatform = async (data) => {
+      const res = await fetch(`${API_BASE}/api/social-services`, {
+        method: 'POST',
+        headers: authHeaders({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify(data),
+      });
+      return res.json();
+    };
+
+    const updateSocialPlatform = async (platformId, data) => {
+      const res = await fetch(`${API_BASE}/api/social-services/${platformId}`, {
+        method: 'PUT',
+        headers: authHeaders({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify(data),
+      });
+      return res.json();
+    };
+
+    const deleteSocialPlatform = async (platformId) => {
+      const res = await fetch(`${API_BASE}/api/social-services/${platformId}`, {
+        method: 'DELETE',
+        headers: authHeaders(),
+      });
+      return res.json();
+    };
+
+    const addSocialService = async (platformId, data) => {
+      const res = await fetch(`${API_BASE}/api/social-services/${platformId}/services`, {
+        method: 'POST',
+        headers: authHeaders({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify(data),
+      });
+      return res.json();
+    };
+
+    const updateSocialService = async (platformId, serviceId, data) => {
+      const res = await fetch(`${API_BASE}/api/social-services/${platformId}/services/${serviceId}`, {
+        method: 'PUT',
+        headers: authHeaders({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify(data),
+      });
+      return res.json();
+    };
+
+    const deleteSocialService = async (platformId, serviceId) => {
+      const res = await fetch(`${API_BASE}/api/social-services/${platformId}/services/${serviceId}`, {
+        method: 'DELETE',
+        headers: authHeaders(),
+      });
+      return res.json();
+    };
+
+    const fetchSocialOrders = async () => {
+      const res = await fetch(`${API_BASE}/api/social-orders?t=${Date.now()}`, {
+        headers: authHeaders({ 'Cache-Control': 'no-cache' })
+      });
+      return res.json();
+    };
+
+    const submitSocialOrder = async (data) => {
+      const res = await fetch(`${API_BASE}/api/social-orders`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+      const result = await res.json();
+      if (!res.ok) throw result;
+      return result;
+    };
+
+    const updateSocialOrderStatus = async (orderId, status) => {
+      const res = await fetch(`${API_BASE}/api/social-orders/${orderId}`, {
+        method: 'PUT',
+        headers: authHeaders({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify({ status }),
+      });
+      return res.json();
+    };
+
+    const deleteSocialOrder = async (orderId) => {
+      const res = await fetch(`${API_BASE}/api/social-orders/${orderId}`, {
+        method: 'DELETE',
+        headers: authHeaders(),
+      });
+      return res.json();
+    };
+
     const fetchIncome = async (period = 'all', customStart, customEnd) => {
       let url = `${API_BASE}/api/income?period=${period}&t=${Date.now()}`;
       if (period === 'custom' && customStart) {
@@ -1713,6 +1808,31 @@
       );
     }
 
+    // ─── SOCIAL PLATFORM ICON/COLOR HELPERS ───────────────────
+    // Matches a platform's admin-typed name (e.g. "Instagram") to a
+    // Font Awesome brand icon and brand color, so cards/admin rows always
+    // have something to show without the admin needing to pick an icon.
+    // Falls back to a generic share icon in the site's theme color for
+    // anything not in this list (a logo upload always wins over this).
+    const SOCIAL_ICON_MAP = [
+      { match: /instagram/i, icon: 'fa-instagram', color: '#e1306c' },
+      { match: /tiktok/i, icon: 'fa-tiktok', color: '#69C9D0' },
+      { match: /facebook/i, icon: 'fa-facebook', color: '#1877f2' },
+      { match: /snapchat/i, icon: 'fa-snapchat', color: '#FFFC00' },
+      { match: /youtube/i, icon: 'fa-youtube', color: '#ff0000' },
+      { match: /twitter|^x$|\bx\b/i, icon: 'fa-twitter', color: '#1da1f2' },
+      { match: /telegram/i, icon: 'fa-telegram', color: '#0088cc' },
+      { match: /whatsapp/i, icon: 'fa-whatsapp', color: '#25d366' },
+      { match: /linkedin/i, icon: 'fa-linkedin', color: '#0a66c2' },
+      { match: /pinterest/i, icon: 'fa-pinterest', color: '#e60023' },
+      { match: /discord/i, icon: 'fa-discord', color: '#5865f2' },
+      { match: /twitch/i, icon: 'fa-twitch', color: '#9146ff' },
+      { match: /reddit/i, icon: 'fa-reddit', color: '#ff4500' },
+      { match: /spotify/i, icon: 'fa-spotify', color: '#1db954' },
+    ];
+    const getSocialIcon = (name = '') => (SOCIAL_ICON_MAP.find(e => e.match.test(name)) || {}).icon || 'fa-share-alt';
+    const getSocialColor = (name = '') => (SOCIAL_ICON_MAP.find(e => e.match.test(name)) || {}).color || 'var(--t-primary-hex)';
+
     // ─── SUBSCRIPTION CAROUSEL ──────────────────────────
     function SubscriptionCarousel({ subscriptions: rawSubscriptions, onGetStarted }) {
       const [itemsPerView, setItemsPerView] = useState(4);
@@ -2056,6 +2176,314 @@
       );
     }
 
+    // ─── SOCIAL MEDIA SERVICES CAROUSEL ──────────────────
+    function SocialServicesCarousel({ platforms: rawPlatforms, onPlatformClick }) {
+      const [itemsPerView, setItemsPerView] = useState(4);
+      const [offset, setOffset] = useState(0);
+      const [isPaused, setIsPaused] = useState(false);
+      const [containerWidth, setContainerWidth] = useState(0);
+      const containerRef = useRef(null);
+      const trackRef = useRef(null);
+      const animationRef = useRef(null);
+      const speed = 30;
+
+      const [isDragging, setIsDragging] = useState(false);
+      const [dragStartX, setDragStartX] = useState(0);
+      const [dragOffsetStart, setDragOffsetStart] = useState(0);
+      const [dragVelocity, setDragVelocity] = useState(0);
+      const lastMoveTime = useRef(0);
+      const lastMoveX = useRef(0);
+      const momentumId = useRef(null);
+      // Tracks the very first touch point and, once enough movement has
+      // happened, whether the gesture is a horizontal carousel swipe or a
+      // vertical page scroll — so a swipe that starts on the carousel but
+      // moves mostly up/down is handed straight to the browser instead of
+      // being swallowed by the drag handler.
+      const touchStartX = useRef(0);
+      const touchStartY = useRef(0);
+      const touchIntent = useRef(null); // null | 'horizontal' | 'vertical'
+
+      // Build carousel cards from the real, admin-managed platforms — add
+      // one in the Social Media tab and it shows up here automatically.
+      const items = useMemo(() => {
+        return (rawPlatforms || []).map(p => {
+          const color = getSocialColor(p.name);
+          const icon = getSocialIcon(p.name);
+          const activeServices = (p.services || []).filter(s => s.active !== false);
+          const prices = activeServices.map(s => s.sellingPrice || 0).filter(n => n > 0);
+          const fromPrice = prices.length ? Math.min(...prices) : 0;
+          return {
+            id: p.id,
+            raw: p,
+            name: p.name,
+            color,
+            desc: activeServices.length > 0 ? `${activeServices.length} service${activeServices.length > 1 ? 's' : ''} available` : 'Coming soon',
+            detail: activeServices.slice(0, 3).map(s => s.name).join(' · '),
+            price: fromPrice > 0 ? `From RS ${fromPrice} / 1000` : '',
+            logo: p.logo ? (
+              <img src={p.logo} alt={p.name} style={{ width: '2.6rem', height: '2.6rem', objectFit: 'contain', margin: '0 auto' }} />
+            ) : (
+              <i className={`fab ${icon} text-3xl`} style={{ color }}></i>
+            )
+          };
+        });
+      }, [rawPlatforms]);
+
+      const totalItems = items.length;
+      const repeatedItems = useMemo(() => {
+        if (totalItems === 0) return [];
+        const reps = 3;
+        const arr = [];
+        for (let i = 0; i < reps; i++) arr.push(...items);
+        return arr;
+      }, [items, totalItems]);
+
+      const getItemsPerView = () => {
+        if (typeof window === 'undefined') return 4;
+        const w = window.innerWidth;
+        if (w >= 1200) return 4;
+        if (w >= 992) return 3;
+        if (w >= 640) return 2;
+        return 1;
+      };
+
+      useEffect(() => {
+        const handleResize = () => { setItemsPerView(getItemsPerView()); };
+        window.addEventListener('resize', handleResize);
+        handleResize();
+        return () => window.removeEventListener('resize', handleResize);
+      }, []);
+
+      useEffect(() => {
+        if (!containerRef.current) return;
+        const measure = () => {
+          const width = containerRef.current.getBoundingClientRect().width;
+          setContainerWidth(width);
+        };
+        measure();
+        const ro = new ResizeObserver(measure);
+        ro.observe(containerRef.current);
+        return () => ro.disconnect();
+      }, [itemsPerView]);
+
+      const gap = 8;
+      const slideWidth = containerWidth > 0 ? (containerWidth / itemsPerView) - gap : 0;
+      const oneSetWidth = slideWidth * totalItems + gap * (totalItems - 1);
+
+      useEffect(() => {
+        if (isPaused || totalItems === 0 || oneSetWidth === 0 || slideWidth === 0 || isDragging) {
+          if (animationRef.current) {
+            cancelAnimationFrame(animationRef.current);
+            animationRef.current = null;
+          }
+          return;
+        }
+        let lastTimestamp = performance.now();
+        const animate = (timestamp) => {
+          const delta = (timestamp - lastTimestamp) / 1000;
+          lastTimestamp = timestamp;
+          setOffset(prev => {
+            let newOffset = prev + speed * delta;
+            if (newOffset >= oneSetWidth) {
+              newOffset = newOffset - oneSetWidth;
+            }
+            return newOffset;
+          });
+          animationRef.current = requestAnimationFrame(animate);
+        };
+        animationRef.current = requestAnimationFrame(animate);
+        return () => {
+          if (animationRef.current) {
+            cancelAnimationFrame(animationRef.current);
+            animationRef.current = null;
+          }
+        };
+      }, [isPaused, totalItems, oneSetWidth, slideWidth, speed, isDragging]);
+
+      const handleDragStart = (clientX) => {
+        setIsDragging(true);
+        setIsPaused(true);
+        setDragStartX(clientX);
+        setDragOffsetStart(offset);
+        setDragVelocity(0);
+        lastMoveTime.current = Date.now();
+        lastMoveX.current = clientX;
+        if (momentumId.current) {
+          cancelAnimationFrame(momentumId.current);
+          momentumId.current = null;
+        }
+        if (animationRef.current) {
+          cancelAnimationFrame(animationRef.current);
+          animationRef.current = null;
+        }
+      };
+
+      const handleDragMove = (clientX) => {
+        if (!isDragging) return;
+        const diff = clientX - dragStartX;
+        let newOffset = dragOffsetStart - diff;
+        if (newOffset < 0) newOffset = 0;
+        if (newOffset > oneSetWidth) newOffset = oneSetWidth;
+        setOffset(newOffset);
+        const now = Date.now();
+        const dt = now - lastMoveTime.current;
+        if (dt > 0) {
+          const dx = clientX - lastMoveX.current;
+          const vel = dx / dt;
+          setDragVelocity(vel);
+        }
+        lastMoveTime.current = now;
+        lastMoveX.current = clientX;
+      };
+
+      const handleDragEnd = () => {
+        if (!isDragging) return;
+        setIsDragging(false);
+        const vel = dragVelocity;
+        if (Math.abs(vel) > 0.2) {
+          let momentumOffset = offset;
+          const momentumStep = () => {
+            const dt = 16;
+            const decay = 0.97;
+            let velDecay = vel * decay;
+            momentumOffset = momentumOffset - velDecay * dt;
+            if (momentumOffset < 0) {
+              momentumOffset = 0;
+              velDecay = 0;
+            } else if (momentumOffset > oneSetWidth) {
+              momentumOffset = oneSetWidth;
+              velDecay = 0;
+            }
+            setOffset(momentumOffset);
+            if (Math.abs(velDecay) > 0.1 && momentumOffset > 0 && momentumOffset < oneSetWidth) {
+              momentumId.current = requestAnimationFrame(momentumStep);
+            } else {
+              setTimeout(() => { setIsPaused(false); }, 2000);
+            }
+          };
+          momentumId.current = requestAnimationFrame(momentumStep);
+        } else {
+          setTimeout(() => { setIsPaused(false); }, 2000);
+        }
+        setDragVelocity(0);
+      };
+
+      const onTouchStart = (e) => {
+        const touch = e.touches[0];
+        touchStartX.current = touch.clientX;
+        touchStartY.current = touch.clientY;
+        touchIntent.current = null;
+      };
+      const onTouchMove = (e) => {
+        const touch = e.touches[0];
+        if (touchIntent.current === null) {
+          const dx = touch.clientX - touchStartX.current;
+          const dy = touch.clientY - touchStartY.current;
+          if (Math.abs(dx) < 6 && Math.abs(dy) < 6) return; // too small to tell yet
+          if (Math.abs(dy) > Math.abs(dx)) {
+            // Mostly vertical — this is a page scroll, not a carousel swipe.
+            // Leave it alone (no preventDefault, no drag) so the browser's
+            // native vertical scroll takes over immediately, first try.
+            touchIntent.current = 'vertical';
+            return;
+          }
+          // Mostly horizontal — this is a carousel swipe, start dragging from
+          // the original touch point (not the current one) so there's no jump.
+          touchIntent.current = 'horizontal';
+          handleDragStart(touchStartX.current);
+        }
+        if (touchIntent.current !== 'horizontal') return;
+        e.preventDefault();
+        handleDragMove(touch.clientX);
+      };
+      const onTouchEnd = () => {
+        if (touchIntent.current === 'horizontal') handleDragEnd();
+        touchIntent.current = null;
+      };
+
+      const onMouseDown = (e) => {
+        if (e.button !== 0) return;
+        handleDragStart(e.clientX);
+        const onMouseMove = (ev) => handleDragMove(ev.clientX);
+        const onMouseUp = () => {
+          document.removeEventListener('mousemove', onMouseMove);
+          document.removeEventListener('mouseup', onMouseUp);
+          handleDragEnd();
+        };
+        document.addEventListener('mousemove', onMouseMove);
+        document.addEventListener('mouseup', onMouseUp);
+      };
+
+      const handlePause = () => { setIsPaused(true); };
+      const handleResume = () => {
+        if (!isDragging) {
+          setTimeout(() => setIsPaused(false), 3000);
+        }
+      };
+
+      const goToPrev = () => {
+        if (slideWidth === 0) return;
+        setIsPaused(true);
+        setOffset(prev => Math.max(prev - slideWidth, 0));
+        setTimeout(() => setIsPaused(false), 3000);
+      };
+      const goToNext = () => {
+        if (slideWidth === 0) return;
+        setIsPaused(true);
+        setOffset(prev => {
+          let newOffset = prev + slideWidth;
+          if (newOffset >= oneSetWidth) newOffset = newOffset - oneSetWidth;
+          return newOffset;
+        });
+        setTimeout(() => setIsPaused(false), 3000);
+      };
+
+      const handleCardClick = (sub) => { if (onPlatformClick) onPlatformClick(sub.raw); };
+
+      return (
+        <>
+          <div className="max-w-7xl mx-auto px-4 py-4 relative">
+            <div className="flex items-center gap-3 mb-4">
+              <span className="brand-z brand-z-sm">Z</span>
+              <h2 className="text-xl font-bold text-white"><i className="fas fa-share-alt mr-2 text-red-400"></i> Social Media Services</h2>
+              <span className="text-white/30 text-xs ml-2">Followers, likes, views & more</span>
+            </div>
+            <div className={`carousel-container ${isPaused ? 'paused' : ''}`} ref={containerRef} onMouseEnter={handlePause} onMouseLeave={handleResume} onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd} onMouseDown={onMouseDown} style={{ touchAction: 'pan-y' }}>
+              <div className="carousel-track" ref={trackRef} style={{ transform: `translateX(-${offset}px)`, transition: isDragging ? 'none' : 'none', gap: `${gap}px` }}>
+                {repeatedItems.map((sub, idx) => (
+                  <div key={idx} className="carousel-slide" style={{ width: slideWidth }}>
+                    <div className="sub-carousel-card relative" onClick={() => handleCardClick(sub)}>
+                      <div className="brand-corner">Z</div>
+                      <div className="card-icon">{sub.logo}</div>
+                      <div className="card-name">{sub.name}</div>
+                      <div className="card-desc">{sub.desc}</div>
+                      <div className="card-detail">{sub.detail}</div>
+                      <div className="card-price">{sub.price}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              {totalItems > itemsPerView && (
+                <>
+                  <button className="carousel-btn prev" onClick={goToPrev}><i className="fas fa-chevron-left"></i></button>
+                  <button className="carousel-btn next" onClick={goToNext}><i className="fas fa-chevron-right"></i></button>
+                  <div className="carousel-dots">
+                    {Array.from({ length: Math.ceil(totalItems / itemsPerView) }).map((_, idx) => (
+                      <button key={idx} className={`carousel-dot ${idx === Math.floor(offset / slideWidth) ? 'active' : ''}`} onClick={() => {
+                        setIsPaused(true);
+                        setOffset(idx * slideWidth);
+                        setTimeout(() => setIsPaused(false), 3000);
+                      }} />
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        </>
+      );
+    }
+
     // ─── WHATSAPP FLOATING BUTTON ─────────────────────────────
     function WhatsAppButton() {
       const whatsappLink = 'https://wa.me/923079163485';
@@ -2287,8 +2715,189 @@
       );
     }
 
+    // The social-services ordering modal: pick a service under the chosen
+    // platform, fill in whatever that service needs (account link and/or
+    // video link — set per-service by the admin), say how many units you
+    // want, then send it — same WhatsApp handoff as the rest of the site,
+    // plus a record saved server-side so the admin can track it from the
+    // dashboard even before they open WhatsApp.
+    function SocialOrderModal({ open, platform, onClose, user }) {
+      const { addToast } = useContext(AppContext);
+      const [step, setStep] = useState('service'); // 'service' | 'details'
+      const [selectedService, setSelectedService] = useState(null);
+      const [quantity, setQuantity] = useState('');
+      const [accountLink, setAccountLink] = useState('');
+      const [videoLink, setVideoLink] = useState('');
+      const [guestName, setGuestName] = useState('');
+      const [guestWhatsapp, setGuestWhatsapp] = useState('');
+      const [submitting, setSubmitting] = useState(false);
+
+      useEffect(() => {
+        if (open) {
+          setStep('service');
+          setSelectedService(null);
+          setQuantity('');
+          setAccountLink('');
+          setVideoLink('');
+          setGuestName('');
+          setGuestWhatsapp('');
+          setSubmitting(false);
+        }
+      }, [open, platform]);
+
+      if (!open || !platform) return null;
+
+      const activeServices = (platform.services || []).filter(s => s.active !== false);
+      const icon = getSocialIcon(platform.name);
+      const color = getSocialColor(platform.name);
+
+      const qtyNum = parseInt(quantity, 10) || 0;
+      const price = selectedService ? Math.round(((selectedService.sellingPrice || 0) / 1000) * qtyNum) : 0;
+      const needsAccountLink = selectedService ? (selectedService.requiredFields || []).includes('accountLink') : false;
+      const needsVideoLink = selectedService ? (selectedService.requiredFields || []).includes('videoLink') : false;
+
+      const handleSelectService = (svc) => { setSelectedService(svc); setStep('details'); };
+      const handleBack = () => { setStep('service'); setSelectedService(null); };
+
+      const handleSubmit = async () => {
+        const name = user ? (user.name || user.username) : guestName.trim();
+        const whatsapp = user ? user.whatsapp : guestWhatsapp.trim();
+        if (!user && (!guestName.trim() || !guestWhatsapp.trim())) {
+          addToast('Please enter your name and WhatsApp number', 'error');
+          return;
+        }
+        if (!qtyNum || qtyNum <= 0) {
+          addToast('Please enter how many you need', 'error');
+          return;
+        }
+        if (needsAccountLink && !accountLink.trim()) {
+          addToast('Please enter your account link', 'error');
+          return;
+        }
+        if (needsVideoLink && !videoLink.trim()) {
+          addToast('Please enter the video/post link', 'error');
+          return;
+        }
+
+        setSubmitting(true);
+        try {
+          await submitSocialOrder({
+            platformId: platform.id,
+            platformName: platform.name,
+            serviceId: selectedService.id,
+            serviceName: selectedService.name,
+            quantity: qtyNum,
+            accountLink: needsAccountLink ? accountLink.trim() : '',
+            videoLink: needsVideoLink ? videoLink.trim() : '',
+            name,
+            whatsapp,
+            price
+          });
+        } catch (err) {
+          // Even if the tracking save fails, the order still needs to reach
+          // the admin — a network blip here shouldn't cost the customer
+          // their order, so WhatsApp still opens below either way.
+          console.error('Failed to save social order:', err);
+        }
+
+        const lines = [];
+        lines.push(`Hello, I'd like to order a social media service.`);
+        lines.push(`Platform: ${platform.name}`);
+        lines.push(`Service: ${selectedService.name}`);
+        lines.push(`Quantity: ${qtyNum}`);
+        if (needsAccountLink) lines.push(`Account Link: ${accountLink.trim()}`);
+        if (needsVideoLink) lines.push(`Video Link: ${videoLink.trim()}`);
+        lines.push(`Name: ${name}`);
+        lines.push(`WhatsApp: ${whatsapp}`);
+        lines.push(`Estimated Price: RS ${price}`);
+        const message = lines.join('\n');
+        window.open(`https://wa.me/923079163485?text=${encodeURIComponent(message)}`, '_blank');
+        addToast('Opening WhatsApp — just tap Send!', 'success');
+        setSubmitting(false);
+        onClose();
+      };
+
+      return (
+        <div className="modal-overlay" onClick={onClose}>
+          <div className="modal-content glass-panel" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center gap-3 mb-1">
+              <i className={`fab ${icon} text-2xl`} style={{ color }}></i>
+              <h3 className="text-xl font-bold text-white">{platform.name}</h3>
+            </div>
+
+            {step === 'service' && (
+              <>
+                <p className="text-white/40 text-sm mb-5">Choose which service you'd like.</p>
+                {activeServices.length === 0 ? (
+                  <p className="text-white/30 text-sm py-6 text-center">No services available for this platform yet — check back soon.</p>
+                ) : (
+                  <div className="space-y-2">
+                    {activeServices.map(svc => (
+                      <button key={svc.id} onClick={() => handleSelectService(svc)} className="w-full flex items-center justify-between gap-3 p-3 rounded-xl bg-white/5 border border-white/10 hover:border-red-500/40 hover:bg-red-500/5 transition text-left">
+                        <span className="text-white font-medium text-sm">{svc.name}</span>
+                        <span className="text-green-400 text-sm font-semibold whitespace-nowrap">RS {svc.sellingPrice || 0} <span className="text-white/30 text-xs">/ 1000</span></span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+                <button onClick={onClose} className="btn-neon-outline w-full mt-5">Cancel</button>
+              </>
+            )}
+
+            {step === 'details' && selectedService && (
+              <>
+                <p className="text-white/40 text-sm mb-1">{selectedService.name}</p>
+                <p className="text-green-400 text-sm font-semibold mb-5">RS {selectedService.sellingPrice || 0} per 1000</p>
+
+                <div className="space-y-4">
+                  {needsAccountLink && (
+                    <div><label className="text-white/50 text-sm font-medium">Account Link</label>
+                      <input type="text" value={accountLink} onChange={(e) => setAccountLink(e.target.value)} className="input-neon mt-1" placeholder="https://instagram.com/yourprofile" />
+                    </div>
+                  )}
+                  {needsVideoLink && (
+                    <div><label className="text-white/50 text-sm font-medium">Video / Post Link</label>
+                      <input type="text" value={videoLink} onChange={(e) => setVideoLink(e.target.value)} className="input-neon mt-1" placeholder="https://instagram.com/p/..." />
+                    </div>
+                  )}
+                  <div><label className="text-white/50 text-sm font-medium">How many do you want?</label>
+                    <input type="number" min="1" value={quantity} onChange={(e) => setQuantity(e.target.value)} className="input-neon mt-1" placeholder="e.g. 1000" />
+                  </div>
+
+                  {!user && (
+                    <>
+                      <div><label className="text-white/50 text-sm font-medium">Your Name</label>
+                        <input type="text" value={guestName} onChange={(e) => setGuestName(e.target.value)} className="input-neon mt-1" placeholder="Your full name" />
+                      </div>
+                      <div><label className="text-white/50 text-sm font-medium">WhatsApp Number</label>
+                        <input type="tel" value={guestWhatsapp} onChange={(e) => setGuestWhatsapp(e.target.value)} className="input-neon mt-1" placeholder="+92 300 1234567" />
+                      </div>
+                    </>
+                  )}
+
+                  {qtyNum > 0 && (
+                    <div className="text-center p-3 bg-white/5 rounded-xl">
+                      <p className="text-white/30 text-xs">Estimated Price</p>
+                      <p className="text-2xl font-bold text-green-400">RS {price}</p>
+                    </div>
+                  )}
+
+                  <div className="flex gap-3">
+                    <button onClick={handleBack} className="btn-neon-outline px-5"><i className="fas fa-arrow-left"></i></button>
+                    <button onClick={handleSubmit} disabled={submitting} className="btn-neon flex-1 py-3">
+                      {submitting ? <><i className="fas fa-spinner fa-spin mr-2"></i> Sending...</> : <><i className="fab fa-whatsapp mr-2"></i> Send Order via WhatsApp</>}
+                    </button>
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      );
+    }
+
     // ─── HERO ──────────────────────────────────────────────────
-    function Hero({ setActiveTab, setShowSubscriptions, onGetStarted }) {
+    function Hero({ setActiveTab, setShowSubscriptions, onGetStarted, onSocialServices }) {
       return (
         <div className="hero-bg">
           <div className="glow-orb orb1"></div>
@@ -2311,6 +2920,11 @@
               <button onClick={onGetStarted} className="btn-neon px-8 py-3 text-base">
                 <i className="fas fa-rocket mr-2"></i> Get Started
               </button>
+              {onSocialServices && (
+                <button onClick={onSocialServices} className="btn-neon-outline px-8 py-3 text-base">
+                  <i className="fas fa-share-alt mr-2"></i> Social Media Services
+                </button>
+              )}
             </div>
             <div className="mt-12 flex flex-wrap justify-center gap-4 text-white/20 text-xs">
               <span><i className="fas fa-check-circle text-red-400 mr-1"></i> 100% Secure</span>
@@ -4742,7 +5356,7 @@
     }
 
     // ─── ADMIN DASHBOARD ──────────────────────────────────────
-    function AdminDashboard({ subscriptions, setSubscriptions, onLogout, onBack, deals, setDeals, promotions, setPromotions }) {
+    function AdminDashboard({ subscriptions, setSubscriptions, onLogout, onBack, deals, setDeals, promotions, setPromotions, socialServices, setSocialServices }) {
       const [activeTab, setActiveTab] = useState('overview');
       const [showAddSub, setShowAddSub] = useState(false);
       const [showEditSub, setShowEditSub] = useState(null);
@@ -4848,7 +5462,136 @@
         addToast(`Copied ${nums.length} number${nums.length > 1 ? 's' : ''}${label ? ` (${label})` : ''}!`, 'success');
       };
 
-      // ─── Promotions state ────────────────────────────────────────
+      // ─── Social Media Services state ───────────────────────────
+      const [newPlatformName, setNewPlatformName] = useState('');
+      const [addingPlatform, setAddingPlatform] = useState(false);
+      const [expandedPlatformId, setExpandedPlatformId] = useState(null);
+      const [serviceForm, setServiceForm] = useState({ name: '', costPrice: '', sellingPrice: '', requiredFields: [] });
+      const [editingService, setEditingService] = useState(null); // { platformId, serviceId }
+      const [savingService, setSavingService] = useState(false);
+      const [socialOrders, setSocialOrders] = useState([]);
+      const [socialOrdersLoaded, setSocialOrdersLoaded] = useState(false);
+
+      const resetServiceForm = () => { setServiceForm({ name: '', costPrice: '', sellingPrice: '', requiredFields: [] }); setEditingService(null); };
+
+      const handleAddPlatform = async () => {
+        if (!newPlatformName.trim()) { addToast('Enter a platform name', 'error'); return; }
+        setAddingPlatform(true);
+        try {
+          const newPlatform = { id: Date.now().toString(), name: newPlatformName.trim() };
+          const result = await createSocialPlatform(newPlatform);
+          setSocialServices(prev => [...(prev || []), result]);
+          setNewPlatformName('');
+          addToast(`Added ${result.name}!`, 'success');
+        } catch (err) {
+          addToast('Failed to add platform', 'error');
+        } finally {
+          setAddingPlatform(false);
+        }
+      };
+
+      const handleDeletePlatform = async (platformId, name) => {
+        if (!window.confirm(`Delete ${name} and all its services? This can't be undone.`)) return;
+        try {
+          await deleteSocialPlatform(platformId);
+          setSocialServices(prev => (prev || []).filter(p => p.id !== platformId));
+          addToast(`Deleted ${name}`, 'success');
+        } catch (err) {
+          addToast('Failed to delete platform', 'error');
+        }
+      };
+
+      const toggleServiceField = (field) => {
+        setServiceForm(prev => ({
+          ...prev,
+          requiredFields: prev.requiredFields.includes(field)
+            ? prev.requiredFields.filter(f => f !== field)
+            : [...prev.requiredFields, field]
+        }));
+      };
+
+      const startEditService = (platformId, svc) => {
+        setEditingService({ platformId, serviceId: svc.id });
+        setServiceForm({ name: svc.name, costPrice: svc.costPrice || '', sellingPrice: svc.sellingPrice || '', requiredFields: svc.requiredFields || [] });
+      };
+
+      const handleSaveService = async (platformId) => {
+        if (!serviceForm.name.trim()) { addToast('Enter a service name', 'error'); return; }
+        setSavingService(true);
+        try {
+          const payload = {
+            name: serviceForm.name.trim(),
+            costPrice: parseFloat(serviceForm.costPrice) || 0,
+            sellingPrice: parseFloat(serviceForm.sellingPrice) || 0,
+            requiredFields: serviceForm.requiredFields
+          };
+          let updatedPlatform;
+          if (editingService && editingService.platformId === platformId) {
+            updatedPlatform = await updateSocialService(platformId, editingService.serviceId, payload);
+          } else {
+            updatedPlatform = await addSocialService(platformId, payload);
+          }
+          setSocialServices(prev => (prev || []).map(p => p.id === platformId ? updatedPlatform : p));
+          resetServiceForm();
+          addToast('Service saved!', 'success');
+        } catch (err) {
+          addToast('Failed to save service', 'error');
+        } finally {
+          setSavingService(false);
+        }
+      };
+
+      const handleDeleteService = async (platformId, serviceId, name) => {
+        if (!window.confirm(`Delete "${name}"?`)) return;
+        try {
+          const updatedPlatform = await deleteSocialService(platformId, serviceId);
+          setSocialServices(prev => (prev || []).map(p => p.id === platformId ? updatedPlatform : p));
+          addToast('Service deleted', 'success');
+        } catch (err) {
+          addToast('Failed to delete service', 'error');
+        }
+      };
+
+      const handleToggleServiceActive = async (platformId, svc) => {
+        try {
+          const updatedPlatform = await updateSocialService(platformId, svc.id, { active: !(svc.active !== false) });
+          setSocialServices(prev => (prev || []).map(p => p.id === platformId ? updatedPlatform : p));
+        } catch (err) {
+          addToast('Failed to update service', 'error');
+        }
+      };
+
+      const loadSocialOrders = async () => {
+        try {
+          const data = await fetchSocialOrders();
+          setSocialOrders(Array.isArray(data) ? data : []);
+        } catch (err) {
+          console.error('Failed to load social orders:', err);
+        } finally {
+          setSocialOrdersLoaded(true);
+        }
+      };
+
+      const handleUpdateOrderStatus = async (orderId, status) => {
+        try {
+          const updated = await updateSocialOrderStatus(orderId, status);
+          setSocialOrders(prev => prev.map(o => o.id === orderId ? updated : o));
+        } catch (err) {
+          addToast('Failed to update order', 'error');
+        }
+      };
+
+      const handleDeleteSocialOrder = async (orderId) => {
+        if (!window.confirm('Delete this order record?')) return;
+        try {
+          await deleteSocialOrder(orderId);
+          setSocialOrders(prev => prev.filter(o => o.id !== orderId));
+        } catch (err) {
+          addToast('Failed to delete order', 'error');
+        }
+      };
+
+
       const [showPromoModal, setShowPromoModal] = useState(false);
       const [editingPromo, setEditingPromo] = useState(null);
       const [promoForm, setPromoForm] = useState({ id: '', heading: '', image: '', active: true });
@@ -5149,6 +5892,7 @@
         if (activeTab === 'customers') loadCustomGrants();
         if (activeTab === 'faqs') loadFaqs();
         if (activeTab === 'broadcast') loadNotices();
+        if (activeTab === 'social') loadSocialOrders();
         if (activeTab === 'overview' || activeTab === 'income') {
           if (incomePeriod !== 'custom') loadIncome(incomePeriod);
         }
@@ -6268,7 +7012,7 @@
           )}
 
           <div className="flex flex-wrap gap-2 border-b border-white/5 pb-3">
-            {['overview', 'search', 'subscriptions', 'grid', 'customers', 'waiting', 'income', 'users', 'deals', 'promotions', 'faqs', 'otp', 'broadcast', 'theme'].map(tab => (
+            {['overview', 'search', 'subscriptions', 'grid', 'customers', 'waiting', 'income', 'users', 'deals', 'promotions', 'faqs', 'otp', 'broadcast', 'social', 'theme'].map(tab => (
               <button key={tab} onClick={() => {
                 setActiveTab(tab);
                 if (tab === 'users') markUsersSeen();
@@ -6287,6 +7031,7 @@
                 {tab === 'faqs' && <><i className="fas fa-question-circle mr-2"></i> Help & FAQs</>}
                 {tab === 'otp' && <><i className="fas fa-key mr-2"></i> OTP Logs</>}
                 {tab === 'broadcast' && <><i className="fas fa-bullhorn mr-2"></i> Broadcast</>}
+                {tab === 'social' && <><i className="fas fa-share-alt mr-2"></i> Social Media</>}
                 {tab === 'theme' && <><i className="fas fa-palette mr-2"></i> Theme</>}
               </button>
             ))}
@@ -7279,6 +8024,148 @@
             </div>
           )}
 
+          {activeTab === 'social' && (
+            <div className="space-y-4">
+              <div className="glass-panel">
+                <h3 className="text-lg font-semibold text-white mb-1"><i className="fas fa-share-alt mr-2 text-red-400"></i> Social Media Services</h3>
+                <p className="text-white/30 text-xs mb-4">Add a platform (Instagram, TikTok, Facebook, Snapchat...), then add the services you offer under it — Followers, Likes, Comments, Views, Subscribers, Watch Time, whatever applies. Price is per 1000. Pick which details you need from the customer for each service.</p>
+                <div className="flex gap-2">
+                  <input type="text" value={newPlatformName} onChange={(e) => setNewPlatformName(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') handleAddPlatform(); }} className="input-neon flex-1" placeholder="Platform name — e.g. Instagram" />
+                  <button onClick={handleAddPlatform} disabled={addingPlatform} className="btn-neon px-6"><i className="fas fa-plus mr-2"></i> Add Platform</button>
+                </div>
+              </div>
+
+              {(socialServices || []).length === 0 ? (
+                <div className="text-center py-8 text-white/30">No platforms yet — add one above to get started.</div>
+              ) : (socialServices || []).map(platform => {
+                const icon = getSocialIcon(platform.name);
+                const color = getSocialColor(platform.name);
+                const isExpanded = expandedPlatformId === platform.id;
+                const isEditingHere = editingService && editingService.platformId === platform.id;
+                return (
+                  <div key={platform.id} className="glass-panel">
+                    <div className="flex flex-wrap justify-between items-center gap-2">
+                      <div className="flex items-center gap-3">
+                        <i className={`fab ${icon} text-2xl`} style={{ color }}></i>
+                        <div>
+                          <h4 className="text-white font-semibold">{platform.name}</h4>
+                          <p className="text-white/30 text-xs">{(platform.services || []).length} service{(platform.services || []).length !== 1 ? 's' : ''}</p>
+                        </div>
+                      </div>
+                      <div className="flex gap-2">
+                        <button onClick={() => { setExpandedPlatformId(isExpanded ? null : platform.id); resetServiceForm(); }} className="btn-neon-outline text-xs px-3 py-1.5">
+                          <i className={`fas fa-chevron-${isExpanded ? 'up' : 'down'} mr-2`}></i> {isExpanded ? 'Close' : 'Manage Services'}
+                        </button>
+                        <button onClick={() => handleDeletePlatform(platform.id, platform.name)} className="btn-danger text-xs px-3 py-1.5"><i className="fas fa-trash"></i></button>
+                      </div>
+                    </div>
+
+                    {isExpanded && (
+                      <div className="mt-4 pt-4 border-t border-white/10 space-y-4">
+                        {(platform.services || []).length > 0 && (
+                          <div className="overflow-x-auto">
+                            <table className="admin-table text-sm">
+                              <thead><tr><th>Service</th><th>Cost</th><th>Selling</th><th>Requires</th><th>Status</th><th>Actions</th></tr></thead>
+                              <tbody>
+                                {platform.services.map(svc => (
+                                  <tr key={svc.id}>
+                                    <td>{svc.name}</td>
+                                    <td className="text-xs text-white/40">RS {svc.costPrice || 0}</td>
+                                    <td className="text-xs text-green-400">RS {svc.sellingPrice || 0} / 1000</td>
+                                    <td className="text-xs text-white/40">{(svc.requiredFields || []).length ? svc.requiredFields.map(f => f === 'accountLink' ? 'Account Link' : 'Video Link').join(', ') : '—'}</td>
+                                    <td><span className={`badge ${svc.active !== false ? 'badge-green' : 'badge-red-light'}`}>{svc.active !== false ? 'Active' : 'Hidden'}</span></td>
+                                    <td>
+                                      <div className="flex gap-1">
+                                        <button onClick={() => startEditService(platform.id, svc)} className="btn-warning text-xs"><i className="fas fa-edit"></i></button>
+                                        <button onClick={() => handleToggleServiceActive(platform.id, svc)} className="btn-neon-outline text-xs px-2"><i className={`fas fa-${svc.active !== false ? 'eye-slash' : 'eye'}`}></i></button>
+                                        <button onClick={() => handleDeleteService(platform.id, svc.id, svc.name)} className="btn-danger text-xs"><i className="fas fa-trash"></i></button>
+                                      </div>
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        )}
+
+                        <div className="p-4 bg-white/5 rounded-xl">
+                          <h5 className="text-white/70 text-sm font-semibold mb-3">{isEditingHere ? 'Edit Service' : 'Add a Service'}</h5>
+                          <div className="grid sm:grid-cols-3 gap-3">
+                            <div><label className="text-white/50 text-xs">Service Name</label>
+                              <input type="text" value={serviceForm.name} onChange={(e) => setServiceForm({ ...serviceForm, name: e.target.value })} className="input-neon mt-1" placeholder="e.g. Followers" />
+                            </div>
+                            <div><label className="text-white/50 text-xs">Cost Price (per 1000)</label>
+                              <input type="number" value={serviceForm.costPrice} onChange={(e) => setServiceForm({ ...serviceForm, costPrice: e.target.value })} className="input-neon mt-1" placeholder="0" />
+                            </div>
+                            <div><label className="text-white/50 text-xs">Selling Price (per 1000)</label>
+                              <input type="number" value={serviceForm.sellingPrice} onChange={(e) => setServiceForm({ ...serviceForm, sellingPrice: e.target.value })} className="input-neon mt-1" placeholder="0" />
+                            </div>
+                          </div>
+                          <div className="mt-3">
+                            <label className="text-white/50 text-xs">What do you need from the customer to proceed? (select one or both)</label>
+                            <div className="flex gap-4 mt-2">
+                              <label className="flex items-center gap-2 text-white/70 text-sm cursor-pointer">
+                                <input type="checkbox" checked={serviceForm.requiredFields.includes('accountLink')} onChange={() => toggleServiceField('accountLink')} className="w-4 h-4 accent-red-500" /> Account Link
+                              </label>
+                              <label className="flex items-center gap-2 text-white/70 text-sm cursor-pointer">
+                                <input type="checkbox" checked={serviceForm.requiredFields.includes('videoLink')} onChange={() => toggleServiceField('videoLink')} className="w-4 h-4 accent-red-500" /> Video Link
+                              </label>
+                            </div>
+                            <p className="text-white/20 text-xs mt-2">The customer always enters how many they want themselves, no matter what — that's separate from these.</p>
+                          </div>
+                          <div className="flex gap-2 mt-4">
+                            <button onClick={() => handleSaveService(platform.id)} disabled={savingService} className="btn-neon px-6"><i className="fas fa-save mr-2"></i> {isEditingHere ? 'Update Service' : 'Add Service'}</button>
+                            {isEditingHere && <button onClick={resetServiceForm} className="btn-neon-outline px-4">Cancel</button>}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+
+              <div className="glass-panel">
+                <h3 className="text-lg font-semibold text-white mb-1"><i className="fas fa-inbox mr-2 text-red-400"></i> Social Media Orders</h3>
+                <p className="text-white/30 text-xs mb-4">Requests customers have submitted from the Social Media Services section, newest first.</p>
+                {!socialOrdersLoaded ? (
+                  <div className="text-center py-6 text-white/30"><i className="fas fa-spinner fa-spin mr-2"></i> Loading...</div>
+                ) : socialOrders.length === 0 ? (
+                  <div className="text-center py-6 text-white/30">No orders yet.</div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="admin-table text-sm">
+                      <thead><tr><th>Platform</th><th>Service</th><th>Qty</th><th>Links</th><th>Name</th><th>WhatsApp</th><th>Price</th><th>Status</th><th>Actions</th></tr></thead>
+                      <tbody>
+                        {socialOrders.map(o => (
+                          <tr key={o.id}>
+                            <td>{o.platformName}</td>
+                            <td>{o.serviceName}</td>
+                            <td>{o.quantity}</td>
+                            <td className="text-xs text-white/40">
+                              {o.accountLink && <div className="truncate max-w-[160px]" title={o.accountLink}>Acct: {o.accountLink}</div>}
+                              {o.videoLink && <div className="truncate max-w-[160px]" title={o.videoLink}>Video: {o.videoLink}</div>}
+                            </td>
+                            <td>{o.name || 'N/A'}</td>
+                            <td>{o.whatsapp}</td>
+                            <td className="text-xs text-green-400">RS {o.price || 0}</td>
+                            <td>
+                              <select value={o.status || 'pending'} onChange={(e) => handleUpdateOrderStatus(o.id, e.target.value)} className="input-neon text-xs py-1">
+                                <option value="pending">Pending</option>
+                                <option value="completed">Completed</option>
+                                <option value="cancelled">Cancelled</option>
+                              </select>
+                            </td>
+                            <td><button onClick={() => handleDeleteSocialOrder(o.id)} className="btn-danger text-xs"><i className="fas fa-trash"></i></button></td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
           {activeTab === 'theme' && (
             <div className="glass-panel">
               <h3 className="text-lg font-semibold text-white mb-1"><i className="fas fa-palette mr-2 text-red-400"></i> Site Theme</h3>
@@ -7662,6 +8549,8 @@
       const [subscriptions, setSubscriptions] = useState(() => readCache('subscriptions'));
       const [deals, setDeals] = useState(() => readCache('deals'));
       const [promotions, setPromotions] = useState(() => readCache('promotions'));
+      const [socialServices, setSocialServices] = useState(() => readCache('socialServices'));
+      const [socialOrderPlatform, setSocialOrderPlatform] = useState(null);
       const [customFaqs, setCustomFaqs] = useState(() => readCache('faqs'));
       const [isAdmin, setIsAdmin] = useState(false);
       const [customerData, setCustomerData] = useState(null);
@@ -7702,13 +8591,15 @@
             // the (rare, cache-empty) loading screen waits on. FAQs are
             // fetched separately below so a slow Help-content fetch never
             // holds up the parts of the page people see first.
-            const [subs, dealsData, promos] = await Promise.all([fetchSubscriptions(), fetchDeals(), fetchPromotions()]);
+            const [subs, dealsData, promos, socialData] = await Promise.all([fetchSubscriptions(), fetchDeals(), fetchPromotions(), fetchSocialServices().catch(() => [])]);
             setSubscriptions(prev => mergeSubscriptions(subs, prev));
             setDeals(dealsData);
             setPromotions(promos);
+            setSocialServices(socialData);
             writeCache('subscriptions', subs);
             writeCache('deals', dealsData);
             writeCache('promotions', promos);
+            writeCache('socialServices', socialData);
           } catch (err) {
             console.error('Failed to load data', err);
             if (!silent) addToast('Could not load data. Is the backend running?', 'error');
@@ -8199,6 +9090,7 @@
           <Navbar activeTab={activeTab} setActiveTab={setActiveTab} showSubscriptions={showSubscriptions} setShowSubscriptions={setShowSubscriptions} onCustomerPortal={handleCustomerPortal} onLogout={handleLogout} onOpenComplaint={() => setShowComplaintModal(true)} />
           <ToastContainer />
           <ComplaintModal open={showComplaintModal} onClose={() => setShowComplaintModal(false)} user={user} subscriptions={subscriptions} />
+          <SocialOrderModal open={!!socialOrderPlatform} platform={socialOrderPlatform} onClose={() => setSocialOrderPlatform(null)} user={user} />
 
           {activeTab === 'home' && !showSubscriptions && (
             <>
@@ -8215,8 +9107,14 @@
                   <DealsCarousel deals={dealsWithSub} subscriptions={subscriptions} onPurchaseClick={handleDealPurchase} />
                 </div>
               )}
-              <Hero setActiveTab={setActiveTab} setShowSubscriptions={setShowSubscriptions} onGetStarted={handleGetStarted} />
+              <Hero setActiveTab={setActiveTab} setShowSubscriptions={setShowSubscriptions} onGetStarted={handleGetStarted} onSocialServices={() => document.getElementById('social-services-section')?.scrollIntoView({ behavior: 'smooth' })} />
               <TrendingSubscriptions subscriptions={subscriptions} onGetStarted={handleGetStarted} />
+
+              {socialServices.length > 0 && (
+                <div id="social-services-section" className="max-w-7xl mx-auto px-4 pt-4 pb-2">
+                  <SocialServicesCarousel platforms={socialServices} onPlatformClick={(platform) => setSocialOrderPlatform(platform)} />
+                </div>
+              )}
 
               {promotions.length > 0 && (
                 <div className="max-w-7xl mx-auto px-4 pt-4 pb-2">
@@ -8337,7 +9235,7 @@
 
           {activeTab === 'admin' && (
             <section id="admin-section" className="px-4 max-w-7xl mx-auto py-12">
-              {!isAdmin ? <AdminLogin onLogin={() => setIsAdmin(true)} /> : <AdminDashboard subscriptions={subscriptions} setSubscriptions={setSubscriptions} onLogout={() => { setIsAdmin(false); localStorage.removeItem('adminToken'); try { sessionStorage.removeItem('adminToken'); } catch (e) {} navigateTo('/'); }} onBack={() => navigateTo('/')} deals={deals} setDeals={setDeals} promotions={promotions} setPromotions={setPromotions} />}
+              {!isAdmin ? <AdminLogin onLogin={() => setIsAdmin(true)} /> : <AdminDashboard subscriptions={subscriptions} setSubscriptions={setSubscriptions} onLogout={() => { setIsAdmin(false); localStorage.removeItem('adminToken'); try { sessionStorage.removeItem('adminToken'); } catch (e) {} navigateTo('/'); }} onBack={() => navigateTo('/')} deals={deals} setDeals={setDeals} promotions={promotions} setPromotions={setPromotions} socialServices={socialServices} setSocialServices={setSocialServices} />}
             </section>
           )}
 
