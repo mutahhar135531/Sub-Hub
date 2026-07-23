@@ -6450,7 +6450,6 @@
           {activeTab === 'subscriptions' && (
             <div className="space-y-6">
               {subscriptions.map(sub => {
-                const records = getCustomerRecords(sub);
                 const totalCust = getTotalCustomers(sub);
                 const totalSlots = getTotalSlots(sub);
                 return (
@@ -6562,41 +6561,6 @@
                         <div className="flex gap-3 mt-4">
                           <button onClick={() => handleAddAccount(sub.id)} className="btn-neon text-sm"><i className="fas fa-check mr-2"></i> Save</button>
                           <button onClick={() => { setShowAddAccount(null); setNewAccount({ email: '', password: '', screens: [{ name: 'Screen 1', pin: '' }], subscriptionId: '' }); }} className="btn-neon-outline text-sm">Cancel</button>
-                        </div>
-                      </div>
-                    )}
-                    {records.length > 0 && (
-                      <div className="mt-4">
-                        <p className="text-white/40 text-xs mb-2"><i className="fas fa-users mr-1"></i> {records.length} customer(s)</p>
-                        <div className="overflow-x-auto">
-                          <table className="admin-table text-sm">
-                            <thead><tr><th>Name</th><th>Username</th><th>WhatsApp</th><th>Screen</th><th>Account</th><th>Purchased</th><th>Expiry</th><th>Status</th><th>Actions</th></tr></thead>
-                            <tbody>
-                              {records.map((r, idx) => {
-                                const status = checkExpiry(r.expiry);
-                                const statusColors = { expired: 'badge-red', today: 'badge-yellow', tomorrow: 'badge-yellow', soon: 'badge-yellow', active: 'badge-green', unknown: 'badge-red-light' };
-                                const statusLabels = { expired: 'Expired', today: 'Today', tomorrow: 'Tomorrow', soon: 'Soon', active: 'Active', unknown: 'N/A' };
-                                return (
-                                  <tr key={idx}>
-                                    <td>{r.customer.name || 'N/A'}</td>
-                                    <td className="font-mono text-xs">{r.customer.username}</td>
-                                    <td>{r.customer.whatsapp}</td>
-                                    <td>{r.screenName}</td>
-                                    <td className="text-xs text-white/40">{r.accountEmail}</td>
-                                    <td className="text-xs text-white/40">{r.purchasedAt ? new Date(r.purchasedAt).toLocaleString() : 'N/A'}</td>
-                                    <td>{r.expiry}</td>
-                                    <td><span className={`badge ${statusColors[status] || 'badge-red-light'}`}>{statusLabels[status] || 'N/A'}</span></td>
-                                    <td>
-                                      <div className="flex gap-1">
-                                        <button onClick={() => openEditModal(sub.id, r.accountId, r.screenId, r.customerIdx, r.customer)} className="btn-warning text-xs"><i className="fas fa-edit"></i></button>
-                                        <button onClick={() => deleteCustomer(sub.id, r.accountId, r.screenId, r.customerIdx)} className="btn-danger text-xs"><i className="fas fa-trash"></i></button>
-                                      </div>
-                                    </td>
-                                  </tr>
-                                );
-                              })}
-                            </tbody>
-                          </table>
                         </div>
                       </div>
                     )}
