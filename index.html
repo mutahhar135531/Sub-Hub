@@ -878,7 +878,9 @@
         headers: authHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify(data),
       });
-      return res.json();
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok || json.error) throw new Error(json.error || `Failed to add platform (${res.status})`);
+      return json;
     };
 
     const updateSocialPlatform = async (platformId, data) => {
@@ -887,7 +889,9 @@
         headers: authHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify(data),
       });
-      return res.json();
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok || json.error) throw new Error(json.error || `Failed to update platform (${res.status})`);
+      return json;
     };
 
     const deleteSocialPlatform = async (platformId) => {
@@ -895,7 +899,9 @@
         method: 'DELETE',
         headers: authHeaders(),
       });
-      return res.json();
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok || json.error) throw new Error(json.error || `Failed to delete platform (${res.status})`);
+      return json;
     };
 
     const addSocialService = async (platformId, data) => {
@@ -904,7 +910,9 @@
         headers: authHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify(data),
       });
-      return res.json();
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok || json.error) throw new Error(json.error || `Failed to add service (${res.status})`);
+      return json;
     };
 
     const updateSocialService = async (platformId, serviceId, data) => {
@@ -913,7 +921,9 @@
         headers: authHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify(data),
       });
-      return res.json();
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok || json.error) throw new Error(json.error || `Failed to update service (${res.status})`);
+      return json;
     };
 
     const deleteSocialService = async (platformId, serviceId) => {
@@ -921,7 +931,9 @@
         method: 'DELETE',
         headers: authHeaders(),
       });
-      return res.json();
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok || json.error) throw new Error(json.error || `Failed to delete service (${res.status})`);
+      return json;
     };
 
     const fetchSocialOrders = async () => {
@@ -948,7 +960,9 @@
         headers: authHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({ status }),
       });
-      return res.json();
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok || json.error) throw new Error(json.error || `Failed to update order (${res.status})`);
+      return json;
     };
 
     const deleteSocialOrder = async (orderId) => {
@@ -956,7 +970,9 @@
         method: 'DELETE',
         headers: authHeaders(),
       });
-      return res.json();
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok || json.error) throw new Error(json.error || `Failed to delete order (${res.status})`);
+      return json;
     };
 
     const fetchIncome = async (period = 'all', customStart, customEnd) => {
@@ -1502,7 +1518,7 @@
               .filter(Boolean) : [];
             return { ...deal, subscriptions: subs };
           })
-          .filter(d => d.subscriptions.length > 0);
+          .filter(d => d.subscriptions.length > 0 || !!d.socialServiceId);
       }, [deals, subscriptions]);
 
       const totalItems = activeDeals.length;
@@ -1726,12 +1742,14 @@
           <div className={`carousel-container ${isPaused ? 'paused' : ''}`} ref={containerRef} onMouseEnter={handlePause} onMouseLeave={handleResume} onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd} onMouseDown={onMouseDown} style={{ touchAction: 'pan-y' }}>
             <div className="carousel-track" ref={trackRef} style={{ transform: `translateX(-${offset}px)`, transition: isDragging ? 'none' : 'none', gap: `${gap}px` }}>
               {repeatedDeals.map((deal, idx) => {
+                const isSocial = !!deal.socialServiceId;
                 const firstSub = deal.subscriptions[0];
-                const icon = icons[firstSub?.type] || 'fa-crown';
-                const color = colors[firstSub?.type] || 'var(--t-primary-hex)';
+                const icon = isSocial ? getSocialIcon(deal.socialPlatformName) : (icons[firstSub?.type] || 'fa-crown');
+                const iconPrefix = isSocial ? getSocialIconPrefix(deal.socialPlatformName) : 'fab';
+                const color = isSocial ? getSocialColor(deal.socialPlatformName) : (colors[firstSub?.type] || 'var(--t-primary-hex)');
                 const discount = Math.round((1 - deal.discountPrice / deal.actualPrice) * 100);
-                const isCombo = deal.subscriptions.length > 1;
-                const isNetflix = deal.subscriptions.some(s => s.type === 'netflix');
+                const isCombo = !isSocial && deal.subscriptions.length > 1;
+                const isNetflix = !isSocial && deal.subscriptions.some(s => s.type === 'netflix');
                 return (
                   <div key={deal.id + '-' + idx} className="carousel-slide" style={{ width: slideWidth }}>
                     <div className="deal-card relative">
@@ -1739,7 +1757,9 @@
                       <div className="absolute top-2 left-2 text-white/10 text-3xl font-black select-none pointer-events-none" style={{ fontFamily: 'Georgia, serif', transform: 'rotate(-8deg)' }}>Z</div>
                       <div className="flex-1">
                         <div className="flex items-center gap-2 mb-1">
-                          {firstSub?.logo ? (
+                          {isSocial ? (
+                            <i className={`${iconPrefix} ${icon} text-xl`} style={{ color }}></i>
+                          ) : firstSub?.logo ? (
                             <img src={firstSub.logo} alt={firstSub.name} style={{ width: '1.6rem', height: '1.6rem', objectFit: 'contain', borderRadius: '6px', flexShrink: 0 }} />
                           ) : isNetflix ? (
                             <span className="netflix-logo">
@@ -1754,7 +1774,7 @@
                           )}
                           <div className="min-w-0">
                             <h3 className="deal-title truncate">{deal.title}</h3>
-                            <p className="deal-desc truncate">{deal.description || firstSub?.name || ''}</p>
+                            <p className="deal-desc truncate">{deal.description || (isSocial ? `${deal.socialPlatformName} · ${deal.socialServiceName}` : firstSub?.name) || ''}</p>
                           </div>
                         </div>
                         {isCombo && (
@@ -1832,6 +1852,11 @@
     ];
     const getSocialIcon = (name = '') => (SOCIAL_ICON_MAP.find(e => e.match.test(name)) || {}).icon || 'fa-share-alt';
     const getSocialColor = (name = '') => (SOCIAL_ICON_MAP.find(e => e.match.test(name)) || {}).color || 'var(--t-primary-hex)';
+    // fa-share-alt (the fallback for any platform name not in the map above)
+    // lives in Font Awesome's "solid" set, not "brands" — using it with the
+    // `fab` class prefix like every matched brand icon above renders nothing
+    // at all. This picks the right prefix for whichever one it actually is.
+    const getSocialIconPrefix = (name = '') => (SOCIAL_ICON_MAP.find(e => e.match.test(name)) ? 'fab' : 'fas');
 
     // ─── SUBSCRIPTION CAROUSEL ──────────────────────────
     function SubscriptionCarousel({ subscriptions: rawSubscriptions, onGetStarted }) {
@@ -2223,7 +2248,7 @@
             logo: p.logo ? (
               <img src={p.logo} alt={p.name} style={{ width: '2.6rem', height: '2.6rem', objectFit: 'contain', margin: '0 auto' }} />
             ) : (
-              <i className={`fab ${icon} text-3xl`} style={{ color }}></i>
+              <i className={`${getSocialIconPrefix(p.name)} ${icon} text-3xl`} style={{ color }}></i>
             )
           };
         });
@@ -2721,7 +2746,7 @@
     // want, then send it — same WhatsApp handoff as the rest of the site,
     // plus a record saved server-side so the admin can track it from the
     // dashboard even before they open WhatsApp.
-    function SocialOrderModal({ open, platform, onClose, user }) {
+    function SocialOrderModal({ open, platform, onClose, user, dealOverride }) {
       const { addToast } = useContext(AppContext);
       const [step, setStep] = useState('service'); // 'service' | 'details'
       const [selectedService, setSelectedService] = useState(null);
@@ -2734,16 +2759,24 @@
 
       useEffect(() => {
         if (open) {
-          setStep('service');
-          setSelectedService(null);
-          setQuantity('');
+          // A deal skips straight to the details step with its service and
+          // fixed quantity already chosen — nothing to pick.
+          if (dealOverride) {
+            setStep('details');
+            setSelectedService(dealOverride.service);
+            setQuantity(String(dealOverride.deal.socialQuantity || ''));
+          } else {
+            setStep('service');
+            setSelectedService(null);
+            setQuantity('');
+          }
           setAccountLink('');
           setVideoLink('');
           setGuestName('');
           setGuestWhatsapp('');
           setSubmitting(false);
         }
-      }, [open, platform]);
+      }, [open, platform, dealOverride]);
 
       if (!open || !platform) return null;
 
@@ -2752,7 +2785,10 @@
       const color = getSocialColor(platform.name);
 
       const qtyNum = parseInt(quantity, 10) || 0;
-      const price = selectedService ? Math.round(((selectedService.sellingPrice || 0) / 1000) * qtyNum) : 0;
+      // A deal is a fixed package at a flat discount price, set by the
+      // admin — not computed per-1000 like a normal order.
+      const price = dealOverride ? (Number(dealOverride.deal.discountPrice) || 0)
+        : (selectedService ? Math.round(((selectedService.sellingPrice || 0) / 1000) * qtyNum) : 0);
       const needsAccountLink = selectedService ? (selectedService.requiredFields || []).includes('accountLink') : false;
       const needsVideoLink = selectedService ? (selectedService.requiredFields || []).includes('videoLink') : false;
 
@@ -2791,7 +2827,8 @@
             videoLink: needsVideoLink ? videoLink.trim() : '',
             name,
             whatsapp,
-            price
+            price,
+            dealId: dealOverride ? dealOverride.deal.id : ''
           });
         } catch (err) {
           // Even if the tracking save fails, the order still needs to reach
@@ -2801,7 +2838,7 @@
         }
 
         const lines = [];
-        lines.push(`Hello, I'd like to order a social media service.`);
+        lines.push(dealOverride ? `Hello, I'd like to claim this deal: ${dealOverride.deal.title}` : `Hello, I'd like to order a social media service.`);
         lines.push(`Platform: ${platform.name}`);
         lines.push(`Service: ${selectedService.name}`);
         lines.push(`Quantity: ${qtyNum}`);
@@ -2809,7 +2846,7 @@
         if (needsVideoLink) lines.push(`Video Link: ${videoLink.trim()}`);
         lines.push(`Name: ${name}`);
         lines.push(`WhatsApp: ${whatsapp}`);
-        lines.push(`Estimated Price: RS ${price}`);
+        lines.push(`${dealOverride ? 'Deal' : 'Estimated'} Price: RS ${price}`);
         const message = lines.join('\n');
         window.open(`https://wa.me/923079163485?text=${encodeURIComponent(message)}`, '_blank');
         addToast('Opening WhatsApp — just tap Send!', 'success');
@@ -2821,11 +2858,12 @@
         <div className="modal-overlay" onClick={onClose}>
           <div className="modal-content glass-panel" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center gap-3 mb-1">
-              <i className={`fab ${icon} text-2xl`} style={{ color }}></i>
+              <i className={`${getSocialIconPrefix(platform.name)} ${icon} text-2xl`} style={{ color }}></i>
               <h3 className="text-xl font-bold text-white">{platform.name}</h3>
             </div>
+            {dealOverride && <p className="text-red-400 text-xs font-semibold mb-4"><i className="fas fa-tag mr-1"></i> {dealOverride.deal.title}</p>}
 
-            {step === 'service' && (
+            {step === 'service' && !dealOverride && (
               <>
                 <p className="text-white/40 text-sm mb-5">Choose which service you'd like.</p>
                 {activeServices.length === 0 ? (
@@ -2847,7 +2885,7 @@
             {step === 'details' && selectedService && (
               <>
                 <p className="text-white/40 text-sm mb-1">{selectedService.name}</p>
-                <p className="text-green-400 text-sm font-semibold mb-5">RS {selectedService.sellingPrice || 0} per 1000</p>
+                <p className="text-green-400 text-sm font-semibold mb-5">{dealOverride ? `RS ${price} for ${qtyNum}` : `RS ${selectedService.sellingPrice || 0} per 1000`}</p>
 
                 <div className="space-y-4">
                   {needsAccountLink && (
@@ -2861,7 +2899,11 @@
                     </div>
                   )}
                   <div><label className="text-white/50 text-sm font-medium">How many do you want?</label>
-                    <input type="number" min="1" value={quantity} onChange={(e) => setQuantity(e.target.value)} className="input-neon mt-1" placeholder="e.g. 1000" />
+                    {dealOverride ? (
+                      <input type="number" value={quantity} disabled className="input-neon mt-1 opacity-60" />
+                    ) : (
+                      <input type="number" min="1" value={quantity} onChange={(e) => setQuantity(e.target.value)} className="input-neon mt-1" placeholder="e.g. 1000" />
+                    )}
                   </div>
 
                   {!user && (
@@ -2877,13 +2919,13 @@
 
                   {qtyNum > 0 && (
                     <div className="text-center p-3 bg-white/5 rounded-xl">
-                      <p className="text-white/30 text-xs">Estimated Price</p>
+                      <p className="text-white/30 text-xs">{dealOverride ? 'Deal Price' : 'Estimated Price'}</p>
                       <p className="text-2xl font-bold text-green-400">RS {price}</p>
                     </div>
                   )}
 
                   <div className="flex gap-3">
-                    <button onClick={handleBack} className="btn-neon-outline px-5"><i className="fas fa-arrow-left"></i></button>
+                    {!dealOverride && <button onClick={handleBack} className="btn-neon-outline px-5"><i className="fas fa-arrow-left"></i></button>}
                     <button onClick={handleSubmit} disabled={submitting} className="btn-neon flex-1 py-3">
                       {submitting ? <><i className="fas fa-spinner fa-spin mr-2"></i> Sending...</> : <><i className="fab fa-whatsapp mr-2"></i> Send Order via WhatsApp</>}
                     </button>
@@ -5424,7 +5466,7 @@
       const [customGrantForm, setCustomGrantForm] = useState({ subscriptionName: '', email: '', password: '', notes: '', matchedSubscriptionId: '', costPerMonth: '', sellingPrice: '' });
       const [showDealModal, setShowDealModal] = useState(false);
       const [editingDeal, setEditingDeal] = useState(null);
-      const [dealForm, setDealForm] = useState({ id: '', subscriptionIds: [], title: '', description: '', actualPrice: '', discountPrice: '', active: true });
+      const [dealForm, setDealForm] = useState({ id: '', dealType: 'subscription', subscriptionIds: [], title: '', description: '', actualPrice: '', discountPrice: '', active: true, socialPlatformId: '', socialServiceId: '', socialQuantity: '' });
       const [incomeData, setIncomeData] = useState(null);
       const [incomePeriod, setIncomePeriod] = useState('all');
       const [incomeCustomStart, setIncomeCustomStart] = useState('');
@@ -6313,16 +6355,20 @@
           setEditingDeal(deal);
           setDealForm({
             id: deal.id,
+            dealType: deal.socialServiceId ? 'social' : 'subscription',
             subscriptionIds: deal.subscriptionIds || [],
             title: deal.title,
             description: deal.description || '',
             actualPrice: deal.actualPrice,
             discountPrice: deal.discountPrice,
-            active: deal.active
+            active: deal.active,
+            socialPlatformId: deal.socialPlatformId || '',
+            socialServiceId: deal.socialServiceId || '',
+            socialQuantity: deal.socialQuantity || ''
           });
         } else {
           setEditingDeal(null);
-          setDealForm({ id: 'd' + Date.now().toString(), subscriptionIds: [], title: '', description: '', actualPrice: '', discountPrice: '', active: true });
+          setDealForm({ id: 'd' + Date.now().toString(), dealType: 'subscription', subscriptionIds: [], title: '', description: '', actualPrice: '', discountPrice: '', active: true, socialPlatformId: '', socialServiceId: '', socialQuantity: '' });
         }
         setShowDealModal(true);
       };
@@ -6339,22 +6385,43 @@
       };
 
       const saveDeal = async () => {
-        if (!dealForm.subscriptionIds || dealForm.subscriptionIds.length === 0) {
+        const isSocial = dealForm.dealType === 'social';
+        if (!isSocial && (!dealForm.subscriptionIds || dealForm.subscriptionIds.length === 0)) {
           addToast('Please select at least one subscription', 'error');
+          return;
+        }
+        if (isSocial && !dealForm.socialServiceId) {
+          addToast('Please pick a social media service', 'error');
+          return;
+        }
+        if (isSocial && (!dealForm.socialQuantity || Number(dealForm.socialQuantity) <= 0)) {
+          addToast('Please enter a quantity for this deal', 'error');
           return;
         }
         if (!dealForm.title || !dealForm.actualPrice || !dealForm.discountPrice) {
           addToast('Please fill all required fields', 'error');
           return;
         }
+        let socialPlatformName = '', socialServiceName = '';
+        if (isSocial) {
+          const plat = (socialServices || []).find(p => p.id === dealForm.socialPlatformId);
+          const svc = plat ? (plat.services || []).find(s => s.id === dealForm.socialServiceId) : null;
+          socialPlatformName = plat ? plat.name : '';
+          socialServiceName = svc ? svc.name : '';
+        }
         const data = {
           id: dealForm.id,
-          subscriptionIds: dealForm.subscriptionIds,
+          subscriptionIds: isSocial ? [] : dealForm.subscriptionIds,
           title: dealForm.title,
           description: dealForm.description,
           actualPrice: parseFloat(dealForm.actualPrice),
           discountPrice: parseFloat(dealForm.discountPrice),
-          active: dealForm.active !== undefined ? dealForm.active : true
+          active: dealForm.active !== undefined ? dealForm.active : true,
+          socialPlatformId: isSocial ? dealForm.socialPlatformId : '',
+          socialPlatformName,
+          socialServiceId: isSocial ? dealForm.socialServiceId : '',
+          socialServiceName,
+          socialQuantity: isSocial ? Number(dealForm.socialQuantity) : 0
         };
         try {
           if (editingDeal) {
@@ -7831,7 +7898,7 @@
               ) : (
                 <div className="overflow-x-auto">
                   <table className="admin-table text-sm">
-                    <thead><tr><th>Title</th><th>Subscriptions</th><th>Original</th><th>Discount</th><th>Status</th><th>Actions</th></tr></thead>
+                    <thead><tr><th>Title</th><th>Linked To</th><th>Original</th><th>Discount</th><th>Status</th><th>Actions</th></tr></thead>
                     <tbody>
                       {deals.map(deal => {
                         const linkedSubs = (deal.subscriptionIds || []).map(id => subscriptions.find(s => s.id === id)).filter(Boolean);
@@ -7839,7 +7906,12 @@
                           <tr key={deal.id}>
                             <td className="font-semibold">{deal.title}</td>
                             <td className="text-xs text-white/40">
-                              {linkedSubs.length === 0 ? 'N/A' : (
+                              {deal.socialServiceId ? (
+                                <span className="flex items-center gap-1">
+                                  <i className={`${getSocialIconPrefix(deal.socialPlatformName)} ${getSocialIcon(deal.socialPlatformName)}`} style={{ color: getSocialColor(deal.socialPlatformName), fontSize: '0.8rem' }}></i>
+                                  {deal.socialPlatformName} · {deal.socialServiceName} ({deal.socialQuantity})
+                                </span>
+                              ) : linkedSubs.length === 0 ? 'N/A' : (
                                 <div className="flex items-center gap-2 flex-wrap">
                                   {linkedSubs.map(s => (
                                     <span key={s.id} className="flex items-center gap-1">
@@ -8046,7 +8118,7 @@
                   <div key={platform.id} className="glass-panel">
                     <div className="flex flex-wrap justify-between items-center gap-2">
                       <div className="flex items-center gap-3">
-                        <i className={`fab ${icon} text-2xl`} style={{ color }}></i>
+                        <i className={`${getSocialIconPrefix(platform.name)} ${icon} text-2xl`} style={{ color }}></i>
                         <div>
                           <h4 className="text-white font-semibold">{platform.name}</h4>
                           <p className="text-white/30 text-xs">{(platform.services || []).length} service{(platform.services || []).length !== 1 ? 's' : ''}</p>
@@ -8210,25 +8282,70 @@
                 <div className="space-y-4">
                   <div><label className="text-white/50 text-sm">Title</label><input type="text" value={dealForm.title} onChange={(e) => setDealForm({ ...dealForm, title: e.target.value })} className="input-neon mt-1" placeholder="e.g. Netflix Premium Deal" /></div>
                   <div><label className="text-white/50 text-sm">Description</label><input type="text" value={dealForm.description} onChange={(e) => setDealForm({ ...dealForm, description: e.target.value })} className="input-neon mt-1" placeholder="e.g. Watch unlimited movies & TV shows" /></div>
+
                   <div>
-                    <label className="text-white/50 text-sm">Select Subscriptions</label>
-                    <div className="mt-2 space-y-2 max-h-40 overflow-y-auto bg-red-500/5 rounded-xl p-3 border border-red-500/10">
-                      {subscriptions.map(sub => (
-                        <label key={sub.id} className="flex items-center gap-3 text-white/70 text-sm cursor-pointer hover:text-white">
-                          <input type="checkbox" checked={(dealForm.subscriptionIds || []).includes(sub.id)} onChange={() => toggleSubscriptionInDeal(sub.id)} className="w-4 h-4 accent-red-500" />
-                          {sub.logo ? (
-                            <img src={sub.logo} alt={sub.name} style={{ width: '1.2rem', height: '1.2rem', objectFit: 'contain', borderRadius: '4px', flexShrink: 0 }} />
-                          ) : sub.type === 'netflix' ? (
-                            <span className="netflix-logo" style={{ fontSize: '0.8rem' }}>N</span>
-                          ) : (
-                            <i className={`fab ${sub.type === 'netflix' ? 'fa-netflix' : sub.type === 'amazon' ? 'fa-amazon' : sub.type === 'youtube' ? 'fa-youtube' : sub.type === 'spotify' ? 'fa-spotify' : sub.type === 'chatgpt' ? 'fa-robot' : sub.type === 'canva' ? 'fa-paint-brush' : sub.type === 'capcut' ? 'fa-video' : sub.type === 'hbomax' ? 'fa-tv' : sub.type === 'crunchyroll' ? 'fa-play' : sub.type === 'chaupal' ? 'fa-film' : 'fa-crown'}`} style={{ color: sub.type === 'netflix' ? '#e50914' : sub.type === 'amazon' ? '#ff9900' : sub.type === 'youtube' ? '#ff0000' : sub.type === 'spotify' ? '#1db954' : sub.type === 'chatgpt' ? '#10a37f' : sub.type === 'canva' ? '#00c4cc' : sub.type === 'capcut' ? '#00d4ff' : sub.type === 'hbomax' ? '#5822b4' : sub.type === 'crunchyroll' ? '#f47521' : sub.type === 'chaupal' ? '#e74c3c' : 'var(--t-primary-hex)' }}></i>
-                          )}
-                          {sub.name}
-                        </label>
-                      ))}
+                    <label className="text-white/50 text-sm">Deal Type</label>
+                    <div className="flex gap-2 mt-2">
+                      <button type="button" onClick={() => setDealForm({ ...dealForm, dealType: 'subscription' })} className={`flex-1 py-2 rounded-xl text-sm border transition ${dealForm.dealType !== 'social' ? 'bg-red-500/15 border-red-500/40 text-white' : 'bg-white/5 border-white/10 text-white/40'}`}>
+                        <i className="fas fa-tv mr-2"></i> Subscription
+                      </button>
+                      <button type="button" onClick={() => setDealForm({ ...dealForm, dealType: 'social' })} className={`flex-1 py-2 rounded-xl text-sm border transition ${dealForm.dealType === 'social' ? 'bg-red-500/15 border-red-500/40 text-white' : 'bg-white/5 border-white/10 text-white/40'}`}>
+                        <i className="fas fa-share-alt mr-2"></i> Social Media Service
+                      </button>
                     </div>
-                    {(!dealForm.subscriptionIds || dealForm.subscriptionIds.length === 0) && <p className="text-red-400 text-xs mt-1">Please select at least one subscription</p>}
                   </div>
+
+                  {dealForm.dealType === 'social' ? (
+                    <div className="space-y-3">
+                      <p className="text-white/20 text-xs">Every service you've added under Social Media Services is available here automatically.</p>
+                      <div>
+                        <label className="text-white/50 text-sm">Platform</label>
+                        <select value={dealForm.socialPlatformId} onChange={(e) => setDealForm({ ...dealForm, socialPlatformId: e.target.value, socialServiceId: '' })} className="input-neon mt-1">
+                          <option value="">Select a platform...</option>
+                          {(socialServices || []).map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                        </select>
+                      </div>
+                      {dealForm.socialPlatformId && (
+                        <div>
+                          <label className="text-white/50 text-sm">Service</label>
+                          <select value={dealForm.socialServiceId} onChange={(e) => setDealForm({ ...dealForm, socialServiceId: e.target.value })} className="input-neon mt-1">
+                            <option value="">Select a service...</option>
+                            {((socialServices || []).find(p => p.id === dealForm.socialPlatformId)?.services || []).filter(s => s.active !== false).map(s => (
+                              <option key={s.id} value={s.id}>{s.name} (RS {s.sellingPrice || 0} / 1000)</option>
+                            ))}
+                          </select>
+                          {((socialServices || []).find(p => p.id === dealForm.socialPlatformId)?.services || []).length === 0 && (
+                            <p className="text-yellow-400 text-xs mt-1">This platform has no services yet — add one under Social Media Services first.</p>
+                          )}
+                        </div>
+                      )}
+                      <div>
+                        <label className="text-white/50 text-sm">Quantity Included in This Deal</label>
+                        <input type="number" min="1" value={dealForm.socialQuantity} onChange={(e) => setDealForm({ ...dealForm, socialQuantity: e.target.value })} className="input-neon mt-1" placeholder="e.g. 1000" />
+                        <p className="text-white/20 text-xs mt-1">Unlike regular orders, a deal is a fixed package — the customer doesn't choose the quantity themselves here.</p>
+                      </div>
+                    </div>
+                  ) : (
+                    <div>
+                      <label className="text-white/50 text-sm">Select Subscriptions</label>
+                      <div className="mt-2 space-y-2 max-h-40 overflow-y-auto bg-red-500/5 rounded-xl p-3 border border-red-500/10">
+                        {subscriptions.map(sub => (
+                          <label key={sub.id} className="flex items-center gap-3 text-white/70 text-sm cursor-pointer hover:text-white">
+                            <input type="checkbox" checked={(dealForm.subscriptionIds || []).includes(sub.id)} onChange={() => toggleSubscriptionInDeal(sub.id)} className="w-4 h-4 accent-red-500" />
+                            {sub.logo ? (
+                              <img src={sub.logo} alt={sub.name} style={{ width: '1.2rem', height: '1.2rem', objectFit: 'contain', borderRadius: '4px', flexShrink: 0 }} />
+                            ) : sub.type === 'netflix' ? (
+                              <span className="netflix-logo" style={{ fontSize: '0.8rem' }}>N</span>
+                            ) : (
+                              <i className={`fab ${sub.type === 'netflix' ? 'fa-netflix' : sub.type === 'amazon' ? 'fa-amazon' : sub.type === 'youtube' ? 'fa-youtube' : sub.type === 'spotify' ? 'fa-spotify' : sub.type === 'chatgpt' ? 'fa-robot' : sub.type === 'canva' ? 'fa-paint-brush' : sub.type === 'capcut' ? 'fa-video' : sub.type === 'hbomax' ? 'fa-tv' : sub.type === 'crunchyroll' ? 'fa-play' : sub.type === 'chaupal' ? 'fa-film' : 'fa-crown'}`} style={{ color: sub.type === 'netflix' ? '#e50914' : sub.type === 'amazon' ? '#ff9900' : sub.type === 'youtube' ? '#ff0000' : sub.type === 'spotify' ? '#1db954' : sub.type === 'chatgpt' ? '#10a37f' : sub.type === 'canva' ? '#00c4cc' : sub.type === 'capcut' ? '#00d4ff' : sub.type === 'hbomax' ? '#5822b4' : sub.type === 'crunchyroll' ? '#f47521' : sub.type === 'chaupal' ? '#e74c3c' : 'var(--t-primary-hex)' }}></i>
+                            )}
+                            {sub.name}
+                          </label>
+                        ))}
+                      </div>
+                      {(!dealForm.subscriptionIds || dealForm.subscriptionIds.length === 0) && <p className="text-red-400 text-xs mt-1">Please select at least one subscription</p>}
+                    </div>
+                  )}
                   <div className="grid grid-cols-2 gap-4">
                     <div><label className="text-white/50 text-sm">Original Price (RS)</label><input type="number" value={dealForm.actualPrice} onChange={(e) => setDealForm({ ...dealForm, actualPrice: e.target.value })} className="input-neon mt-1" placeholder="500" /></div>
                     <div><label className="text-white/50 text-sm">Discounted Price (RS)</label><input type="number" value={dealForm.discountPrice} onChange={(e) => setDealForm({ ...dealForm, discountPrice: e.target.value })} className="input-neon mt-1" placeholder="350" /></div>
@@ -8551,6 +8668,7 @@
       const [promotions, setPromotions] = useState(() => readCache('promotions'));
       const [socialServices, setSocialServices] = useState(() => readCache('socialServices'));
       const [socialOrderPlatform, setSocialOrderPlatform] = useState(null);
+      const [socialDealOrder, setSocialDealOrder] = useState(null); // { deal, service } when claiming a social-media deal
       const [customFaqs, setCustomFaqs] = useState(() => readCache('faqs'));
       const [isAdmin, setIsAdmin] = useState(false);
       const [customerData, setCustomerData] = useState(null);
@@ -8997,6 +9115,19 @@
       };
 
       const handleDealPurchase = (deal) => {
+        if (deal.socialServiceId) {
+          // Social deals are a WhatsApp order, not a credits/subscription
+          // purchase — no login required, same as ordering any other
+          // social media service.
+          const plat = (socialServices || []).find(p => p.id === deal.socialPlatformId);
+          const svc = plat ? (plat.services || []).find(s => s.id === deal.socialServiceId) : null;
+          if (!svc) {
+            addToast('This deal\'s service is no longer available.', 'error');
+            return;
+          }
+          setSocialDealOrder({ deal, service: svc });
+          return;
+        }
         navigateTo('/subscriptions');
         if (!user) {
           setFlowStep('auth');
@@ -9010,7 +9141,7 @@
       const dealsWithSub = deals.filter(d => d.active).map(deal => {
         const subs = (deal.subscriptionIds || []).map(id => subscriptions.find(s => s.id === id)).filter(Boolean);
         return { ...deal, subscriptions: subs };
-      }).filter(d => d.subscriptions.length > 0);
+      }).filter(d => d.subscriptions.length > 0 || !!d.socialServiceId);
 
       function Footer() {
         return (
@@ -9090,7 +9221,13 @@
           <Navbar activeTab={activeTab} setActiveTab={setActiveTab} showSubscriptions={showSubscriptions} setShowSubscriptions={setShowSubscriptions} onCustomerPortal={handleCustomerPortal} onLogout={handleLogout} onOpenComplaint={() => setShowComplaintModal(true)} />
           <ToastContainer />
           <ComplaintModal open={showComplaintModal} onClose={() => setShowComplaintModal(false)} user={user} subscriptions={subscriptions} />
-          <SocialOrderModal open={!!socialOrderPlatform} platform={socialOrderPlatform} onClose={() => setSocialOrderPlatform(null)} user={user} />
+          <SocialOrderModal
+            open={!!socialOrderPlatform || !!socialDealOrder}
+            platform={socialDealOrder ? { id: socialDealOrder.deal.socialPlatformId, name: socialDealOrder.deal.socialPlatformName, services: [] } : socialOrderPlatform}
+            dealOverride={socialDealOrder}
+            onClose={() => { setSocialOrderPlatform(null); setSocialDealOrder(null); }}
+            user={user}
+          />
 
           {activeTab === 'home' && !showSubscriptions && (
             <>

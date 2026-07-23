@@ -1349,9 +1349,17 @@ app.get('/api/deals/active', async (req, res) => {
 
 app.post('/api/deals', requireAdmin, async (req, res) => {
   try {
-    const { id, subscriptionIds, title, description, actualPrice, discountPrice, active } = req.body;
-    if (!id || !subscriptionIds || !subscriptionIds.length || !title || actualPrice == null || discountPrice == null) {
+    const { id, subscriptionIds, title, description, actualPrice, discountPrice, active,
+      socialPlatformId, socialPlatformName, socialServiceId, socialServiceName, socialQuantity } = req.body;
+    const isSocialDeal = !!socialServiceId;
+    if (!id || !title || actualPrice == null || discountPrice == null) {
       return res.status(400).json({ error: 'Missing required fields' });
+    }
+    if (!isSocialDeal && (!subscriptionIds || !subscriptionIds.length)) {
+      return res.status(400).json({ error: 'Select at least one subscription, or a social media service' });
+    }
+    if (isSocialDeal && (!socialQuantity || Number(socialQuantity) <= 0)) {
+      return res.status(400).json({ error: 'Enter a quantity for the social media deal' });
     }
     const existing = await dealsCollection.findOne({ id });
     if (existing) {
@@ -1359,12 +1367,21 @@ app.post('/api/deals', requireAdmin, async (req, res) => {
     }
     const newDeal = {
       id,
-      subscriptionIds,
+      subscriptionIds: isSocialDeal ? [] : subscriptionIds,
       title,
       description: description || '',
       actualPrice,
       discountPrice,
       active: active !== undefined ? active : true,
+      // A social-media deal is a fixed package (e.g. "1000 Instagram
+      // Followers") at a flat discount price — unlike the normal
+      // per-1000 pricing customers pick a quantity for themselves — so it
+      // carries its own quantity here instead of asking the customer.
+      socialPlatformId: isSocialDeal ? socialPlatformId : '',
+      socialPlatformName: isSocialDeal ? (socialPlatformName || '') : '',
+      socialServiceId: isSocialDeal ? socialServiceId : '',
+      socialServiceName: isSocialDeal ? (socialServiceName || '') : '',
+      socialQuantity: isSocialDeal ? Number(socialQuantity) : 0,
       createdAt: new Date()
     };
     await dealsCollection.insertOne(newDeal);
@@ -1376,7 +1393,8 @@ app.post('/api/deals', requireAdmin, async (req, res) => {
 
 app.put('/api/deals/:id', requireAdmin, async (req, res) => {
   try {
-    const { subscriptionIds, title, description, actualPrice, discountPrice, active } = req.body;
+    const { subscriptionIds, title, description, actualPrice, discountPrice, active,
+      socialPlatformId, socialPlatformName, socialServiceId, socialServiceName, socialQuantity } = req.body;
     const update = {};
     if (subscriptionIds !== undefined) update.subscriptionIds = subscriptionIds;
     if (title !== undefined) update.title = title;
@@ -1384,6 +1402,11 @@ app.put('/api/deals/:id', requireAdmin, async (req, res) => {
     if (actualPrice !== undefined) update.actualPrice = actualPrice;
     if (discountPrice !== undefined) update.discountPrice = discountPrice;
     if (active !== undefined) update.active = active;
+    if (socialPlatformId !== undefined) update.socialPlatformId = socialPlatformId;
+    if (socialPlatformName !== undefined) update.socialPlatformName = socialPlatformName;
+    if (socialServiceId !== undefined) update.socialServiceId = socialServiceId;
+    if (socialServiceName !== undefined) update.socialServiceName = socialServiceName;
+    if (socialQuantity !== undefined) update.socialQuantity = Number(socialQuantity) || 0;
     const result = await dealsCollection.updateOne(
       { id: req.params.id },
       { $set: update }
@@ -1541,7 +1564,7 @@ app.get('/api/social-orders', requireAdmin, async (req, res) => {
 
 app.post('/api/social-orders', async (req, res) => {
   try {
-    const { platformId, platformName, serviceId, serviceName, quantity, accountLink, videoLink, name, whatsapp, price } = req.body;
+    const { platformId, platformName, serviceId, serviceName, quantity, accountLink, videoLink, name, whatsapp, price, dealId } = req.body;
     if (!platformName || !serviceName || !quantity || !whatsapp) {
       return res.status(400).json({ error: 'Missing required fields' });
     }
@@ -1557,6 +1580,7 @@ app.post('/api/social-orders', async (req, res) => {
       name: name || '',
       whatsapp,
       price: Number(price) || 0,
+      dealId: dealId || '',
       status: 'pending',
       createdAt: new Date()
     };
