@@ -2748,13 +2748,12 @@
     // dashboard even before they open WhatsApp.
     function SocialOrderModal({ open, platform, onClose, user, dealOverride }) {
       const { addToast } = useContext(AppContext);
+      const { setUser } = useContext(UserContext);
       const [step, setStep] = useState('service'); // 'service' | 'details'
       const [selectedService, setSelectedService] = useState(null);
       const [quantity, setQuantity] = useState('');
       const [accountLink, setAccountLink] = useState('');
       const [videoLink, setVideoLink] = useState('');
-      const [guestName, setGuestName] = useState('');
-      const [guestWhatsapp, setGuestWhatsapp] = useState('');
       const [submitting, setSubmitting] = useState(false);
 
       useEffect(() => {
@@ -2772,8 +2771,6 @@
           }
           setAccountLink('');
           setVideoLink('');
-          setGuestName('');
-          setGuestWhatsapp('');
           setSubmitting(false);
         }
       }, [open, platform, dealOverride]);
@@ -2795,11 +2792,13 @@
       const handleSelectService = (svc) => { setSelectedService(svc); setStep('details'); };
       const handleBack = () => { setStep('service'); setSelectedService(null); };
 
+      // Confirming an order deducts the price straight from the customer's
+      // credit balance (no WhatsApp step) and drops them into the Waiting
+      // Customers list so the admin can see it and fulfill it — same place
+      // subscription requests land.
       const handleSubmit = async () => {
-        const name = user ? (user.name || user.username) : guestName.trim();
-        const whatsapp = user ? user.whatsapp : guestWhatsapp.trim();
-        if (!user && (!guestName.trim() || !guestWhatsapp.trim())) {
-          addToast('Please enter your name and WhatsApp number', 'error');
+        if (!user) {
+          addToast('Please log in to order using credits', 'error');
           return;
         }
         if (!qtyNum || qtyNum <= 0) {
@@ -2814,10 +2813,41 @@
           addToast('Please enter the video/post link', 'error');
           return;
         }
+        if (!price || price <= 0) {
+          addToast('Enter a quantity to see the price', 'error');
+          return;
+        }
+        if ((user.credits || 0) < price) {
+          addToast('Insufficient credits for this order', 'error');
+          return;
+        }
 
         setSubmitting(true);
+        const purchaseId = 'social_' + Date.now().toString();
         try {
-          await submitSocialOrder({
+          const updatedUser = await deductCredits(user.username, price, purchaseId, `${platform.name} - ${selectedService.name}`, { socialServiceId: selectedService.id });
+          setUser(updatedUser);
+
+          await addWaitingCustomer({
+            subscriptionName: `${platform.name} - ${selectedService.name}`,
+            name: user.name || user.username,
+            username: user.username,
+            whatsapp: user.whatsapp,
+            paidWithCredits: true,
+            creditsAmount: price,
+            purchaseId,
+            isSocialOrder: true,
+            platformId: platform.id,
+            platformName: platform.name,
+            serviceId: selectedService.id,
+            serviceName: selectedService.name,
+            quantity: qtyNum,
+            linkType: needsAccountLink ? 'accountLink' : (needsVideoLink ? 'videoLink' : ''),
+            linkValue: needsAccountLink ? accountLink.trim() : (needsVideoLink ? videoLink.trim() : ''),
+            price
+          });
+
+          submitSocialOrder({
             platformId: platform.id,
             platformName: platform.name,
             serviceId: selectedService.id,
@@ -2825,33 +2855,19 @@
             quantity: qtyNum,
             accountLink: needsAccountLink ? accountLink.trim() : '',
             videoLink: needsVideoLink ? videoLink.trim() : '',
-            name,
-            whatsapp,
+            name: user.name || user.username,
+            whatsapp: user.whatsapp,
             price,
             dealId: dealOverride ? dealOverride.deal.id : ''
-          });
-        } catch (err) {
-          // Even if the tracking save fails, the order still needs to reach
-          // the admin — a network blip here shouldn't cost the customer
-          // their order, so WhatsApp still opens below either way.
-          console.error('Failed to save social order:', err);
-        }
+          }).catch((err) => console.error('Failed to save social order record:', err));
 
-        const lines = [];
-        lines.push(dealOverride ? `Hello, I'd like to claim this deal: ${dealOverride.deal.title}` : `Hello, I'd like to order a social media service.`);
-        lines.push(`Platform: ${platform.name}`);
-        lines.push(`Service: ${selectedService.name}`);
-        lines.push(`Quantity: ${qtyNum}`);
-        if (needsAccountLink) lines.push(`Account Link: ${accountLink.trim()}`);
-        if (needsVideoLink) lines.push(`Video Link: ${videoLink.trim()}`);
-        lines.push(`Name: ${name}`);
-        lines.push(`WhatsApp: ${whatsapp}`);
-        lines.push(`${dealOverride ? 'Deal' : 'Estimated'} Price: RS ${price}`);
-        const message = lines.join('\n');
-        window.open(`https://wa.me/923079163485?text=${encodeURIComponent(message)}`, '_blank');
-        addToast('Opening WhatsApp — just tap Send!', 'success');
-        setSubmitting(false);
-        onClose();
+          addToast(`${price} credits deducted — your order is in! We'll get started shortly.`, 'success');
+          onClose();
+        } catch (err) {
+          addToast('Failed to place order: ' + (err?.error || 'unknown error'), 'error');
+        } finally {
+          setSubmitting(false);
+        }
       };
 
       return (
@@ -2898,36 +2914,31 @@
                       <input type="text" value={videoLink} onChange={(e) => setVideoLink(e.target.value)} className="input-neon mt-1" placeholder="https://instagram.com/p/..." />
                     </div>
                   )}
-                  <div><label className="text-white/50 text-sm font-medium">How many do you want?</label>
+                  <div><label className="text-white/50 text-sm font-medium">How many do you need?</label>
                     {dealOverride ? (
-                      <input type="number" value={quantity} disabled className="input-neon mt-1 opacity-60" />
+                      <textarea value={quantity} disabled rows="2" className="input-neon mt-1 opacity-60"></textarea>
                     ) : (
-                      <input type="number" min="1" value={quantity} onChange={(e) => setQuantity(e.target.value)} className="input-neon mt-1" placeholder="e.g. 1000" />
+                      <textarea value={quantity} onChange={(e) => setQuantity(e.target.value.replace(/[^0-9]/g, ''))} rows="2" className="input-neon mt-1" placeholder="e.g. 1000"></textarea>
                     )}
                   </div>
 
-                  {!user && (
-                    <>
-                      <div><label className="text-white/50 text-sm font-medium">Your Name</label>
-                        <input type="text" value={guestName} onChange={(e) => setGuestName(e.target.value)} className="input-neon mt-1" placeholder="Your full name" />
-                      </div>
-                      <div><label className="text-white/50 text-sm font-medium">WhatsApp Number</label>
-                        <input type="tel" value={guestWhatsapp} onChange={(e) => setGuestWhatsapp(e.target.value)} className="input-neon mt-1" placeholder="+92 300 1234567" />
-                      </div>
-                    </>
-                  )}
-
                   {qtyNum > 0 && (
                     <div className="text-center p-3 bg-white/5 rounded-xl">
-                      <p className="text-white/30 text-xs">{dealOverride ? 'Deal Price' : 'Estimated Price'}</p>
+                      <p className="text-white/30 text-xs">{dealOverride ? 'Deal Price' : 'Price'}</p>
                       <p className="text-2xl font-bold text-green-400">RS {price}</p>
                     </div>
                   )}
 
+                  {user ? (
+                    <p className="text-white/30 text-xs text-center"><i className="fas fa-coins mr-1"></i> Your balance: RS {user.credits || 0}</p>
+                  ) : (
+                    <p className="text-yellow-400 text-sm"><i className="fas fa-exclamation-circle mr-2"></i> Please log in to purchase with credits.</p>
+                  )}
+
                   <div className="flex gap-3">
                     {!dealOverride && <button onClick={handleBack} className="btn-neon-outline px-5"><i className="fas fa-arrow-left"></i></button>}
-                    <button onClick={handleSubmit} disabled={submitting} className="btn-neon flex-1 py-3">
-                      {submitting ? <><i className="fas fa-spinner fa-spin mr-2"></i> Sending...</> : <><i className="fab fa-whatsapp mr-2"></i> Send Order via WhatsApp</>}
+                    <button onClick={handleSubmit} disabled={submitting || !user} className="btn-neon flex-1 py-3">
+                      {submitting ? <><i className="fas fa-spinner fa-spin mr-2"></i> Confirming...</> : <><i className="fas fa-check mr-2"></i> Confirm & Pay with Credits</>}
                     </button>
                   </div>
                 </div>
@@ -5505,73 +5516,70 @@
       };
 
       // ─── Social Media Services state ───────────────────────────
+      // Two-step flow, same shape as the rest of the admin panel:
+      // Step 1 — Add Platform: name, description, upload a logo/icon image.
+      // Step 2 — inside that platform, Add Service: service name (Followers,
+      // Likes, Views, Comments...), cost price (admin-only, feeds Income,
+      // never shown to the customer), selling price, and which single link
+      // the customer must supply (Account Link OR Video Link — only one).
       const [expandedPlatformId, setExpandedPlatformId] = useState(null);
-      const [serviceForm, setServiceForm] = useState({ name: '', costPrice: '', sellingPrice: '', requiredFields: [] });
+      const [serviceForm, setServiceForm] = useState({ name: '', costPrice: '', sellingPrice: '', linkType: '' });
       const [editingService, setEditingService] = useState(null); // { platformId, serviceId }
       const [savingService, setSavingService] = useState(false);
+      const [addingServiceToPlatformId, setAddingServiceToPlatformId] = useState(null);
       const [socialOrders, setSocialOrders] = useState([]);
       const [socialOrdersLoaded, setSocialOrdersLoaded] = useState(false);
 
-      // One-step "New Service" form — same idea as New Subscription: pick
-      // the platform (or type a new one), name the service, set pricing and
-      // what link the customer needs to provide, hit Create. Behind the
-      // scenes this creates the platform too if it doesn't exist yet, so the
-      // admin never has to do that as a separate step.
-      const SOCIAL_PLATFORM_PRESETS = ['Instagram', 'TikTok', 'Facebook', 'Snapchat', 'YouTube', 'Twitter / X', 'Telegram', 'WhatsApp', 'LinkedIn', 'Pinterest', 'Discord', 'Twitch', 'Reddit', 'Spotify'];
-      const [newSocialPlatform, setNewSocialPlatform] = useState('Instagram');
-      const [newSocialPlatformCustom, setNewSocialPlatformCustom] = useState('');
-      const [newSocialServiceName, setNewSocialServiceName] = useState('');
-      const [newSocialCost, setNewSocialCost] = useState('');
-      const [newSocialSelling, setNewSocialSelling] = useState('');
-      const [newSocialRequiredFields, setNewSocialRequiredFields] = useState([]);
-      const [creatingSocialService, setCreatingSocialService] = useState(false);
+      // Step 1 — Add Platform form state
+      const [showAddPlatformForm, setShowAddPlatformForm] = useState(false);
+      const [newPlatformName, setNewPlatformName] = useState('');
+      const [newPlatformDescription, setNewPlatformDescription] = useState('');
+      const [newPlatformLogo, setNewPlatformLogo] = useState('');
+      const [creatingPlatform, setCreatingPlatform] = useState(false);
 
-      const toggleNewSocialField = (field) => {
-        setNewSocialRequiredFields(prev => prev.includes(field) ? prev.filter(f => f !== field) : [...prev, field]);
+      const handlePlatformLogoUpload = (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (ev) => setNewPlatformLogo(ev.target.result);
+        reader.readAsDataURL(file);
       };
 
-      const resetNewSocialForm = () => {
-        setNewSocialPlatform('Instagram');
-        setNewSocialPlatformCustom('');
-        setNewSocialServiceName('');
-        setNewSocialCost('');
-        setNewSocialSelling('');
-        setNewSocialRequiredFields([]);
+      const resetNewPlatformForm = () => {
+        setNewPlatformName('');
+        setNewPlatformDescription('');
+        setNewPlatformLogo('');
+        setShowAddPlatformForm(false);
       };
 
-      const handleCreateSocialService = async () => {
-        const platformName = (newSocialPlatform === 'Custom' ? newSocialPlatformCustom : newSocialPlatform).trim();
+      const handleCreatePlatform = async () => {
+        const platformName = newPlatformName.trim();
         if (!platformName) { addToast('Enter a platform name', 'error'); return; }
-        if (!newSocialServiceName.trim()) { addToast('Enter a service name', 'error'); return; }
-        setCreatingSocialService(true);
+        if ((socialServices || []).some(p => (p.name || '').toLowerCase() === platformName.toLowerCase())) {
+          addToast('A platform with this name already exists', 'error');
+          return;
+        }
+        setCreatingPlatform(true);
         try {
-          // Reuse the platform if one with this name already exists (so
-          // re-picking "Instagram" a second time adds another service under
-          // the same platform instead of creating a duplicate) — otherwise
-          // create it on the fly.
-          let platform = (socialServices || []).find(p => (p.name || '').toLowerCase() === platformName.toLowerCase());
-          if (!platform) {
-            platform = await createSocialPlatform({ id: Date.now().toString(), name: platformName });
-            setSocialServices(prev => [...(prev || []), platform]);
-          }
-          const payload = {
-            name: newSocialServiceName.trim(),
-            costPrice: parseFloat(newSocialCost) || 0,
-            sellingPrice: parseFloat(newSocialSelling) || 0,
-            requiredFields: newSocialRequiredFields
-          };
-          const updatedPlatform = await addSocialService(platform.id, payload);
-          setSocialServices(prev => (prev || []).map(p => p.id === updatedPlatform.id ? updatedPlatform : p));
-          addToast(`Added ${payload.name} for ${platform.name}!`, 'success');
-          resetNewSocialForm();
+          const platform = await createSocialPlatform({
+            id: Date.now().toString(),
+            name: platformName,
+            description: newPlatformDescription.trim(),
+            logo: newPlatformLogo || ''
+          });
+          setSocialServices(prev => [...(prev || []), platform]);
+          addToast(`Added ${platform.name}! Now add a service under it.`, 'success');
+          resetNewPlatformForm();
+          setExpandedPlatformId(platform.id);
+          setAddingServiceToPlatformId(platform.id);
         } catch (err) {
-          addToast('Failed to add service', 'error');
+          addToast('Failed to add platform', 'error');
         } finally {
-          setCreatingSocialService(false);
+          setCreatingPlatform(false);
         }
       };
 
-      const resetServiceForm = () => { setServiceForm({ name: '', costPrice: '', sellingPrice: '', requiredFields: [] }); setEditingService(null); };
+      const resetServiceForm = () => { setServiceForm({ name: '', costPrice: '', sellingPrice: '', linkType: '' }); setEditingService(null); setAddingServiceToPlatformId(null); };
 
       const handleDeletePlatform = async (platformId, name) => {
         if (!window.confirm(`Delete ${name} and all its services? This can't be undone.`)) return;
@@ -5584,29 +5592,33 @@
         }
       };
 
-      const toggleServiceField = (field) => {
-        setServiceForm(prev => ({
-          ...prev,
-          requiredFields: prev.requiredFields.includes(field)
-            ? prev.requiredFields.filter(f => f !== field)
-            : [...prev.requiredFields, field]
-        }));
+      // Only one of Account Link / Video Link can be required per service —
+      // picking the other one swaps it rather than adding to it.
+      const chooseServiceLinkType = (field) => {
+        setServiceForm(prev => ({ ...prev, linkType: prev.linkType === field ? '' : field }));
+      };
+
+      const startAddService = (platformId) => {
+        resetServiceForm();
+        setAddingServiceToPlatformId(platformId);
       };
 
       const startEditService = (platformId, svc) => {
         setEditingService({ platformId, serviceId: svc.id });
-        setServiceForm({ name: svc.name, costPrice: svc.costPrice || '', sellingPrice: svc.sellingPrice || '', requiredFields: svc.requiredFields || [] });
+        setAddingServiceToPlatformId(platformId);
+        setServiceForm({ name: svc.name, costPrice: svc.costPrice || '', sellingPrice: svc.sellingPrice || '', linkType: (svc.requiredFields || [])[0] || '' });
       };
 
       const handleSaveService = async (platformId) => {
         if (!serviceForm.name.trim()) { addToast('Enter a service name', 'error'); return; }
+        if (!serviceForm.linkType) { addToast('Select which link is required from the customer (Account Link or Video Link)', 'error'); return; }
         setSavingService(true);
         try {
           const payload = {
             name: serviceForm.name.trim(),
             costPrice: parseFloat(serviceForm.costPrice) || 0,
             sellingPrice: parseFloat(serviceForm.sellingPrice) || 0,
-            requiredFields: serviceForm.requiredFields
+            requiredFields: [serviceForm.linkType]
           };
           let updatedPlatform;
           if (editingService && editingService.platformId === platformId) {
@@ -7683,7 +7695,7 @@
               <p className="text-white/40 text-sm mb-4">Customers who already paid (or requested) for a subscription you haven't added an account for yet. Add the account, deliver it to them manually, then mark it fulfilled here.</p>
               <div className="overflow-x-auto">
                 <table className="admin-table text-sm">
-                  <thead><tr><th>Subscription Needed</th><th>Name</th><th>Username</th><th>WhatsApp</th><th>Months</th><th>Type</th><th>Requested</th><th>Actions</th></tr></thead>
+                  <thead><tr><th>Needed</th><th>Name</th><th>Username</th><th>WhatsApp</th><th>Qty / Months</th><th>Link</th><th>Type</th><th>Requested</th><th>Actions</th></tr></thead>
                   <tbody>
                     {waitingList.map(w => (
                       <tr key={w.id}>
@@ -7691,10 +7703,15 @@
                         <td>{w.name || 'N/A'}</td>
                         <td className="font-mono text-xs">{w.username || 'N/A'}</td>
                         <td>{w.whatsapp}</td>
-                        <td>{w.months}</td>
+                        <td>{w.isSocialOrder ? w.quantity : w.months}</td>
+                        <td className="text-xs text-white/40 max-w-[160px] truncate" title={w.linkValue || ''}>
+                          {w.isSocialOrder ? (w.linkValue ? `${w.linkType === 'videoLink' ? 'Video' : 'Account'}: ${w.linkValue}` : '—') : '—'}
+                        </td>
                         <td>
                           {w.isCustomRequest ? (
                             <span className="badge badge-yellow text-xs">Custom Request</span>
+                          ) : w.isSocialOrder ? (
+                            <span className="badge badge-green text-xs">Social · Credits</span>
                           ) : (
                             <span className="badge badge-green text-xs">{w.paidWithCredits ? 'Paid (Credits)' : 'Paid (OTP)'}</span>
                           )}
@@ -8140,56 +8157,36 @@
           {activeTab === 'social' && (
             <div className="space-y-4">
               <div className="glass-panel">
-                <h3 className="text-lg font-semibold text-white mb-1"><i className="fas fa-plus-circle text-red-400 mr-2"></i> New Social Media Service</h3>
-                <p className="text-white/30 text-xs mb-4">Same idea as adding a subscription: pick the platform (Instagram, TikTok...), name the service (Followers, Likes, Comments, Views...), set pricing per 1000, and say what link you need from the customer. If the platform doesn't exist yet, it's created automatically.</p>
-                <div className="grid sm:grid-cols-2 gap-4">
-                  <div><label className="text-white/50 text-sm">Platform</label>
-                    <select value={newSocialPlatform} onChange={(e) => setNewSocialPlatform(e.target.value)} className="input-neon mt-1">
-                      {SOCIAL_PLATFORM_PRESETS.map(name => <option key={name} value={name}>{name}</option>)}
-                      <option value="Custom">Custom</option>
-                    </select>
+                <div className="flex justify-between items-center">
+                  <div>
+                    <h3 className="text-lg font-semibold text-white mb-1"><i className="fas fa-share-alt text-red-400 mr-2"></i> Social Media Platforms</h3>
+                    <p className="text-white/30 text-xs">Step 1: add a platform (Instagram, TikTok...). Step 2: open it and add its services (Followers, Likes, Views, Comments...).</p>
                   </div>
-                  {newSocialPlatform === 'Custom' ? (
-                    <div><label className="text-white/50 text-sm">Platform Name</label>
-                      <input type="text" value={newSocialPlatformCustom} onChange={(e) => setNewSocialPlatformCustom(e.target.value)} className="input-neon mt-1" placeholder="e.g. Threads" />
-                    </div>
-                  ) : (
-                    <div><label className="text-white/50 text-sm">Service</label>
-                      <input type="text" value={newSocialServiceName} onChange={(e) => setNewSocialServiceName(e.target.value)} className="input-neon mt-1" placeholder="e.g. Followers" />
-                    </div>
+                  {!showAddPlatformForm && (
+                    <button onClick={() => setShowAddPlatformForm(true)} className="btn-neon whitespace-nowrap"><i className="fas fa-plus mr-2"></i> Add Platform</button>
                   )}
                 </div>
-                {newSocialPlatform === 'Custom' && (
-                  <div className="mt-4"><label className="text-white/50 text-sm">Service</label>
-                    <input type="text" value={newSocialServiceName} onChange={(e) => setNewSocialServiceName(e.target.value)} className="input-neon mt-1" placeholder="e.g. Followers" />
+
+                {showAddPlatformForm && (
+                  <div className="mt-4 pt-4 border-t border-white/10 space-y-4">
+                    <div><label className="text-white/50 text-sm">Platform Name</label>
+                      <input type="text" value={newPlatformName} onChange={(e) => setNewPlatformName(e.target.value)} className="input-neon mt-1" placeholder="e.g. Instagram" />
+                    </div>
+                    <div><label className="text-white/50 text-sm">Description</label>
+                      <textarea value={newPlatformDescription} onChange={(e) => setNewPlatformDescription(e.target.value)} className="input-neon mt-1" rows="3" placeholder="A short description customers will see, e.g. Grow your Instagram with real followers, likes & views."></textarea>
+                    </div>
+                    <div><label className="text-white/50 text-sm">Logo / Icon Image</label>
+                      <input type="file" accept="image/*" onChange={handlePlatformLogoUpload} className="input-neon mt-1 p-2" />
+                      {newPlatformLogo && (
+                        <img src={newPlatformLogo} alt="Logo preview" className="w-16 h-16 object-contain rounded-lg border border-white/10 mt-2" />
+                      )}
+                    </div>
+                    <div className="flex gap-3">
+                      <button onClick={handleCreatePlatform} disabled={creatingPlatform} className="btn-neon"><i className="fas fa-check mr-2"></i> {creatingPlatform ? 'Adding...' : 'Add Platform'}</button>
+                      <button onClick={resetNewPlatformForm} className="btn-neon-outline">Cancel</button>
+                    </div>
                   </div>
                 )}
-                <div className="grid sm:grid-cols-2 gap-4 mt-4">
-                  <div><label className="text-white/50 text-sm">Cost Price (per 1000)</label>
-                    <input type="number" value={newSocialCost} onChange={(e) => setNewSocialCost(e.target.value)} className="input-neon mt-1" placeholder="0" />
-                  </div>
-                  <div><label className="text-white/50 text-sm">Selling Price (per 1000)</label>
-                    <input type="number" value={newSocialSelling} onChange={(e) => setNewSocialSelling(e.target.value)} className="input-neon mt-1" placeholder="0" />
-                  </div>
-                </div>
-                <p className="text-white/20 text-xs mt-2">e.g. a selling price of 600 means 1,000 {newSocialServiceName.trim() || 'units'} costs RS 600 — smaller orders are priced proportionally (100 would be RS 60).</p>
-                <div className="mt-4">
-                  <label className="text-white/50 text-sm block mb-2">Ask from Customer:</label>
-                  <div className="flex flex-wrap gap-4">
-                    <label className="flex items-center gap-2 text-white/70 text-sm cursor-pointer">
-                      <input type="checkbox" checked={newSocialRequiredFields.includes('accountLink')} onChange={() => toggleNewSocialField('accountLink')} className="w-4 h-4 accent-red-500" />
-                      Account Link
-                    </label>
-                    <label className="flex items-center gap-2 text-white/70 text-sm cursor-pointer">
-                      <input type="checkbox" checked={newSocialRequiredFields.includes('videoLink')} onChange={() => toggleNewSocialField('videoLink')} className="w-4 h-4 accent-red-500" />
-                      Video Link
-                    </label>
-                  </div>
-                  <p className="text-white/20 text-xs mt-2">The customer always enters how many they want, no matter what — that's separate from these.</p>
-                </div>
-                <div className="flex gap-3 mt-4">
-                  <button onClick={handleCreateSocialService} disabled={creatingSocialService} className="btn-neon"><i className="fas fa-check mr-2"></i> Create</button>
-                </div>
               </div>
 
               {(socialServices || []).length === 0 ? (
@@ -8198,14 +8195,19 @@
                 const icon = getSocialIcon(platform.name);
                 const color = getSocialColor(platform.name);
                 const isExpanded = expandedPlatformId === platform.id;
-                const isEditingHere = editingService && editingService.platformId === platform.id;
+                const isServiceFormOpenHere = addingServiceToPlatformId === platform.id;
                 return (
                   <div key={platform.id} className="glass-panel">
                     <div className="flex flex-wrap justify-between items-center gap-2">
                       <div className="flex items-center gap-3">
-                        <i className={`${getSocialIconPrefix(platform.name)} ${icon} text-2xl`} style={{ color }}></i>
+                        {platform.logo ? (
+                          <img src={platform.logo} alt={platform.name} style={{ width: '2rem', height: '2rem', objectFit: 'contain', borderRadius: '6px' }} />
+                        ) : (
+                          <i className={`${getSocialIconPrefix(platform.name)} ${icon} text-2xl`} style={{ color }}></i>
+                        )}
                         <div>
                           <h4 className="text-white font-semibold">{platform.name}</h4>
+                          {platform.description && <p className="text-white/30 text-xs max-w-md truncate">{platform.description}</p>}
                           <p className="text-white/30 text-xs">{(platform.services || []).length} service{(platform.services || []).length !== 1 ? 's' : ''}</p>
                         </div>
                       </div>
@@ -8245,12 +8247,16 @@
                           </div>
                         )}
 
-                        {isEditingHere && (
+                        {!isServiceFormOpenHere && (
+                          <button onClick={() => startAddService(platform.id)} className="btn-neon-outline text-sm"><i className="fas fa-plus mr-2"></i> Add Service</button>
+                        )}
+
+                        {isServiceFormOpenHere && (
                           <div className="p-4 bg-white/5 rounded-xl">
-                            <h5 className="text-white/70 text-sm font-semibold mb-3">Edit Service</h5>
+                            <h5 className="text-white/70 text-sm font-semibold mb-3">{editingService ? 'Edit Service' : 'Add Service'}</h5>
                             <div className="grid sm:grid-cols-3 gap-3">
                               <div><label className="text-white/50 text-xs">Service Name</label>
-                                <input type="text" value={serviceForm.name} onChange={(e) => setServiceForm({ ...serviceForm, name: e.target.value })} className="input-neon mt-1" placeholder="e.g. Followers" />
+                                <input type="text" value={serviceForm.name} onChange={(e) => setServiceForm({ ...serviceForm, name: e.target.value })} className="input-neon mt-1" placeholder="e.g. Followers, Comments, Views, Likes" />
                               </div>
                               <div><label className="text-white/50 text-xs">Cost Price (per 1000)</label>
                                 <input type="number" value={serviceForm.costPrice} onChange={(e) => setServiceForm({ ...serviceForm, costPrice: e.target.value })} className="input-neon mt-1" placeholder="0" />
@@ -8259,20 +8265,21 @@
                                 <input type="number" value={serviceForm.sellingPrice} onChange={(e) => setServiceForm({ ...serviceForm, sellingPrice: e.target.value })} className="input-neon mt-1" placeholder="0" />
                               </div>
                             </div>
+                            <p className="text-white/20 text-xs mt-2">Cost price is for your own income tracking only — it's never shown to the customer.</p>
                             <div className="mt-3">
-                              <label className="text-white/50 text-xs">What do you need from the customer to proceed? (select one or both)</label>
+                              <label className="text-white/50 text-xs">Which link is required from the customer? (choose one)</label>
                               <div className="flex gap-4 mt-2">
                                 <label className="flex items-center gap-2 text-white/70 text-sm cursor-pointer">
-                                  <input type="checkbox" checked={serviceForm.requiredFields.includes('accountLink')} onChange={() => toggleServiceField('accountLink')} className="w-4 h-4 accent-red-500" /> Account Link
+                                  <input type="radio" name={`linkType-${platform.id}`} checked={serviceForm.linkType === 'accountLink'} onChange={() => chooseServiceLinkType('accountLink')} className="w-4 h-4 accent-red-500" /> Account Link
                                 </label>
                                 <label className="flex items-center gap-2 text-white/70 text-sm cursor-pointer">
-                                  <input type="checkbox" checked={serviceForm.requiredFields.includes('videoLink')} onChange={() => toggleServiceField('videoLink')} className="w-4 h-4 accent-red-500" /> Video Link
+                                  <input type="radio" name={`linkType-${platform.id}`} checked={serviceForm.linkType === 'videoLink'} onChange={() => chooseServiceLinkType('videoLink')} className="w-4 h-4 accent-red-500" /> Video Link
                                 </label>
                               </div>
-                              <p className="text-white/20 text-xs mt-2">The customer always enters how many they want themselves, no matter what — that's separate from these.</p>
+                              <p className="text-white/20 text-xs mt-2">The customer always enters how many they want themselves too — that's separate from this.</p>
                             </div>
                             <div className="flex gap-2 mt-4">
-                              <button onClick={() => handleSaveService(platform.id)} disabled={savingService} className="btn-neon px-6"><i className="fas fa-save mr-2"></i> Update Service</button>
+                              <button onClick={() => handleSaveService(platform.id)} disabled={savingService} className="btn-neon px-6"><i className="fas fa-save mr-2"></i> {editingService ? 'Update Service' : 'Add Service'}</button>
                               <button onClick={resetServiceForm} className="btn-neon-outline px-4">Cancel</button>
                             </div>
                           </div>

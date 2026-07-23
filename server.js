@@ -1449,11 +1449,11 @@ app.get('/api/social-services', async (req, res) => {
 
 app.post('/api/social-services', requireAdmin, async (req, res) => {
   try {
-    const { id, name, icon, logo } = req.body;
+    const { id, name, icon, logo, description } = req.body;
     if (!id || !name) return res.status(400).json({ error: 'Platform name is required' });
     const existing = await socialServicesCollection.findOne({ id });
     if (existing) return res.status(400).json({ error: 'Platform id already exists' });
-    const platform = { id, name, icon: icon || '', logo: logo || '', services: [], createdAt: new Date() };
+    const platform = { id, name, icon: icon || '', logo: logo || '', description: description || '', services: [], createdAt: new Date() };
     await socialServicesCollection.insertOne(platform);
     res.json(platform);
   } catch (err) {
@@ -1463,11 +1463,12 @@ app.post('/api/social-services', requireAdmin, async (req, res) => {
 
 app.put('/api/social-services/:id', requireAdmin, async (req, res) => {
   try {
-    const { name, icon, logo } = req.body;
+    const { name, icon, logo, description } = req.body;
     const update = {};
     if (name !== undefined) update.name = name;
     if (icon !== undefined) update.icon = icon;
     if (logo !== undefined) update.logo = logo;
+    if (description !== undefined) update.description = description;
     const result = await socialServicesCollection.updateOne({ id: req.params.id }, { $set: update });
     if (result.matchedCount === 0) return res.status(404).json({ error: 'Platform not found' });
     const updated = await socialServicesCollection.findOne({ id: req.params.id });
@@ -1766,7 +1767,14 @@ app.post('/api/waiting', async (req, res) => {
     const {
       subscriptionId, subscriptionName, isCustomRequest,
       name, username, whatsapp, months, email,
-      paidWithCredits, creditsAmount, purchasedAt, purchaseId
+      paidWithCredits, creditsAmount, purchasedAt, purchaseId,
+      // Social media service order fields — set when a customer confirms a
+      // follower/likes/views/comments order paid for with credits, instead
+      // of a subscription. subscriptionName is still filled in (as
+      // "Platform — Service") so this reuses the same waiting list without
+      // needing a separate collection.
+      isSocialOrder, platformId, platformName, serviceId, serviceName,
+      quantity, linkType, linkValue, price
     } = req.body;
     if (!subscriptionName || !name || !whatsapp) {
       return res.status(400).json({ error: 'subscriptionName, name and whatsapp are required' });
@@ -1791,6 +1799,15 @@ app.post('/api/waiting', async (req, res) => {
       email: email || '',
       paidWithCredits: !!paidWithCredits,
       creditsAmount: creditsAmount || 0,
+      isSocialOrder: !!isSocialOrder,
+      platformId: platformId || null,
+      platformName: platformName || '',
+      serviceId: serviceId || null,
+      serviceName: serviceName || '',
+      quantity: quantity || 0,
+      linkType: linkType || '',
+      linkValue: linkValue || '',
+      price: price || 0,
       fulfilled: false,
       purchasedAt: purchasedAt || new Date().toISOString(),
       createdAt: new Date()
