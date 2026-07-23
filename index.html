@@ -4050,8 +4050,8 @@
       if (!customerData || customerData.length === 0) {
         return (
           <div className="space-y-6">
-            <button onClick={onBack} className="text-red-400 hover:text-red-300 font-bold text-base inline-flex items-center"><i className="fas fa-arrow-left mr-2"></i> Back</button>
             {renderDealsSection()}
+            <button onClick={onBack} className="text-red-400 hover:text-red-300 font-bold text-base inline-flex items-center"><i className="fas fa-arrow-left mr-2"></i> Back</button>
             <NotesBoard username={user?.username} />
             <div className="glass-panel max-w-4xl mx-auto">
               <div className="mb-6">
@@ -4075,8 +4075,8 @@
       if (activeEntries.length === 0) {
         return (
           <div className="space-y-6">
-            <button onClick={onBack} className="text-red-400 hover:text-red-300 font-bold text-base inline-flex items-center"><i className="fas fa-arrow-left mr-2"></i> Back</button>
             {renderDealsSection()}
+            <button onClick={onBack} className="text-red-400 hover:text-red-300 font-bold text-base inline-flex items-center"><i className="fas fa-arrow-left mr-2"></i> Back</button>
             <NotesBoard username={user?.username} />
             <div className="glass-panel max-w-4xl mx-auto">
               <div className="mb-6">
@@ -4099,8 +4099,8 @@
 
       return (
         <div className="space-y-6">
-          <button onClick={onBack} className="text-red-400 hover:text-red-300 font-bold text-base inline-flex items-center"><i className="fas fa-arrow-left mr-2"></i> Back</button>
           {renderDealsSection()}
+          <button onClick={onBack} className="text-red-400 hover:text-red-300 font-bold text-base inline-flex items-center"><i className="fas fa-arrow-left mr-2"></i> Back</button>
           <NotesBoard username={user?.username} />
           <div className="glass-panel max-w-4xl mx-auto">
             <div className="mb-6">
@@ -8059,7 +8059,7 @@
       const handleGetStarted = () => {
         navigateTo('/subscriptions');
         if (user) {
-          setFlowStep('select');
+          setFlowStep('welcome');
         } else {
           setFlowStep('auth');
         }
@@ -8251,13 +8251,13 @@
                 {flowStep === 'auth' && <AuthPage onLogin={handleLogin} onSignup={handleLogin} onBack={() => { setFlowStep('welcome'); setShowAuth(false); }} />}
                 {flowStep === 'select' && (
                   <div>
-                    <button onClick={() => { setFlowStep('welcome'); setFlowType(null); }} className="text-red-400 hover:text-red-300 text-sm mb-6 inline-flex items-center"><i className="fas fa-arrow-left mr-2"></i> Back</button>
-                    <h2 className="text-2xl font-bold text-white mb-6"><span className="brand-z brand-z-sm">Z</span> Choose Subscription</h2>
                     {dealsWithSub.length > 0 && (
                       <div className="mb-8">
                         <DealsCarousel deals={dealsWithSub} subscriptions={subscriptions} onPurchaseClick={handleDealPurchase} />
                       </div>
                     )}
+                    <button onClick={() => { setFlowStep('welcome'); setFlowType(null); }} className="text-red-400 hover:text-red-300 text-sm mb-6 inline-flex items-center"><i className="fas fa-arrow-left mr-2"></i> Back</button>
+                    <h2 className="text-2xl font-bold text-white mb-6"><span className="brand-z brand-z-sm">Z</span> Choose Subscription</h2>
                     <SubscriptionSelection subscriptions={subscriptions} onSelect={handleSubSelect} selected={selectedSubscription} />
                     <div className="text-center mt-8">
                       <button onClick={() => setFlowStep('custom-request')} className="btn-neon-outline px-6 py-3 text-sm">
