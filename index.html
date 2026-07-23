@@ -2574,7 +2574,6 @@
       const [months, setMonths] = useState(1);
       const [days, setDays] = useState(30);
       const [step, setStep] = useState('plan');
-      const [name, setName] = useState('');
       const [whatsapp, setWhatsapp] = useState(user?.whatsapp || '');
       const [loading, setLoading] = useState(false);
       const [specificScreen, setSpecificScreen] = useState(false);
@@ -2633,7 +2632,7 @@
         isSubmittingRef.current = true;
         const purchaseId = genPurchaseId();
 
-        if (!name.trim() || !whatsapp.trim()) {
+        if (!whatsapp.trim()) {
           addToast('Please fill all details', 'error');
           isSubmittingRef.current = false;
           return;
@@ -2720,7 +2719,7 @@
             screens,
             months: durationType === 'months' ? months : 0,
             days: totalDays,
-            name: name.trim(),
+            name: user?.name || '',
             username: user.username,
             password: '', // never store the user's login password in purchase records
             whatsapp: whatsapp.trim(),
@@ -2820,9 +2819,6 @@
               </div>
             )}
             <div className="space-y-3">
-              <div><label className="text-white/50 text-sm font-medium">Full Name</label>
-                <input type="text" value={name} onChange={(e) => setName(e.target.value)} className="input-neon mt-1" placeholder="Your full name" />
-              </div>
               <div><label className="text-white/50 text-sm font-medium">WhatsApp Number</label>
                 <input type="tel" value={whatsapp} onChange={(e) => setWhatsapp(e.target.value)} className="input-neon mt-1" placeholder="+92 300 1234567" readOnly={!!user?.whatsapp} />
                 {user?.whatsapp && <p className="text-xs text-white/30 mt-1">(locked to your sign‑up number)</p>}
@@ -2858,7 +2854,6 @@
       const [months, setMonths] = useState(1);
       const [days, setDays] = useState(30);
       const [step, setStep] = useState('plan');
-      const [name, setName] = useState('');
       const [whatsapp, setWhatsapp] = useState(user?.whatsapp || '');
       const [loading, setLoading] = useState(false);
       const { addToast } = useContext(AppContext);
@@ -2890,7 +2885,7 @@
         isSubmittingRef.current = true;
         const purchaseId = genPurchaseId();
 
-        if (!name.trim() || !whatsapp.trim()) {
+        if (!whatsapp.trim()) {
           addToast('Please fill all details', 'error');
           isSubmittingRef.current = false;
           return;
@@ -2954,7 +2949,7 @@
             screens: 1,
             months: durationType === 'months' ? months : 0,
             days: totalDays,
-            name: name.trim(),
+            name: user?.name || '',
             username: user.username,
             password: '', // never store the user's login password in purchase records
             whatsapp: whatsapp.trim(),
@@ -3009,9 +3004,6 @@
               </div>
             )}
             <div className="space-y-3">
-              <div><label className="text-white/50 text-sm font-medium">Full Name</label>
-                <input type="text" value={name} onChange={(e) => setName(e.target.value)} className="input-neon mt-1" placeholder="Your full name" />
-              </div>
               <div><label className="text-white/50 text-sm font-medium">WhatsApp Number</label>
                 <input type="tel" value={whatsapp} onChange={(e) => setWhatsapp(e.target.value)} className="input-neon mt-1" placeholder="+92 300 1234567" readOnly={!!user?.whatsapp} />
                 {user?.whatsapp && <p className="text-xs text-white/30 mt-1">(locked to your sign‑up number)</p>}
@@ -3045,7 +3037,6 @@
     function SimpleSubscriptionFlow({ subscription, onBack, onComplete, user }) {
       const [months, setMonths] = useState(1);
       const [step, setStep] = useState('plan');
-      const [name, setName] = useState('');
       const [whatsapp, setWhatsapp] = useState(user?.whatsapp || '');
       const [email, setEmail] = useState('');
       const [customSubName, setCustomSubName] = useState('');
@@ -3075,7 +3066,7 @@
         isSubmittingRef.current = true;
         const purchaseId = genPurchaseId();
 
-        if (!name.trim() || !whatsapp.trim()) {
+        if (!whatsapp.trim()) {
           addToast('Please fill all details', 'error');
           isSubmittingRef.current = false;
           return;
@@ -3151,7 +3142,7 @@
             screens: 1,
             months: months,
             days: totalDays,
-            name: name.trim(),
+            name: user?.name || '',
             username: user.username,
             password: '', // never store the user's login password in purchase records
             whatsapp: whatsapp.trim(),
@@ -3177,7 +3168,7 @@
           addToast('Insufficient credits', 'error');
           return;
         }
-        if (!name.trim() || !whatsapp.trim()) {
+        if (!whatsapp.trim()) {
           addToast('Please fill all details', 'error');
           return;
         }
@@ -3216,9 +3207,6 @@
               </div>
             )}
             <div className="space-y-3">
-              <div><label className="text-white/50 text-sm font-medium">Full Name</label>
-                <input type="text" value={name} onChange={(e) => setName(e.target.value)} className="input-neon mt-1" placeholder="Your full name" />
-              </div>
               <div><label className="text-white/50 text-sm font-medium">WhatsApp Number</label>
                 <input type="tel" value={whatsapp} onChange={(e) => setWhatsapp(e.target.value)} className="input-neon mt-1" placeholder="+92 300 1234567" readOnly={!!user?.whatsapp} />
                 {user?.whatsapp && <p className="text-xs text-white/30 mt-1">(locked to your sign‑up number)</p>}
@@ -3275,7 +3263,6 @@
     // ─── DEAL PURCHASE FLOW ──────────────────────────────────
     function DealPurchaseFlow({ deal, subscriptions, onBack, onComplete, user }) {
       const [step, setStep] = useState('plan');
-      const [name, setName] = useState('');
       const [whatsapp, setWhatsapp] = useState(user?.whatsapp || '');
       const [loading, setLoading] = useState(false);
       const { addToast } = useContext(AppContext);
@@ -3295,7 +3282,7 @@
         isSubmittingRef.current = true;
         const purchaseId = genPurchaseId();
 
-        if (!name.trim() || !whatsapp.trim()) {
+        if (!whatsapp.trim()) {
           addToast('Please fill all details', 'error');
           isSubmittingRef.current = false;
           return;
@@ -3415,7 +3402,7 @@
             screens: 1,
             months: 1,
             days: totalDays,
-            name: name.trim(),
+            name: user?.name || '',
             username: user.username,
             password: '', // never store the user's login password in purchase records
             whatsapp: whatsapp.trim(),
@@ -3443,7 +3430,7 @@
           addToast('Insufficient credits', 'error');
           return;
         }
-        if (!name.trim() || !whatsapp.trim()) {
+        if (!whatsapp.trim()) {
           addToast('Please fill all details', 'error');
           return;
         }
@@ -3482,9 +3469,6 @@
             </div>
             <p className="text-white/30 text-xs -mt-2">If any part of this deal is out of stock, it'll still be purchased and added to your portal soon — admin will be notified.</p>
             <div className="space-y-3">
-              <div><label className="text-white/50 text-sm font-medium">Full Name</label>
-                <input type="text" value={name} onChange={(e) => setName(e.target.value)} className="input-neon mt-1" placeholder="Your full name" />
-              </div>
               <div><label className="text-white/50 text-sm font-medium">WhatsApp Number</label>
                 <input type="tel" value={whatsapp} onChange={(e) => setWhatsapp(e.target.value)} className="input-neon mt-1" placeholder="+92 300 1234567" readOnly={!!user?.whatsapp} />
                 {user?.whatsapp && <p className="text-xs text-white/30 mt-1">(locked to your sign‑up number)</p>}
@@ -3523,7 +3507,6 @@
     function CustomFlow({ onBack, onComplete, user }) {
       const [subName, setSubName] = useState('');
       const [months, setMonths] = useState(1);
-      const [name, setName] = useState('');
       const [whatsapp, setWhatsapp] = useState(user?.whatsapp || '');
       const [submitting, setSubmitting] = useState(false);
       const { addToast } = useContext(AppContext);
@@ -3532,7 +3515,7 @@
       const handleSubmit = async () => {
         if (isSubmittingRef.current) return;
         if (!subName.trim()) { addToast('Please enter the exact subscription name', 'error'); return; }
-        if (!name.trim() || !whatsapp.trim()) { addToast('Please fill your name and WhatsApp number', 'error'); return; }
+        if (!whatsapp.trim()) { addToast('Please fill your WhatsApp number', 'error'); return; }
         if (user && whatsapp.trim() !== user?.whatsapp) {
           addToast('WhatsApp number must match your sign-up number', 'error');
           return;
@@ -3543,7 +3526,7 @@
         try {
           await onComplete({
             subscriptionName: subName.trim(),
-            name: name.trim(),
+            name: user?.name || '',
             username: user?.username || '',
             whatsapp: whatsapp.trim(),
             months,
@@ -3569,9 +3552,6 @@
             </select>
           </div>
           <div className="space-y-3">
-            <div><label className="text-white/50 text-sm font-medium">Full Name</label>
-              <input type="text" value={name} onChange={(e) => setName(e.target.value)} className="input-neon mt-1" placeholder="Your full name" />
-            </div>
             <div><label className="text-white/50 text-sm font-medium">WhatsApp Number</label>
               <input type="tel" value={whatsapp} onChange={(e) => setWhatsapp(e.target.value)} className="input-neon mt-1" placeholder="+92 300 1234567" readOnly={!!user?.whatsapp} />
               {user?.whatsapp && <p className="text-xs text-white/30 mt-1">(locked to your sign‑up number)</p>}
@@ -3589,16 +3569,16 @@
     // current username/password so the checklist can tick off live as the
     // person types, and the same rules gate the submit button itself.
     const USERNAME_CHECKS = [
-      { key: 'noSpaces', label: 'No spaces', test: (u) => u.length > 0 && !/\s/.test(u) },
-      { key: 'noSpecial', label: 'Letters and numbers only (no special characters)', test: (u) => u.length > 0 && /^[A-Za-z0-9]+$/.test(u) },
-      { key: 'hasLetter', label: 'Must include at least one letter (not only numbers)', test: (u) => /[A-Za-z]/.test(u) },
+      { key: 'noSpaces', label: 'No spaces', hint: 'Your username should not contain any spaces.', test: (u) => u.length > 0 && !/\s/.test(u) },
+      { key: 'noSpecial', label: 'Letters and numbers only (no special characters)', hint: 'Your username should only use letters and numbers — no special characters.', test: (u) => u.length > 0 && /^[A-Za-z0-9]+$/.test(u) },
+      { key: 'hasLetter', label: 'Must include at least one letter (not only numbers)', hint: 'Your username should include at least one letter, not just numbers.', test: (u) => /[A-Za-z]/.test(u) },
     ];
     const PASSWORD_CHECKS = [
-      { key: 'len', label: 'At least 8 characters', test: (p) => p.length >= 8 },
-      { key: 'capital', label: 'Starts with a capital letter', test: (p) => /^[A-Z]/.test(p) },
-      { key: 'number', label: 'Contains at least 1 number', test: (p) => /[0-9]/.test(p) },
-      { key: 'special', label: 'Contains at least 1 special character', test: (p) => /[^A-Za-z0-9]/.test(p) },
-      { key: 'diffFromUsername', label: 'Different from your username', test: (p, u) => p.length > 0 && p !== u },
+      { key: 'len', label: 'At least 8 characters', hint: 'Your password should be at least 8 characters long.', test: (p) => p.length >= 8 },
+      { key: 'capital', label: 'Starts with a capital letter', hint: 'Your password should start with a capital letter.', test: (p) => /^[A-Z]/.test(p) },
+      { key: 'number', label: 'Contains at least 1 number', hint: 'Your password should include at least 1 number.', test: (p) => /[0-9]/.test(p) },
+      { key: 'special', label: 'Contains at least 1 special character', hint: 'Your password should include at least 1 special character.', test: (p) => /[^A-Za-z0-9]/.test(p) },
+      { key: 'diffFromUsername', label: 'Different from your username', hint: 'Your password should be different from your username.', test: (p, u) => p.length > 0 && p !== u },
     ];
 
     function CriteriaChecklist({ title, items }) {
@@ -3672,12 +3652,12 @@
         if (isSignUp) {
           const failedUsername = USERNAME_CHECKS.find(c => !c.test(username.trim()));
           if (failedUsername) {
-            addToast(`Username: ${failedUsername.label}`, 'error');
+            addToast(failedUsername.hint, 'error');
             return;
           }
           const failedPassword = PASSWORD_CHECKS.find(c => !c.test(password, username.trim()));
           if (failedPassword) {
-            addToast(`Password: ${failedPassword.label}`, 'error');
+            addToast(failedPassword.hint, 'error');
             return;
           }
         }
