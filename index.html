@@ -680,11 +680,11 @@
       return res.json();
     };
 
-    const signUpUser = async (username, password, whatsapp) => {
+    const signUpUser = async (name, username, password, whatsapp) => {
       const res = await fetch(`${API_BASE}/api/users/signup`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, password, whatsapp }),
+        body: JSON.stringify({ name, username, password, whatsapp }),
       });
       const data = await res.json();
       // Remember the login token so later requests can prove who we are and
@@ -3591,6 +3591,7 @@
     const USERNAME_CHECKS = [
       { key: 'noSpaces', label: 'No spaces', test: (u) => u.length > 0 && !/\s/.test(u) },
       { key: 'noSpecial', label: 'Letters and numbers only (no special characters)', test: (u) => u.length > 0 && /^[A-Za-z0-9]+$/.test(u) },
+      { key: 'hasLetter', label: 'Must include at least one letter (not only numbers)', test: (u) => /[A-Za-z]/.test(u) },
     ];
     const PASSWORD_CHECKS = [
       { key: 'len', label: 'At least 8 characters', test: (p) => p.length >= 8 },
@@ -3618,6 +3619,7 @@
 
     function AuthPage({ onLogin, onSignup, onBack }) {
       const [isSignUp, setIsSignUp] = useState(true);
+      const [name, setName] = useState('');
       const [username, setUsername] = useState('');
       const [password, setPassword] = useState('');
       const [whatsapp, setWhatsapp] = useState('');
@@ -3659,6 +3661,10 @@
           addToast('Username and password required', 'error');
           return;
         }
+        if (isSignUp && !name.trim()) {
+          addToast('Name required', 'error');
+          return;
+        }
         if (isSignUp && !whatsapp.trim()) {
           addToast('WhatsApp number required', 'error');
           return;
@@ -3677,7 +3683,7 @@
         }
         setLoading(true);
         if (isSignUp) {
-          const result = await signUpUser(username.trim(), password.trim(), whatsapp.trim());
+          const result = await signUpUser(name.trim(), username.trim(), password.trim(), whatsapp.trim());
           setLoading(false);
           if (result.success) {
             onLogin(result.user);
@@ -3833,7 +3839,18 @@
           </h2>
           <p className="text-white/40 text-sm mb-6">{isSignUp ? 'Create your account to start subscribing.' : 'Login to your account.'}</p>
           <div className="space-y-4">
-            <div><label className="text-white/50 text-sm font-medium">Username</label>
+            {isSignUp && (
+              <div><label className="text-white/50 text-sm font-medium">Name</label>
+                <input
+                  type="text"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  className="input-neon mt-1"
+                  placeholder="Your full name"
+                />
+              </div>
+            )}
+            <div><label className="text-white/50 text-sm font-medium">{isSignUp ? 'Set Username' : 'Username'}</label>
               <input
                 type="text"
                 value={username}
@@ -3845,7 +3862,7 @@
               />
               {isSignUp && focusedField === 'username' && <CriteriaChecklist title="Username requirements" items={usernameChecklist} />}
             </div>
-            <div><label className="text-white/50 text-sm font-medium">Password</label>
+            <div><label className="text-white/50 text-sm font-medium">{isSignUp ? 'Set Password' : 'Password'}</label>
               <div className="relative">
                 <input
                   type={showPassword ? 'text' : 'password'}
@@ -4790,7 +4807,7 @@
       const [editingUser, setEditingUser] = useState(null);
       const [userEditForm, setUserEditForm] = useState({ username: '', password: '', whatsapp: '' });
       const [showAddUserModal, setShowAddUserModal] = useState(false);
-      const [addUserForm, setAddUserForm] = useState({ username: '', password: '', whatsapp: '', credits: 50 });
+      const [addUserForm, setAddUserForm] = useState({ name: '', username: '', password: '', whatsapp: '', credits: 50 });
       const [addUserLoading, setAddUserLoading] = useState(false);
       const [viewingCreds, setViewingCreds] = useState(null);
       const [showCredPassword, setShowCredPassword] = useState(false);
@@ -5359,9 +5376,10 @@
       };
       const closeAddUserModal = () => {
         setShowAddUserModal(false);
-        setAddUserForm({ username: '', password: '', whatsapp: '', credits: 50 });
+        setAddUserForm({ name: '', username: '', password: '', whatsapp: '', credits: 50 });
       };
       const saveAddUser = async () => {
+        const name = addUserForm.name.trim() || addUserForm.username.trim();
         const username = addUserForm.username.trim();
         const password = addUserForm.password.trim();
         const whatsapp = addUserForm.whatsapp.trim();
@@ -5371,7 +5389,7 @@
         }
         setAddUserLoading(true);
         try {
-          const result = await signUpUser(username, password, whatsapp);
+          const result = await signUpUser(name, username, password, whatsapp);
           if (result.error) {
             addToast(result.error, 'error');
             return;

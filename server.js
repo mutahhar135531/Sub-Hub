@@ -990,14 +990,17 @@ app.delete('/api/subscriptions/:id/accounts/:accountId/screens/:screenId/custome
 // ---- Users ----
 app.post('/api/users/signup', async (req, res) => {
   try {
-    const { username, password, whatsapp } = req.body;
-    if (!username || !password || !whatsapp) {
+    const { name, username, password, whatsapp } = req.body;
+    if (!name || !username || !password || !whatsapp) {
       return res.status(400).json({ error: 'All fields required' });
     }
     // Mirrors the checklist shown on the sign-up form — enforced here too
     // since a request can always bypass the client-side UI.
     if (/\s/.test(username) || !/^[A-Za-z0-9]+$/.test(username)) {
       return res.status(400).json({ error: 'Username must not contain spaces or special characters' });
+    }
+    if (!/[A-Za-z]/.test(username)) {
+      return res.status(400).json({ error: 'Username must include at least one letter — it can\'t be only numbers' });
     }
     if (password.length < 8) {
       return res.status(400).json({ error: 'Password must be at least 8 characters' });
@@ -1018,7 +1021,14 @@ app.post('/api/users/signup', async (req, res) => {
     if (existing) {
       return res.status(400).json({ error: 'Username already exists' });
     }
+    // One account per WhatsApp number — without this, the same person
+    // could keep creating fresh accounts indefinitely.
+    const existingWhatsapp = await usersCollection.findOne({ whatsapp });
+    if (existingWhatsapp) {
+      return res.status(400).json({ error: 'An account with this WhatsApp number already exists' });
+    }
     const newUser = {
+      name,
       username,
       password: encryptCustomerPassword(password),
       whatsapp,
