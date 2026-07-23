@@ -3632,9 +3632,6 @@
         () => PASSWORD_CHECKS.map(c => ({ ...c, met: c.test(password, username.trim()) })),
         [password, username]
       );
-      const signupRequirementsMet = isSignUp
-        ? usernameChecklist.every(c => c.met) && passwordChecklist.every(c => c.met)
-        : true;
 
       const handleSubmit = async () => {
         if (!username.trim() || !password.trim()) {
@@ -3869,7 +3866,7 @@
                 <button onClick={openForgotPassword} className="text-red-400 hover:text-red-300 text-sm underline">Forgot Password?</button>
               </div>
             )}
-            <button onClick={handleSubmit} disabled={loading || !signupRequirementsMet} className={`btn-neon w-full py-3 ${!signupRequirementsMet ? 'opacity-50 cursor-not-allowed' : ''}`}>
+            <button onClick={handleSubmit} disabled={loading} className="btn-neon w-full py-3">
               {loading ? <span className="spinner"></span> : (isSignUp ? <><i className="fas fa-user-plus mr-2"></i> Create Account</> : <><i className="fas fa-sign-in-alt mr-2"></i> Sign In</>)}
             </button>
           </div>
