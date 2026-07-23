@@ -2950,7 +2950,7 @@
     }
 
     // ─── HERO ──────────────────────────────────────────────────
-    function Hero({ setActiveTab, setShowSubscriptions, onGetStarted, onSocialServices }) {
+    function Hero({ setActiveTab, setShowSubscriptions, onGetStarted }) {
       return (
         <div className="hero-bg">
           <div className="glow-orb orb1"></div>
@@ -2973,11 +2973,6 @@
               <button onClick={onGetStarted} className="btn-neon px-8 py-3 text-base">
                 <i className="fas fa-rocket mr-2"></i> Get Started
               </button>
-              {onSocialServices && (
-                <button onClick={onSocialServices} className="btn-neon-outline px-8 py-3 text-base">
-                  <i className="fas fa-share-alt mr-2"></i> Social Media Services
-                </button>
-              )}
             </div>
             <div className="mt-12 flex flex-wrap justify-center gap-4 text-white/20 text-xs">
               <span><i className="fas fa-check-circle text-red-400 mr-1"></i> 100% Secure</span>
@@ -9154,7 +9149,7 @@
         setUser(userData);
         setShowAuth(false);
         await refreshUser();
-        setFlowStep('select');
+        setFlowStep('welcome');
         setActiveTab('subscriptions');
         setShowSubscriptions(true);
       };
@@ -9194,7 +9189,7 @@
       const handleGetStarted = () => {
         navigateTo('/subscriptions');
         if (user) {
-          setFlowStep('select');
+          setFlowStep('welcome');
         } else {
           setFlowStep('auth');
         }
@@ -9370,7 +9365,7 @@
                   <DealsCarousel deals={dealsWithSub} subscriptions={subscriptions} onPurchaseClick={handleDealPurchase} />
                 </div>
               )}
-              <Hero setActiveTab={setActiveTab} setShowSubscriptions={setShowSubscriptions} onGetStarted={handleGetStarted} onSocialServices={() => document.getElementById('social-services-section')?.scrollIntoView({ behavior: 'smooth' })} />
+              <Hero setActiveTab={setActiveTab} setShowSubscriptions={setShowSubscriptions} onGetStarted={handleGetStarted} />
               <TrendingSubscriptions subscriptions={subscriptions} onGetStarted={handleGetStarted} />
 
               {socialServices.length > 0 && (
