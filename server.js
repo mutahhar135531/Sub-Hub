@@ -1493,7 +1493,7 @@ app.delete('/api/social-services/:id', requireAdmin, async (req, res) => {
 // can send the order.
 app.post('/api/social-services/:id/services', requireAdmin, async (req, res) => {
   try {
-    const { name, costPrice, sellingPrice, requiredFields } = req.body;
+    const { name, costPrice, sellingPrice, requiredFields, variations } = req.body;
     if (!name) return res.status(400).json({ error: 'Service name is required' });
     const platform = await socialServicesCollection.findOne({ id: req.params.id });
     if (!platform) return res.status(404).json({ error: 'Platform not found' });
@@ -1503,6 +1503,17 @@ app.post('/api/social-services/:id/services', requireAdmin, async (req, res) => 
       costPrice: costPrice || 0,
       sellingPrice: sellingPrice || 0,
       requiredFields: Array.isArray(requiredFields) ? requiredFields.filter(f => ['accountLink', 'videoLink'].includes(f)) : [],
+      // Optional sub-types of this service (e.g. Lifetime Warranty, Non-Refill,
+      // 6 Months Warranty), each with its own per-1000 price. Empty = the
+      // service just uses the base cost/selling price above.
+      variations: Array.isArray(variations) ? variations
+        .filter(v => v && String(v.name || '').trim())
+        .map(v => ({
+          id: v.id ? String(v.id) : Date.now().toString() + Math.random().toString(36).slice(2, 7),
+          name: String(v.name).trim(),
+          costPrice: Number(v.costPrice) || 0,
+          sellingPrice: Number(v.sellingPrice) || 0
+        })) : [],
       active: true
     };
     await socialServicesCollection.updateOne({ id: req.params.id }, { $push: { services: service } });
@@ -1515,7 +1526,7 @@ app.post('/api/social-services/:id/services', requireAdmin, async (req, res) => 
 
 app.put('/api/social-services/:id/services/:serviceId', requireAdmin, async (req, res) => {
   try {
-    const { name, costPrice, sellingPrice, requiredFields, active } = req.body;
+    const { name, costPrice, sellingPrice, requiredFields, active, variations } = req.body;
     const platform = await socialServicesCollection.findOne({ id: req.params.id });
     if (!platform) return res.status(404).json({ error: 'Platform not found' });
     const services = (platform.services || []).map(s => {
@@ -1526,6 +1537,14 @@ app.put('/api/social-services/:id/services/:serviceId', requireAdmin, async (req
         costPrice: costPrice !== undefined ? costPrice : s.costPrice,
         sellingPrice: sellingPrice !== undefined ? sellingPrice : s.sellingPrice,
         requiredFields: requiredFields !== undefined ? requiredFields.filter(f => ['accountLink', 'videoLink'].includes(f)) : s.requiredFields,
+        variations: variations !== undefined ? (Array.isArray(variations) ? variations
+          .filter(v => v && String(v.name || '').trim())
+          .map(v => ({
+            id: v.id ? String(v.id) : Date.now().toString() + Math.random().toString(36).slice(2, 7),
+            name: String(v.name).trim(),
+            costPrice: Number(v.costPrice) || 0,
+            sellingPrice: Number(v.sellingPrice) || 0
+          })) : []) : (s.variations || []),
         active: active !== undefined ? active : s.active
       };
     });
@@ -1565,7 +1584,7 @@ app.get('/api/social-orders', requireAdmin, async (req, res) => {
 
 app.post('/api/social-orders', async (req, res) => {
   try {
-    const { platformId, platformName, serviceId, serviceName, quantity, accountLink, videoLink, name, whatsapp, price, dealId } = req.body;
+    const { platformId, platformName, serviceId, serviceName, variationId, variationName, quantity, accountLink, videoLink, name, whatsapp, price, dealId } = req.body;
     if (!platformName || !serviceName || !quantity || !whatsapp) {
       return res.status(400).json({ error: 'Missing required fields' });
     }
@@ -1575,6 +1594,8 @@ app.post('/api/social-orders', async (req, res) => {
       platformName,
       serviceId: serviceId || '',
       serviceName,
+      variationId: variationId || '',
+      variationName: variationName || '',
       quantity: Number(quantity) || 0,
       accountLink: accountLink || '',
       videoLink: videoLink || '',

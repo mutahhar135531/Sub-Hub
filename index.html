@@ -2749,8 +2749,9 @@
     function SocialOrderModal({ open, platform, onClose, user, dealOverride }) {
       const { addToast } = useContext(AppContext);
       const { setUser } = useContext(UserContext);
-      const [step, setStep] = useState('service'); // 'service' | 'details'
+      const [step, setStep] = useState('service'); // 'service' | 'variation' | 'details'
       const [selectedService, setSelectedService] = useState(null);
+      const [selectedVariation, setSelectedVariation] = useState(null);
       const [quantity, setQuantity] = useState('');
       const [accountLink, setAccountLink] = useState('');
       const [videoLink, setVideoLink] = useState('');
@@ -2763,10 +2764,12 @@
           if (dealOverride) {
             setStep('details');
             setSelectedService(dealOverride.service);
+            setSelectedVariation(null);
             setQuantity(String(dealOverride.deal.socialQuantity || ''));
           } else {
             setStep('service');
             setSelectedService(null);
+            setSelectedVariation(null);
             setQuantity('');
           }
           setAccountLink('');
@@ -2780,17 +2783,39 @@
       const activeServices = (platform.services || []).filter(s => s.active !== false);
       const icon = getSocialIcon(platform.name);
       const color = getSocialColor(platform.name);
+      const serviceVariations = selectedService ? (selectedService.variations || []) : [];
+      // If the admin gave this service variations (e.g. Lifetime Warranty,
+      // Non-Refill, 6 Months Warranty), each variation carries its own
+      // price and the base service price is just a fallback display.
+      const activePrice = selectedVariation ? (selectedVariation.sellingPrice || 0) : (selectedService ? (selectedService.sellingPrice || 0) : 0);
 
       const qtyNum = parseInt(quantity, 10) || 0;
       // A deal is a fixed package at a flat discount price, set by the
       // admin — not computed per-1000 like a normal order.
       const price = dealOverride ? (Number(dealOverride.deal.discountPrice) || 0)
-        : (selectedService ? Math.round(((selectedService.sellingPrice || 0) / 1000) * qtyNum) : 0);
+        : (selectedService ? Math.round((activePrice / 1000) * qtyNum) : 0);
       const needsAccountLink = selectedService ? (selectedService.requiredFields || []).includes('accountLink') : false;
       const needsVideoLink = selectedService ? (selectedService.requiredFields || []).includes('videoLink') : false;
 
-      const handleSelectService = (svc) => { setSelectedService(svc); setStep('details'); };
-      const handleBack = () => { setStep('service'); setSelectedService(null); };
+      const handleSelectService = (svc) => {
+        setSelectedService(svc);
+        setSelectedVariation(null);
+        // Only hop to the variation dropdown when the admin actually set
+        // some up for this service — otherwise go straight to the order
+        // details like before.
+        setStep((svc.variations || []).length > 0 ? 'variation' : 'details');
+      };
+      const handleSelectVariation = (v) => { setSelectedVariation(v); setStep('details'); };
+      const handleBack = () => {
+        if (step === 'details' && serviceVariations.length > 0) {
+          setStep('variation');
+        } else {
+          setStep('service');
+          setSelectedService(null);
+          setSelectedVariation(null);
+        }
+      };
+      const handleBackToService = () => { setStep('service'); setSelectedService(null); setSelectedVariation(null); };
 
       // Confirming an order deducts the price straight from the customer's
       // credit balance (no WhatsApp step) and drops them into the Waiting
@@ -2824,12 +2849,16 @@
 
         setSubmitting(true);
         const purchaseId = 'social_' + Date.now().toString();
+        // Fold the variation into the display name everywhere (e.g.
+        // "Followers - Lifetime Warranty") so the admin sees exactly what
+        // was ordered without needing a separate column in older views.
+        const fullServiceName = selectedVariation ? `${selectedService.name} - ${selectedVariation.name}` : selectedService.name;
         try {
-          const updatedUser = await deductCredits(user.username, price, purchaseId, `${platform.name} - ${selectedService.name}`, { socialServiceId: selectedService.id });
+          const updatedUser = await deductCredits(user.username, price, purchaseId, `${platform.name} - ${fullServiceName}`, { socialServiceId: selectedService.id });
           setUser(updatedUser);
 
           await addWaitingCustomer({
-            subscriptionName: `${platform.name} - ${selectedService.name}`,
+            subscriptionName: `${platform.name} - ${fullServiceName}`,
             name: user.name || user.username,
             username: user.username,
             whatsapp: user.whatsapp,
@@ -2840,7 +2869,7 @@
             platformId: platform.id,
             platformName: platform.name,
             serviceId: selectedService.id,
-            serviceName: selectedService.name,
+            serviceName: fullServiceName,
             quantity: qtyNum,
             linkType: needsAccountLink ? 'accountLink' : (needsVideoLink ? 'videoLink' : ''),
             linkValue: needsAccountLink ? accountLink.trim() : (needsVideoLink ? videoLink.trim() : ''),
@@ -2852,6 +2881,8 @@
             platformName: platform.name,
             serviceId: selectedService.id,
             serviceName: selectedService.name,
+            variationId: selectedVariation ? selectedVariation.id : '',
+            variationName: selectedVariation ? selectedVariation.name : '',
             quantity: qtyNum,
             accountLink: needsAccountLink ? accountLink.trim() : '',
             videoLink: needsVideoLink ? videoLink.trim() : '',
@@ -2881,27 +2912,52 @@
 
             {step === 'service' && !dealOverride && (
               <>
-                <p className="text-white/40 text-sm mb-5">Choose which service you'd like.</p>
+                <p className="text-white/40 text-sm mb-1">Choose which service you'd like.</p>
+                <p className="text-white/20 text-xs mb-5"><i className="fas fa-info-circle mr-1"></i> All rates shown are per 1000.</p>
                 {activeServices.length === 0 ? (
                   <p className="text-white/30 text-sm py-6 text-center">No services available for this platform yet — check back soon.</p>
                 ) : (
                   <div className="space-y-2">
-                    {activeServices.map(svc => (
-                      <button key={svc.id} onClick={() => handleSelectService(svc)} className="w-full flex items-center justify-between gap-3 p-3 rounded-xl bg-white/5 border border-white/10 hover:border-red-500/40 hover:bg-red-500/5 transition text-left">
-                        <span className="text-white font-medium text-sm">{svc.name}</span>
-                        <span className="text-green-400 text-sm font-semibold whitespace-nowrap">RS {svc.sellingPrice || 0} <span className="text-white/30 text-xs">/ 1000</span></span>
-                      </button>
-                    ))}
+                    {activeServices.map(svc => {
+                      const hasVariations = (svc.variations || []).length > 0;
+                      return (
+                        <button key={svc.id} onClick={() => handleSelectService(svc)} className="w-full flex items-center justify-between gap-3 p-3 rounded-xl bg-white/5 border border-white/10 hover:border-red-500/40 hover:bg-red-500/5 transition text-left">
+                          <span className="text-white font-medium text-sm">{svc.name}</span>
+                          {hasVariations ? (
+                            <span className="text-white/30 text-xs whitespace-nowrap">{svc.variations.length} option{svc.variations.length !== 1 ? 's' : ''} <i className="fas fa-chevron-right ml-1"></i></span>
+                          ) : (
+                            <span className="text-green-400 text-sm font-semibold whitespace-nowrap">RS {svc.sellingPrice || 0} <span className="text-white/30 text-xs">/ 1000</span></span>
+                          )}
+                        </button>
+                      );
+                    })}
                   </div>
                 )}
                 <button onClick={onClose} className="btn-neon-outline w-full mt-5">Cancel</button>
               </>
             )}
 
+            {step === 'variation' && selectedService && !dealOverride && (
+              <>
+                <p className="text-white/40 text-sm mb-1">{selectedService.name} — choose the type.</p>
+                <p className="text-white/20 text-xs mb-5"><i className="fas fa-info-circle mr-1"></i> All rates shown are per 1000.</p>
+                <div className="space-y-2">
+                  {serviceVariations.map(v => (
+                    <button key={v.id} onClick={() => handleSelectVariation(v)} className="w-full flex items-center justify-between gap-3 p-3 rounded-xl bg-white/5 border border-white/10 hover:border-red-500/40 hover:bg-red-500/5 transition text-left">
+                      <span className="text-white font-medium text-sm">{v.name}</span>
+                      <span className="text-green-400 text-sm font-semibold whitespace-nowrap">RS {v.sellingPrice || 0} <span className="text-white/30 text-xs">/ 1000</span></span>
+                    </button>
+                  ))}
+                </div>
+                <button onClick={handleBackToService} className="btn-neon-outline w-full mt-5"><i className="fas fa-arrow-left mr-2"></i> Back</button>
+              </>
+            )}
+
             {step === 'details' && selectedService && (
               <>
-                <p className="text-white/40 text-sm mb-1">{selectedService.name}</p>
-                <p className="text-green-400 text-sm font-semibold mb-5">{dealOverride ? `RS ${price} for ${qtyNum}` : `RS ${selectedService.sellingPrice || 0} per 1000`}</p>
+                <p className="text-white/40 text-sm mb-1">{selectedService.name}{selectedVariation ? ` — ${selectedVariation.name}` : ''}</p>
+                <p className={`text-green-400 text-sm font-semibold ${dealOverride ? 'mb-5' : 'mb-1'}`}>{dealOverride ? `RS ${price} for ${qtyNum}` : `RS ${activePrice} per 1000`}</p>
+                {!dealOverride && <p className="text-white/20 text-xs mb-5"><i className="fas fa-info-circle mr-1"></i> All rates are per 1000.</p>}
 
                 <div className="space-y-4">
                   {needsAccountLink && (
@@ -5550,7 +5606,10 @@
       // never shown to the customer), selling price, and which single link
       // the customer must supply (Account Link OR Video Link — only one).
       const [expandedPlatformId, setExpandedPlatformId] = useState(null);
-      const [serviceForm, setServiceForm] = useState({ name: '', costPrice: '', sellingPrice: '', linkType: '' });
+      const [serviceForm, setServiceForm] = useState({ name: '', costPrice: '', sellingPrice: '', linkType: '', variations: [] });
+      // Draft row for adding one variation (e.g. "Lifetime Warranty") at a
+      // time to serviceForm.variations before the service itself is saved.
+      const [variationDraft, setVariationDraft] = useState({ name: '', costPrice: '', sellingPrice: '' });
       const [editingService, setEditingService] = useState(null); // { platformId, serviceId }
       const [savingService, setSavingService] = useState(false);
       const [addingServiceToPlatformId, setAddingServiceToPlatformId] = useState(null);
@@ -5606,7 +5665,29 @@
         }
       };
 
-      const resetServiceForm = () => { setServiceForm({ name: '', costPrice: '', sellingPrice: '', linkType: '' }); setEditingService(null); setAddingServiceToPlatformId(null); };
+      const resetServiceForm = () => { setServiceForm({ name: '', costPrice: '', sellingPrice: '', linkType: '', variations: [] }); setVariationDraft({ name: '', costPrice: '', sellingPrice: '' }); setEditingService(null); setAddingServiceToPlatformId(null); };
+
+      // A service can optionally have several priced sub-types (e.g. Lifetime
+      // Warranty, Non-Refill, 6 Months Warranty). These are staged in
+      // serviceForm.variations and only sent to the server when the whole
+      // service is saved.
+      const addVariationDraft = () => {
+        if (!variationDraft.name.trim()) { addToast('Enter a name for this variation', 'error'); return; }
+        setServiceForm(prev => ({
+          ...prev,
+          variations: [...(prev.variations || []), {
+            id: Date.now().toString() + Math.random().toString(36).slice(2, 7),
+            name: variationDraft.name.trim(),
+            costPrice: parseFloat(variationDraft.costPrice) || 0,
+            sellingPrice: parseFloat(variationDraft.sellingPrice) || 0
+          }]
+        }));
+        setVariationDraft({ name: '', costPrice: '', sellingPrice: '' });
+      };
+
+      const removeVariationDraft = (variationId) => {
+        setServiceForm(prev => ({ ...prev, variations: (prev.variations || []).filter(v => v.id !== variationId) }));
+      };
 
       const handleDeletePlatform = async (platformId, name) => {
         if (!window.confirm(`Delete ${name} and all its services? This can't be undone.`)) return;
@@ -5633,7 +5714,8 @@
       const startEditService = (platformId, svc) => {
         setEditingService({ platformId, serviceId: svc.id });
         setAddingServiceToPlatformId(platformId);
-        setServiceForm({ name: svc.name, costPrice: svc.costPrice || '', sellingPrice: svc.sellingPrice || '', linkType: (svc.requiredFields || [])[0] || '' });
+        setServiceForm({ name: svc.name, costPrice: svc.costPrice || '', sellingPrice: svc.sellingPrice || '', linkType: (svc.requiredFields || [])[0] || '', variations: svc.variations || [] });
+        setVariationDraft({ name: '', costPrice: '', sellingPrice: '' });
       };
 
       const handleSaveService = async (platformId) => {
@@ -5645,7 +5727,8 @@
             name: serviceForm.name.trim(),
             costPrice: parseFloat(serviceForm.costPrice) || 0,
             sellingPrice: parseFloat(serviceForm.sellingPrice) || 0,
-            requiredFields: [serviceForm.linkType]
+            requiredFields: [serviceForm.linkType],
+            variations: serviceForm.variations || []
           };
           let updatedPlatform;
           if (editingService && editingService.platformId === platformId) {
@@ -8253,11 +8336,19 @@
                             <table className="admin-table text-sm">
                               <thead><tr><th>Service</th><th>Cost</th><th>Selling</th><th>Requires</th><th>Status</th><th>Actions</th></tr></thead>
                               <tbody>
-                                {platform.services.map(svc => (
+                                {platform.services.map(svc => {
+                                  const svcVariations = svc.variations || [];
+                                  return (
                                   <tr key={svc.id}>
-                                    <td>{svc.name}</td>
+                                    <td>{svc.name}{svcVariations.length > 0 && <span className="text-white/30 text-xs block">{svcVariations.length} variation{svcVariations.length !== 1 ? 's' : ''}: {svcVariations.map(v => v.name).join(', ')}</span>}</td>
                                     <td className="text-xs text-white/40">RS {svc.costPrice || 0}</td>
-                                    <td className="text-xs text-green-400">RS {svc.sellingPrice || 0} / 1000</td>
+                                    <td className="text-xs text-green-400">
+                                      {svcVariations.length > 0 ? (
+                                        <>RS {Math.min(...svcVariations.map(v => v.sellingPrice || 0))}–{Math.max(...svcVariations.map(v => v.sellingPrice || 0))} / 1000</>
+                                      ) : (
+                                        <>RS {svc.sellingPrice || 0} / 1000</>
+                                      )}
+                                    </td>
                                     <td className="text-xs text-white/40">{(svc.requiredFields || []).length ? svc.requiredFields.map(f => f === 'accountLink' ? 'Account Link' : 'Video Link').join(', ') : '—'}</td>
                                     <td><span className={`badge ${svc.active !== false ? 'badge-green' : 'badge-red-light'}`}>{svc.active !== false ? 'Active' : 'Hidden'}</span></td>
                                     <td>
@@ -8268,7 +8359,8 @@
                                       </div>
                                     </td>
                                   </tr>
-                                ))}
+                                  );
+                                })}
                               </tbody>
                             </table>
                           </div>
@@ -8292,7 +8384,7 @@
                                 <input type="number" value={serviceForm.sellingPrice} onChange={(e) => setServiceForm({ ...serviceForm, sellingPrice: e.target.value })} className="input-neon mt-1" placeholder="0" />
                               </div>
                             </div>
-                            <p className="text-white/20 text-xs mt-2">Cost price is for your own income tracking only — it's never shown to the customer.</p>
+                            <p className="text-white/20 text-xs mt-2">Cost price is for your own income tracking only — it's never shown to the customer. All prices are per 1000.</p>
                             <div className="mt-3">
                               <label className="text-white/50 text-xs">Which link is required from the customer? (choose one)</label>
                               <div className="flex gap-4 mt-2">
@@ -8305,6 +8397,40 @@
                               </div>
                               <p className="text-white/20 text-xs mt-2">The customer always enters how many they want themselves too — that's separate from this.</p>
                             </div>
+
+                            <div className="mt-4 pt-4 border-t border-white/10">
+                              <label className="text-white/50 text-xs">Variations (optional)</label>
+                              <p className="text-white/20 text-xs mt-1 mb-3">If this service comes in different types — e.g. Lifetime Warranty Followers, Non-Refill Followers, 6 Months Warranty Followers — add each one with its own price. Leave empty to just use the base price above.</p>
+
+                              {(serviceForm.variations || []).length > 0 && (
+                                <div className="space-y-2 mb-3">
+                                  {serviceForm.variations.map(v => (
+                                    <div key={v.id} className="flex items-center justify-between gap-3 p-2.5 rounded-lg bg-white/5 border border-white/10">
+                                      <span className="text-white text-sm">{v.name}</span>
+                                      <div className="flex items-center gap-3">
+                                        <span className="text-white/30 text-xs">Cost RS {v.costPrice}</span>
+                                        <span className="text-green-400 text-xs font-semibold">RS {v.sellingPrice} / 1000</span>
+                                        <button onClick={() => removeVariationDraft(v.id)} className="btn-danger text-xs px-2"><i className="fas fa-trash"></i></button>
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+
+                              <div className="grid sm:grid-cols-4 gap-3 items-end">
+                                <div className="sm:col-span-2"><label className="text-white/50 text-xs">Variation Name</label>
+                                  <input type="text" value={variationDraft.name} onChange={(e) => setVariationDraft({ ...variationDraft, name: e.target.value })} className="input-neon mt-1" placeholder="e.g. Lifetime Warranty Followers" />
+                                </div>
+                                <div><label className="text-white/50 text-xs">Cost (per 1000)</label>
+                                  <input type="number" value={variationDraft.costPrice} onChange={(e) => setVariationDraft({ ...variationDraft, costPrice: e.target.value })} className="input-neon mt-1" placeholder="0" />
+                                </div>
+                                <div><label className="text-white/50 text-xs">Selling (per 1000)</label>
+                                  <input type="number" value={variationDraft.sellingPrice} onChange={(e) => setVariationDraft({ ...variationDraft, sellingPrice: e.target.value })} className="input-neon mt-1" placeholder="0" />
+                                </div>
+                              </div>
+                              <button onClick={addVariationDraft} className="btn-neon-outline text-xs mt-3"><i className="fas fa-plus mr-2"></i> Add Variation</button>
+                            </div>
+
                             <div className="flex gap-2 mt-4">
                               <button onClick={() => handleSaveService(platform.id)} disabled={savingService} className="btn-neon px-6"><i className="fas fa-save mr-2"></i> {editingService ? 'Update Service' : 'Add Service'}</button>
                               <button onClick={resetServiceForm} className="btn-neon-outline px-4">Cancel</button>
