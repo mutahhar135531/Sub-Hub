@@ -43,6 +43,7 @@ let adminSettingsCollection;
 let noticesCollection;
 let socialServicesCollection;
 let socialOrdersCollection;
+let socialCartCollection;
 
 // ─── SUBSCRIPTION COSTS (Monthly) ──────────────────────────
 const SUBSCRIPTION_COSTS = {
@@ -79,6 +80,7 @@ async function connectDB() {
   noticesCollection = db.collection('notices');
   socialServicesCollection = db.collection('socialServices');
   socialOrdersCollection = db.collection('socialOrders');
+  socialCartCollection = db.collection('socialCart');
   await ensureAuthSecret(); // load or create the server-only token-signing secret
   await ensureCredKey(); // load or create the server-only customer-password encryption key
   console.log('✅ Connected to MongoDB');
@@ -1584,7 +1586,7 @@ app.get('/api/social-orders', requireAdmin, async (req, res) => {
 
 app.post('/api/social-orders', async (req, res) => {
   try {
-    const { platformId, platformName, serviceId, serviceName, variationId, variationName, quantity, accountLink, videoLink, name, whatsapp, price, dealId } = req.body;
+    const { platformId, platformName, serviceId, serviceName, variationId, variationName, quantity, accountLink, videoLink, name, username, whatsapp, price, dealId } = req.body;
     if (!platformName || !serviceName || !quantity || !whatsapp) {
       return res.status(400).json({ error: 'Missing required fields' });
     }
@@ -1600,6 +1602,7 @@ app.post('/api/social-orders', async (req, res) => {
       accountLink: accountLink || '',
       videoLink: videoLink || '',
       name: name || '',
+      username: username || '',
       whatsapp,
       price: Number(price) || 0,
       dealId: dealId || '',
@@ -1632,6 +1635,186 @@ app.delete('/api/social-orders/:id', requireAdmin, async (req, res) => {
     const result = await socialOrdersCollection.deleteOne({ id: req.params.id });
     if (result.deletedCount === 0) return res.status(404).json({ error: 'Order not found' });
     res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// A customer's own order history for their dashboard — deliberately not
+// requireAdmin (the customer isn't an admin), scoped to just their username.
+app.get('/api/social-orders/user/:username', async (req, res) => {
+  try {
+    const orders = await socialOrdersCollection.find({ username: req.params.username }).sort({ createdAt: -1 }).toArray();
+    res.json(orders);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ---- Social Media Cart ----
+// Orders under the Rs 300 minimum land here instead of going straight
+// through — a customer keeps adding services until the cart clears that
+// bar, then checks the whole thing out in one go.
+app.get('/api/social-cart/:username', async (req, res) => {
+  try {
+    const items = await socialCartCollection.find({ username: req.params.username }).sort({ createdAt: 1 }).toArray();
+    res.json(items);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/social-cart', async (req, res) => {
+  try {
+    const {
+      username, platformId, platformName, serviceId, serviceName,
+      variationId, variationName, quantity, linkType, linkValue, price
+    } = req.body;
+    if (!username || !platformName || !serviceName || !quantity) {
+      return res.status(400).json({ error: 'Missing required fields' });
+    }
+    const item = {
+      id: Date.now().toString() + Math.random().toString(36).slice(2, 7),
+      username,
+      platformId: platformId || '',
+      platformName,
+      serviceId: serviceId || '',
+      serviceName,
+      variationId: variationId || '',
+      variationName: variationName || '',
+      quantity: Number(quantity) || 0,
+      linkType: linkType || '',
+      linkValue: linkValue || '',
+      price: Number(price) || 0,
+      createdAt: new Date()
+    };
+    await socialCartCollection.insertOne(item);
+    res.json(item);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.delete('/api/social-cart/:id', async (req, res) => {
+  try {
+    const result = await socialCartCollection.deleteOne({ id: req.params.id });
+    if (result.deletedCount === 0) return res.status(404).json({ error: 'Cart item not found' });
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Pays for everything currently in a customer's cart in one shot. The price
+// of every line item is recomputed here from the live service/variation
+// data (never trusted from the client) so a stale or tampered cart price
+// can never be charged.
+app.post('/api/social-cart/:username/checkout', async (req, res) => {
+  try {
+    const { name, whatsapp } = req.body;
+    const username = req.params.username;
+    const items = await socialCartCollection.find({ username }).toArray();
+    if (items.length === 0) return res.status(400).json({ error: 'Your cart is empty' });
+
+    const platforms = await socialServicesCollection.find({}).toArray();
+    let total = 0;
+    const priced = items.map(item => {
+      const platform = platforms.find(p => p.id === item.platformId);
+      const service = platform ? (platform.services || []).find(s => s.id === item.serviceId) : null;
+      let unitPrice = item.price;
+      if (service) {
+        if (item.variationId) {
+          const variation = (service.variations || []).find(v => v.id === item.variationId);
+          if (variation) unitPrice = Math.round(((variation.sellingPrice || 0) / 1000) * item.quantity);
+        } else {
+          unitPrice = Math.round(((service.sellingPrice || 0) / 1000) * item.quantity);
+        }
+      }
+      total += unitPrice;
+      return { ...item, price: unitPrice };
+    });
+
+    if (total < 300) {
+      return res.status(400).json({ error: `Minimum purchase amount is Rs 300. Your cart total is Rs ${total} — add more services to reach it.` });
+    }
+
+    const purchaseId = 'cart_' + Date.now().toString();
+    const claimed = await claimIdempotencyKey(`cartcheckout:${purchaseId}`);
+    if (!claimed) return res.status(400).json({ error: 'Checkout already processed' });
+
+    const result = await usersCollection.findOneAndUpdate(
+      { username, credits: { $gte: total } },
+      { $inc: { credits: -total } },
+      { returnDocument: 'after' }
+    );
+    const updatedUser = result && result.value !== undefined ? result.value : result;
+    if (!updatedUser) {
+      return res.status(400).json({ error: 'Insufficient credits' });
+    }
+
+    await creditHistoryCollection.insertOne({
+      id: crypto.randomUUID(),
+      username,
+      type: 'debit',
+      amount: total,
+      reason: `Social media cart checkout (${priced.length} item${priced.length !== 1 ? 's' : ''})`,
+      purchaseId,
+      balanceAfter: updatedUser.credits,
+      createdAt: new Date()
+    });
+
+    for (const item of priced) {
+      const orderId = Date.now().toString() + Math.random().toString(36).slice(2, 7);
+      const label = `${item.platformName} - ${item.serviceName}${item.variationName ? ' - ' + item.variationName : ''}`;
+      await socialOrdersCollection.insertOne({
+        id: orderId,
+        platformId: item.platformId,
+        platformName: item.platformName,
+        serviceId: item.serviceId,
+        serviceName: item.serviceName,
+        variationId: item.variationId,
+        variationName: item.variationName,
+        quantity: item.quantity,
+        accountLink: item.linkType === 'accountLink' ? item.linkValue : '',
+        videoLink: item.linkType === 'videoLink' ? item.linkValue : '',
+        name: name || username,
+        username,
+        whatsapp: whatsapp || '',
+        price: item.price,
+        dealId: '',
+        status: 'pending',
+        createdAt: new Date()
+      });
+      await waitingCollection.insertOne({
+        id: orderId + 'w',
+        subscriptionId: null,
+        subscriptionName: label,
+        isCustomRequest: false,
+        name: name || username,
+        username,
+        whatsapp: whatsapp || '',
+        months: 1,
+        email: '',
+        paidWithCredits: true,
+        creditsAmount: item.price,
+        isSocialOrder: true,
+        platformId: item.platformId,
+        platformName: item.platformName,
+        serviceId: item.serviceId,
+        serviceName: item.serviceName,
+        quantity: item.quantity,
+        linkType: item.linkType || '',
+        linkValue: item.linkValue || '',
+        price: item.price,
+        fulfilled: false,
+        purchasedAt: new Date().toISOString(),
+        createdAt: new Date()
+      });
+    }
+
+    await socialCartCollection.deleteMany({ username });
+
+    res.json({ success: true, total, itemCount: priced.length, user: sanitizeUser(updatedUser) });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

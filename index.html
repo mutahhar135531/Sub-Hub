@@ -280,6 +280,9 @@
     .whatsapp-float:hover { transform:scale(1.08); box-shadow:0 6px 40px rgba(37,211,102,0.5); }
     .complaint-float { position:fixed; bottom:96px; right:24px; z-index:100; background:var(--t-primary-hex); color:#fff; width:52px; height:52px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:1.5rem; box-shadow:0 4px 30px rgba(var(--t-primary),0.4); transition:all .3s ease; text-decoration:none; border:none; cursor:pointer; }
     .complaint-float:hover { transform:scale(1.08); box-shadow:0 6px 40px rgba(var(--t-primary),0.5); }
+    .cart-float { position:fixed; bottom:160px; right:24px; z-index:100; background:#18181b; color:#fff; width:52px; height:52px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:1.35rem; box-shadow:0 4px 30px rgba(0,0,0,0.4); transition:all .3s ease; text-decoration:none; border:1px solid rgba(var(--t-primary),0.3); cursor:pointer; }
+    .cart-float:hover { transform:scale(1.08); }
+    .cart-float-badge { position:absolute; top:-4px; right:-4px; background:var(--t-primary-hex); color:#fff; font-size:.65rem; font-weight:700; min-width:18px; height:18px; border-radius:9px; display:flex; align-items:center; justify-content:center; padding:0 4px; }
 
     /* ─── HERO ───────────────────────────────────────────────── */
     .hero-bg { position:relative; overflow:hidden; background:radial-gradient(ellipse at 30% 20%, rgba(var(--t-primary),0.06) 0%, transparent 60%), radial-gradient(ellipse at 70% 80%, rgba(var(--t-primary),0.04) 0%, transparent 50%); }
@@ -443,7 +446,7 @@
     @media (max-width:1200px) { .carousel-slide { flex:0 0 25%; } }
     @media (max-width:992px) { .carousel-slide { flex:0 0 33.333%; } }
     @media (max-width:768px) { .carousel-slide { flex:0 0 50%; } .brand-z { width:1.8rem; height:1.8rem; font-size:1rem; } .logo-primary { font-size:1.2rem; } }
-    @media (max-width:640px) { .carousel-slide { flex:0 0 100%; } .sub-icon { font-size:2.2rem; } .otp-input { width:44px; height:52px; font-size:1.3rem; } .toast-container { left:16px; right:16px; max-width:100%; bottom:16px; } .admin-table th,.admin-table td { padding:8px 10px; font-size:.75rem; } .carousel-btn { width:30px; height:30px; font-size:.8rem; } .carousel-btn.prev { left:-2px; } .carousel-btn.next { right:-2px; } .whatsapp-float { width:50px; height:50px; font-size:1.6rem; bottom:16px; right:16px; } .complaint-float { width:44px; height:44px; font-size:1.25rem; bottom:74px; right:16px; } .glass-panel { padding:16px 14px; } .deal-card { min-height:140px; padding:10px 10px; } .deal-price-discount { font-size:1.2rem; } .hero-bg { padding-top:0; } }
+    @media (max-width:640px) { .carousel-slide { flex:0 0 100%; } .sub-icon { font-size:2.2rem; } .otp-input { width:44px; height:52px; font-size:1.3rem; } .toast-container { left:16px; right:16px; max-width:100%; bottom:16px; } .admin-table th,.admin-table td { padding:8px 10px; font-size:.75rem; } .carousel-btn { width:30px; height:30px; font-size:.8rem; } .carousel-btn.prev { left:-2px; } .carousel-btn.next { right:-2px; } .whatsapp-float { width:50px; height:50px; font-size:1.6rem; bottom:16px; right:16px; } .complaint-float { width:44px; height:44px; font-size:1.25rem; bottom:74px; right:16px; } .cart-float { width:44px; height:44px; font-size:1.15rem; bottom:126px; right:16px; } .glass-panel { padding:16px 14px; } .deal-card { min-height:140px; padding:10px 10px; } .deal-price-discount { font-size:1.2rem; } .hero-bg { padding-top:0; } }
     @media (max-width:480px) { .card-modal-content { padding:24px 16px; } .card-modal-content .modal-icon { font-size:3rem; } .card-modal-content .modal-name { font-size:1.4rem; } }
 
     /* ─── THEME OVERRIDES FOR TAILWIND UTILITY CLASSES ───────
@@ -496,6 +499,9 @@
     const { useState, useEffect, useRef, useCallback, useMemo, createContext, useContext } = React;
 
     const API_BASE = 'https://sub-hub-he32.onrender.com';
+    // Below this total, a social-media order can't be checked out on its
+    // own — it goes into the cart instead until enough is added to clear it.
+    const SOCIAL_MIN_ORDER = 300;
 
     // ─── Auth token helpers ───────────────────────────────────
     // On login the server hands us a signed token proving who we are. We
@@ -972,6 +978,55 @@
       });
       const json = await res.json().catch(() => ({}));
       if (!res.ok || json.error) throw new Error(json.error || `Failed to delete order (${res.status})`);
+      return json;
+    };
+
+    // A customer's own past social-media orders, for their dashboard.
+    const fetchUserSocialOrders = async (username) => {
+      const res = await fetch(`${API_BASE}/api/social-orders/user/${encodeURIComponent(username)}?t=${Date.now()}`, {
+        headers: { 'Cache-Control': 'no-cache' }
+      });
+      if (!res.ok) throw new Error('Failed to load your orders');
+      return res.json();
+    };
+
+    // ─── Social Media Cart ───────────────────────────────────────
+    // Holds services a customer picked whose total is still under the
+    // Rs 300 minimum order — they keep adding until checkout clears it.
+    const fetchSocialCart = async (username) => {
+      const res = await fetch(`${API_BASE}/api/social-cart/${encodeURIComponent(username)}?t=${Date.now()}`, {
+        headers: { 'Cache-Control': 'no-cache' }
+      });
+      if (!res.ok) throw new Error('Failed to load your cart');
+      return res.json();
+    };
+
+    const addToSocialCart = async (data) => {
+      const res = await fetch(`${API_BASE}/api/social-cart`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok || json.error) throw new Error(json.error || 'Failed to add to cart');
+      return json;
+    };
+
+    const removeFromSocialCart = async (itemId) => {
+      const res = await fetch(`${API_BASE}/api/social-cart/${itemId}`, { method: 'DELETE' });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok || json.error) throw new Error(json.error || 'Failed to remove item');
+      return json;
+    };
+
+    const checkoutSocialCart = async (username, data) => {
+      const res = await fetch(`${API_BASE}/api/social-cart/${encodeURIComponent(username)}/checkout`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok || json.error) throw new Error(json.error || 'Checkout failed');
       return json;
     };
 
@@ -2528,6 +2583,18 @@
       );
     }
 
+    // Floating cart button — only shown once there's actually something in
+    // the cart, so it doesn't clutter the screen for everyone else.
+    function SocialCartFloatButton({ onClick, count }) {
+      if (!count) return null;
+      return (
+        <button onClick={onClick} className="cart-float" aria-label="View Cart" title="View Cart">
+          <i className="fas fa-cart-shopping"></i>
+          <span className="cart-float-badge">{count}</span>
+        </button>
+      );
+    }
+
     // The complaint form. Everything we already know about the customer
     // (username, WhatsApp number, and — if it's about a subscription they
     // already have — which one, and which account/screen) is filled in
@@ -2746,7 +2813,7 @@
     // want, then send it — same WhatsApp handoff as the rest of the site,
     // plus a record saved server-side so the admin can track it from the
     // dashboard even before they open WhatsApp.
-    function SocialOrderModal({ open, platform, onClose, user, dealOverride }) {
+    function SocialOrderModal({ open, platform, onClose, user, dealOverride, onCartChanged }) {
       const { addToast } = useContext(AppContext);
       const { setUser } = useContext(UserContext);
       const [step, setStep] = useState('service'); // 'service' | 'variation' | 'details'
@@ -2756,6 +2823,7 @@
       const [accountLink, setAccountLink] = useState('');
       const [videoLink, setVideoLink] = useState('');
       const [submitting, setSubmitting] = useState(false);
+      const [addingToCart, setAddingToCart] = useState(false);
 
       useEffect(() => {
         if (open) {
@@ -2901,6 +2969,56 @@
         }
       };
 
+      // Below the Rs 300 minimum, an order can't be paid for on its own —
+      // it goes into the cart so it can be combined with other services
+      // until the total clears the minimum, then all checked out together.
+      const handleAddToCart = async () => {
+        if (!user) {
+          addToast('Please log in to add services to your cart', 'error');
+          return;
+        }
+        if (!qtyNum || qtyNum <= 0) {
+          addToast('Please enter how many you need', 'error');
+          return;
+        }
+        if (needsAccountLink && !accountLink.trim()) {
+          addToast('Please enter your account link', 'error');
+          return;
+        }
+        if (needsVideoLink && !videoLink.trim()) {
+          addToast('Please enter the video/post link', 'error');
+          return;
+        }
+        if (!price || price <= 0) {
+          addToast('Enter a quantity to see the price', 'error');
+          return;
+        }
+
+        setAddingToCart(true);
+        try {
+          await addToSocialCart({
+            username: user.username,
+            platformId: platform.id,
+            platformName: platform.name,
+            serviceId: selectedService.id,
+            serviceName: selectedService.name,
+            variationId: selectedVariation ? selectedVariation.id : '',
+            variationName: selectedVariation ? selectedVariation.name : '',
+            quantity: qtyNum,
+            linkType: needsAccountLink ? 'accountLink' : (needsVideoLink ? 'videoLink' : ''),
+            linkValue: needsAccountLink ? accountLink.trim() : (needsVideoLink ? videoLink.trim() : ''),
+            price
+          });
+          if (onCartChanged) onCartChanged();
+          addToast(`Added to cart! ${price < SOCIAL_MIN_ORDER ? `Minimum purchase amount is Rs ${SOCIAL_MIN_ORDER} — add more services to your cart, then checkout.` : 'Open your cart any time to checkout.'}`, 'success');
+          onClose();
+        } catch (err) {
+          addToast('Failed to add to cart: ' + (err?.message || 'unknown error'), 'error');
+        } finally {
+          setAddingToCart(false);
+        }
+      };
+
       return (
         <div className="modal-overlay" onClick={onClose}>
           <div className="modal-content glass-panel" onClick={(e) => e.stopPropagation()}>
@@ -2985,6 +3103,12 @@
                     </div>
                   )}
 
+                  {!dealOverride && qtyNum > 0 && price > 0 && price < SOCIAL_MIN_ORDER && (
+                    <div className="p-3 rounded-xl bg-yellow-500/10 border border-yellow-500/20">
+                      <p className="text-yellow-400 text-xs"><i className="fas fa-info-circle mr-2"></i> Minimum purchase amount is Rs {SOCIAL_MIN_ORDER}. Add this to your cart and add more services to reach it, then checkout together.</p>
+                    </div>
+                  )}
+
                   {user ? (
                     <p className="text-white/30 text-xs text-center"><i className="fas fa-coins mr-1"></i> Your balance: RS {user.credits || 0}</p>
                   ) : (
@@ -2993,13 +3117,87 @@
 
                   <div className="flex gap-3">
                     {!dealOverride && <button onClick={handleBack} className="btn-neon-outline px-5"><i className="fas fa-arrow-left"></i></button>}
-                    <button onClick={handleSubmit} disabled={submitting || !user} className="btn-neon flex-1 py-3">
-                      {submitting ? <><i className="fas fa-spinner fa-spin mr-2"></i> Confirming...</> : <><i className="fas fa-check mr-2"></i> Confirm & Pay with Credits</>}
-                    </button>
+                    {!dealOverride && (
+                      <button onClick={handleAddToCart} disabled={addingToCart || submitting || !user} className="btn-neon-outline flex-1 py-3">
+                        {addingToCart ? <><i className="fas fa-spinner fa-spin mr-2"></i> Adding...</> : <><i className="fas fa-cart-plus mr-2"></i> Add to Cart</>}
+                      </button>
+                    )}
+                    {(dealOverride || price >= SOCIAL_MIN_ORDER) && (
+                      <button onClick={handleSubmit} disabled={submitting || addingToCart || !user} className="btn-neon flex-1 py-3">
+                        {submitting ? <><i className="fas fa-spinner fa-spin mr-2"></i> Confirming...</> : <><i className="fas fa-check mr-2"></i> Confirm & Pay with Credits</>}
+                      </button>
+                    )}
                   </div>
                 </div>
               </>
             )}
+          </div>
+        </div>
+      );
+    }
+
+    // Everything a customer has added to their social-media cart — services
+    // whose price alone was under the Rs 300 minimum, waiting to be combined
+    // with more and checked out together in one shot.
+    function SocialCartModal({ open, onClose, items, loading, onRemove, onCheckout, checkingOut, user, removingId }) {
+      if (!open) return null;
+      const total = (items || []).reduce((sum, it) => sum + (it.price || 0), 0);
+      const canCheckout = total >= SOCIAL_MIN_ORDER;
+
+      return (
+        <div className="modal-overlay" onClick={onClose}>
+          <div className="modal-content glass-panel" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center gap-3 mb-1">
+              <i className="fas fa-cart-shopping text-2xl text-red-400"></i>
+              <h3 className="text-xl font-bold text-white">Your Cart</h3>
+            </div>
+            <p className="text-white/40 text-sm mb-5">Social media services waiting to be checked out.</p>
+
+            {loading ? (
+              <div className="text-center py-8 text-white/30"><i className="fas fa-spinner fa-spin mr-2"></i> Loading your cart...</div>
+            ) : (items || []).length === 0 ? (
+              <div className="text-center py-8 text-white/30">
+                <i className="fas fa-cart-shopping text-3xl mb-3 block"></i>
+                Your cart is empty.
+              </div>
+            ) : (
+              <>
+                <div className="space-y-2 max-h-[40vh] overflow-y-auto pr-1">
+                  {items.map(it => (
+                    <div key={it.id} className="flex items-center justify-between gap-3 p-3 rounded-xl bg-white/5 border border-white/10">
+                      <div className="min-w-0">
+                        <p className="text-white text-sm font-medium truncate">{it.platformName} — {it.serviceName}{it.variationName ? ` (${it.variationName})` : ''}</p>
+                        <p className="text-white/30 text-xs">Qty {it.quantity} · RS {it.price}</p>
+                      </div>
+                      <button onClick={() => onRemove(it.id)} disabled={removingId === it.id} className="btn-danger text-xs px-2 flex-shrink-0">
+                        {removingId === it.id ? <i className="fas fa-spinner fa-spin"></i> : <i className="fas fa-trash"></i>}
+                      </button>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="flex items-center justify-between mt-4 p-3 bg-white/5 rounded-xl">
+                  <span className="text-white/50 text-sm">Total</span>
+                  <span className="text-2xl font-bold text-green-400">RS {total}</span>
+                </div>
+
+                {!canCheckout && (
+                  <div className="mt-3 p-3 rounded-xl bg-yellow-500/10 border border-yellow-500/20">
+                    <p className="text-yellow-400 text-xs"><i className="fas fa-info-circle mr-2"></i> Minimum purchase amount is Rs {SOCIAL_MIN_ORDER}. Add RS {SOCIAL_MIN_ORDER - total} more of services to your cart to checkout.</p>
+                  </div>
+                )}
+
+                {user && (
+                  <p className="text-white/30 text-xs text-center mt-3"><i className="fas fa-coins mr-1"></i> Your balance: RS {user.credits || 0}</p>
+                )}
+
+                <button onClick={onCheckout} disabled={!canCheckout || checkingOut} className="btn-neon w-full mt-4 py-3">
+                  {checkingOut ? <><i className="fas fa-spinner fa-spin mr-2"></i> Processing...</> : <><i className="fas fa-check mr-2"></i> Checkout & Pay with Credits</>}
+                </button>
+              </>
+            )}
+
+            <button onClick={onClose} className="btn-neon-outline w-full mt-3">Close</button>
           </div>
         </div>
       );
@@ -3115,31 +3313,36 @@
     // Started flow so browsing feels identical to picking a subscription.
     function SocialServicesSelection({ platforms, onSelect }) {
       return (
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-          {(platforms || []).map(p => {
-            const icon = getSocialIcon(p.name);
-            const color = getSocialColor(p.name);
-            const activeServices = (p.services || []).filter(s => s.active !== false);
-            const prices = activeServices.map(s => s.sellingPrice || 0).filter(n => n > 0);
-            const fromPrice = prices.length ? Math.min(...prices) : 0;
+        <div>
+          <div className="mb-5 p-4 rounded-xl bg-red-500/5 border border-red-500/15">
+            <p className="text-white/60 text-sm"><i className="fas fa-info-circle mr-2 text-red-400"></i> All service rates shown are per 1000. The minimum order amount to buy a social media service is <span className="text-white font-semibold">RS {SOCIAL_MIN_ORDER}</span> — you can buy multiple services by adding them to your cart until you reach it.</p>
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+            {(platforms || []).map(p => {
+              const icon = getSocialIcon(p.name);
+              const color = getSocialColor(p.name);
+              const activeServices = (p.services || []).filter(s => s.active !== false);
+              const prices = activeServices.map(s => s.sellingPrice || 0).filter(n => n > 0);
+              const fromPrice = prices.length ? Math.min(...prices) : 0;
 
-            return (
-              <div key={p.id} onClick={() => onSelect(p)} className="sub-card">
-                {p.logo ? (
-                  <img src={p.logo} alt={p.name} className="sub-logo" />
-                ) : (
-                  <i className={`${getSocialIconPrefix(p.name)} ${icon} sub-icon`} style={{ color }}></i>
-                )}
-                <h3 className="text-white font-semibold text-base">{p.name}</h3>
-                {p.description && <p className="text-white/30 text-xs mt-1 truncate max-w-full">{p.description}</p>}
-                <p className="text-white/30 text-xs mt-1">{activeServices.length} service{activeServices.length !== 1 ? 's' : ''}</p>
-                {fromPrice > 0 && <p className="text-green-400 text-sm font-medium mt-1">From RS {fromPrice} / 1000</p>}
-              </div>
-            );
-          })}
-          {(platforms || []).length === 0 && (
-            <div className="col-span-full text-center py-8 text-white/30">No social media services available yet — check back soon.</div>
-          )}
+              return (
+                <div key={p.id} onClick={() => onSelect(p)} className="sub-card">
+                  {p.logo ? (
+                    <img src={p.logo} alt={p.name} className="sub-logo" />
+                  ) : (
+                    <i className={`${getSocialIconPrefix(p.name)} ${icon} sub-icon`} style={{ color }}></i>
+                  )}
+                  <h3 className="text-white font-semibold text-base">{p.name}</h3>
+                  {p.description && <p className="text-white/30 text-xs mt-1 truncate max-w-full">{p.description}</p>}
+                  <p className="text-white/30 text-xs mt-1">{activeServices.length} service{activeServices.length !== 1 ? 's' : ''}</p>
+                  {fromPrice > 0 && <p className="text-green-400 text-sm font-medium mt-1">From RS {fromPrice} / 1000</p>}
+                </div>
+              );
+            })}
+            {(platforms || []).length === 0 && (
+              <div className="col-span-full text-center py-8 text-white/30">No social media services available yet — check back soon.</div>
+            )}
+          </div>
         </div>
       );
     }
@@ -4738,11 +4941,13 @@
       );
     }
 
-    function CustomerDashboard({ customerData, onLogout, onBack, deals, onDealPurchase, subscriptions }) {
+    function CustomerDashboard({ customerData, onLogout, onBack, deals, onDealPurchase, subscriptions, cartItems, onOpenCart }) {
       const { addToast } = useContext(AppContext);
       const { user, refreshUser } = useContext(UserContext);
       const [userCredits, setUserCredits] = useState(user?.credits || 0);
       const [showCreditHistory, setShowCreditHistory] = useState(false);
+      const [socialOrders, setSocialOrders] = useState([]);
+      const [socialOrdersLoading, setSocialOrdersLoading] = useState(true);
 
       useEffect(() => {
         if (user) {
@@ -4755,6 +4960,62 @@
       useEffect(() => {
         setUserCredits(user?.credits || 0);
       }, [user]);
+
+      // The customer's own social-media order history — what's already
+      // delivered, what's still in process, and (further down) whatever
+      // is still sitting in their cart waiting to be checked out.
+      useEffect(() => {
+        if (!user) { setSocialOrdersLoading(false); return; }
+        setSocialOrdersLoading(true);
+        fetchUserSocialOrders(user.username)
+          .then(orders => setSocialOrders(orders || []))
+          .catch(() => {})
+          .finally(() => setSocialOrdersLoading(false));
+      }, [user?.username]);
+
+      const socialOrderStatusBadge = (status) => {
+        if (status === 'completed') return { label: 'Purchased', color: 'badge-green' };
+        if (status === 'cancelled') return { label: 'Cancelled', color: 'badge-red' };
+        return { label: 'In Process', color: 'badge-yellow' };
+      };
+
+      const renderSocialHistorySection = () => {
+        if (socialOrdersLoading) return null;
+        if (socialOrders.length === 0 && (!cartItems || cartItems.length === 0)) return null;
+        const cartTotal = (cartItems || []).reduce((sum, it) => sum + (it.price || 0), 0);
+        return (
+          <div className="glass-panel max-w-4xl mx-auto">
+            <h3 className="text-lg font-semibold text-white mb-4"><i className="fas fa-share-alt mr-2 text-red-400"></i> Social Media Orders</h3>
+
+            {cartItems && cartItems.length > 0 && (
+              <div className="mb-4 p-3 rounded-xl bg-yellow-500/10 border border-yellow-500/20 flex items-center justify-between flex-wrap gap-3">
+                <div>
+                  <p className="text-yellow-400 text-sm font-medium"><i className="fas fa-cart-shopping mr-2"></i> {cartItems.length} service{cartItems.length !== 1 ? 's' : ''} in your cart</p>
+                  <p className="text-white/40 text-xs mt-1">Total RS {cartTotal}{cartTotal < SOCIAL_MIN_ORDER ? ` — add RS ${SOCIAL_MIN_ORDER - cartTotal} more to reach the Rs ${SOCIAL_MIN_ORDER} minimum` : ' — ready to checkout'}</p>
+                </div>
+                <button onClick={onOpenCart} className="btn-neon text-xs py-2 px-4">Confirm & Purchase</button>
+              </div>
+            )}
+
+            {socialOrders.length > 0 && (
+              <div className="space-y-2">
+                {socialOrders.map(o => {
+                  const badge = socialOrderStatusBadge(o.status);
+                  return (
+                    <div key={o.id} className="flex items-center justify-between gap-3 p-3 rounded-xl bg-white/5 border border-white/10 flex-wrap">
+                      <div className="min-w-0">
+                        <p className="text-white text-sm font-medium truncate">{o.platformName} — {o.serviceName}{o.variationName ? ` (${o.variationName})` : ''}</p>
+                        <p className="text-white/30 text-xs">Qty {o.quantity} · RS {o.price || 0} {o.createdAt ? `· ${new Date(o.createdAt).toLocaleDateString()}` : ''}</p>
+                      </div>
+                      <span className={`badge ${badge.color}`}>{badge.label}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        );
+      };
 
       const getStatus = (expiryDate) => {
         if (!expiryDate) return { label: 'N/A', color: 'badge-gray' };
@@ -4803,6 +5064,7 @@
             {renderDealsSection()}
             <button onClick={onBack} className="text-red-400 hover:text-red-300 font-bold text-base inline-flex items-center"><i className="fas fa-arrow-left mr-2"></i> Back</button>
             <NotesBoard username={user?.username} />
+            {renderSocialHistorySection()}
             <div className="glass-panel max-w-4xl mx-auto">
               <div className="mb-6">
                 <h2 className="text-2xl font-bold text-white"><span className="brand-z brand-z-sm">Z</span> {displayName}</h2>
@@ -4828,6 +5090,7 @@
             {renderDealsSection()}
             <button onClick={onBack} className="text-red-400 hover:text-red-300 font-bold text-base inline-flex items-center"><i className="fas fa-arrow-left mr-2"></i> Back</button>
             <NotesBoard username={user?.username} />
+            {renderSocialHistorySection()}
             <div className="glass-panel max-w-4xl mx-auto">
               <div className="mb-6">
                 <h2 className="text-2xl font-bold text-white"><span className="brand-z brand-z-sm">Z</span> {displayName}</h2>
@@ -4852,6 +5115,7 @@
           {renderDealsSection()}
           <button onClick={onBack} className="text-red-400 hover:text-red-300 font-bold text-base inline-flex items-center"><i className="fas fa-arrow-left mr-2"></i> Back</button>
           <NotesBoard username={user?.username} />
+          {renderSocialHistorySection()}
           <div className="glass-panel max-w-4xl mx-auto">
             <div className="mb-6">
               <h2 className="text-2xl font-bold text-white"><span className="brand-z brand-z-sm">Z</span> {displayName}</h2>
@@ -8942,6 +9206,11 @@
       const [socialServices, setSocialServices] = useState(() => readCache('socialServices'));
       const [socialOrderPlatform, setSocialOrderPlatform] = useState(null);
       const [socialDealOrder, setSocialDealOrder] = useState(null); // { deal, service } when claiming a social-media deal
+      const [socialCartItems, setSocialCartItems] = useState([]);
+      const [socialCartLoading, setSocialCartLoading] = useState(false);
+      const [showSocialCart, setShowSocialCart] = useState(false);
+      const [socialCartCheckingOut, setSocialCartCheckingOut] = useState(false);
+      const [socialCartRemovingId, setSocialCartRemovingId] = useState(null);
       const [customFaqs, setCustomFaqs] = useState(() => readCache('faqs'));
       const [isAdmin, setIsAdmin] = useState(false);
       const [customerData, setCustomerData] = useState(null);
@@ -9309,11 +9578,61 @@
       const handleLogout = () => {
         setUser(null);
         setCustomerData(null);
+        setSocialCartItems([]);
         localStorage.removeItem('authToken'); // drop the login token
         try { sessionStorage.removeItem('authToken'); } catch (e) {}
         resetFlow();
         navigateTo('/');
         addToast('Logged out.', 'info');
+      };
+
+      // Keeps the cart badge/count in sync with the server — reloaded on
+      // login and any time an item is added, removed, or checked out.
+      const loadSocialCart = React.useCallback(async () => {
+        if (!user) { setSocialCartItems([]); return; }
+        setSocialCartLoading(true);
+        try {
+          const items = await fetchSocialCart(user.username);
+          setSocialCartItems(items || []);
+        } catch (err) {
+          console.error('Failed to load cart:', err);
+        } finally {
+          setSocialCartLoading(false);
+        }
+      }, [user?.username]);
+
+      useEffect(() => {
+        if (user) loadSocialCart();
+        else setSocialCartItems([]);
+      }, [user?.username]);
+
+      const handleRemoveFromCart = async (itemId) => {
+        setSocialCartRemovingId(itemId);
+        try {
+          await removeFromSocialCart(itemId);
+          setSocialCartItems(prev => prev.filter(it => it.id !== itemId));
+        } catch (err) {
+          addToast('Failed to remove item: ' + (err?.message || 'unknown error'), 'error');
+        } finally {
+          setSocialCartRemovingId(null);
+        }
+      };
+
+      const handleCheckoutCart = async () => {
+        if (!user) return;
+        setSocialCartCheckingOut(true);
+        try {
+          const result = await checkoutSocialCart(user.username, { name: user.name || user.username, whatsapp: user.whatsapp });
+          if (result.user) setUser(result.user);
+          else await refreshUser();
+          setSocialCartItems([]);
+          setShowSocialCart(false);
+          addToast(`RS ${result.total} deducted — your ${result.itemCount} order${result.itemCount !== 1 ? 's are' : ' is'} in! We'll get started shortly.`, 'success');
+        } catch (err) {
+          addToast(err?.message || 'Checkout failed', 'error');
+        } finally {
+          setSocialCartCheckingOut(false);
+        }
       };
 
       const renderFlow = () => {
@@ -9500,7 +9819,20 @@
             dealOverride={socialDealOrder}
             onClose={() => { setSocialOrderPlatform(null); setSocialDealOrder(null); }}
             user={user}
+            onCartChanged={loadSocialCart}
           />
+          <SocialCartModal
+            open={showSocialCart}
+            onClose={() => setShowSocialCart(false)}
+            items={socialCartItems}
+            loading={socialCartLoading}
+            onRemove={handleRemoveFromCart}
+            removingId={socialCartRemovingId}
+            onCheckout={handleCheckoutCart}
+            checkingOut={socialCartCheckingOut}
+            user={user}
+          />
+          <SocialCartFloatButton onClick={() => setShowSocialCart(true)} count={socialCartItems.length} />
 
           {activeTab === 'home' && !showSubscriptions && (
             <>
@@ -9522,6 +9854,11 @@
 
               {socialServices.length > 0 && (
                 <div id="social-services-section" className="max-w-7xl mx-auto px-4 pt-4 pb-2">
+                  {socialCartItems.length > 0 && (
+                    <div className="flex justify-end mb-2">
+                      <button onClick={() => setShowSocialCart(true)} className="text-red-400 hover:text-red-300 text-sm inline-flex items-center gap-2"><i className="fas fa-cart-shopping"></i> Cart ({socialCartItems.length})</button>
+                    </div>
+                  )}
                   <SocialServicesCarousel platforms={socialServices} onPlatformClick={(platform) => setSocialOrderPlatform(platform)} />
                 </div>
               )}
@@ -9579,7 +9916,12 @@
                 )}
                 {flowStep === 'social-select' && (
                   <div>
-                    <button onClick={() => setFlowStep('welcome')} className="text-red-400 hover:text-red-300 text-sm mb-6 inline-flex items-center"><i className="fas fa-arrow-left mr-2"></i> Back</button>
+                    <div className="flex items-center justify-between mb-6">
+                      <button onClick={() => setFlowStep('welcome')} className="text-red-400 hover:text-red-300 text-sm inline-flex items-center"><i className="fas fa-arrow-left mr-2"></i> Back</button>
+                      {user && socialCartItems.length > 0 && (
+                        <button onClick={() => setShowSocialCart(true)} className="btn-neon-outline text-sm py-2 px-4"><i className="fas fa-cart-shopping mr-2"></i> Cart ({socialCartItems.length})</button>
+                      )}
+                    </div>
                     <h2 className="text-2xl font-bold text-white mb-6"><span className="brand-z brand-z-sm">Z</span> Social Media Services</h2>
                     <SocialServicesSelection platforms={socialServices} onSelect={(platform) => setSocialOrderPlatform(platform)} />
                   </div>
@@ -9593,7 +9935,7 @@
                 {flowStep === 'deal-purchase' && <div className="max-w-lg mx-auto">{renderFlow()}</div>}
                 {flowStep === 'customer-dash' && customerData !== null && (
                   <>
-                    <CustomerDashboard customerData={customerData} onLogout={() => { resetFlow(); navigateTo('/'); }} onBack={() => setFlowStep('welcome')} deals={dealsWithSub} onDealPurchase={handleDealPurchase} subscriptions={subscriptions} />
+                    <CustomerDashboard customerData={customerData} onLogout={() => { resetFlow(); navigateTo('/'); }} onBack={() => setFlowStep('welcome')} deals={dealsWithSub} onDealPurchase={handleDealPurchase} subscriptions={subscriptions} cartItems={socialCartItems} onOpenCart={() => setShowSocialCart(true)} />
                     <ComplaintFloatButton onClick={() => setShowComplaintModal(true)} />
                     <WhatsAppButton />
                     <Footer />
