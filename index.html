@@ -5541,6 +5541,31 @@
       const [creditsAmount, setCreditsAmount] = useState(0);
       const [selectedUserForCredits, setSelectedUserForCredits] = useState(null);
       const [openUserActionMenu, setOpenUserActionMenu] = useState(null);
+      // The Action dropdown for the last rows of the Users table used to be
+      // clipped by the table's scroll container (overflow-x-auto forces
+      // overflow-y to auto too, which crops anything absolutely positioned
+      // past the bottom edge). Rendering it into document.body via a portal,
+      // fixed-positioned from the button's own on-screen rect, sidesteps
+      // that clipping entirely — and it flips upward automatically when
+      // there isn't enough room below.
+      const [userActionMenuRect, setUserActionMenuRect] = useState(null);
+      const toggleUserActionMenu = (e, username) => {
+        if (openUserActionMenu === username) { setOpenUserActionMenu(null); return; }
+        setUserActionMenuRect(e.currentTarget.getBoundingClientRect());
+        setOpenUserActionMenu(username);
+      };
+      const getUserActionMenuStyle = (rect) => {
+        if (!rect) return {};
+        const dropdownHeight = 190; // approx height for 4 menu items
+        const openUp = (window.innerHeight - rect.bottom) < dropdownHeight;
+        return {
+          position: 'fixed',
+          right: (window.innerWidth - rect.right) + 'px',
+          top: openUp ? 'auto' : (rect.bottom + 6) + 'px',
+          bottom: openUp ? (window.innerHeight - rect.top + 6) + 'px' : 'auto',
+          zIndex: 9999
+        };
+      };
       const [editingUser, setEditingUser] = useState(null);
       const [userEditForm, setUserEditForm] = useState({ username: '', password: '', whatsapp: '' });
       const [showAddUserModal, setShowAddUserModal] = useState(false);
@@ -8028,19 +8053,20 @@
                                 <button onClick={() => handleAddCredits(u.username)} className="btn-success text-xs"><i className="fas fa-plus mr-1"></i> Add</button>
                                 <button onClick={() => handleDeductCredits(u.username)} className="btn-danger text-xs"><i className="fas fa-minus mr-1"></i> Deduct</button>
                                 <div className="action-menu-wrap">
-                                  <button onClick={() => setOpenUserActionMenu(openUserActionMenu === u.username ? null : u.username)} className="btn-neon-outline text-xs">
+                                  <button onClick={(e) => toggleUserActionMenu(e, u.username)} className="btn-neon-outline text-xs">
                                     <i className="fas fa-ellipsis-vertical mr-1"></i> Action
                                   </button>
-                                  {openUserActionMenu === u.username && (
+                                  {openUserActionMenu === u.username && ReactDOM.createPortal(
                                     <>
                                       <div className="action-menu-backdrop" onClick={() => setOpenUserActionMenu(null)} />
-                                      <div className="action-menu-dropdown">
+                                      <div className="action-menu-dropdown" style={getUserActionMenuStyle(userActionMenuRect)}>
                                         <button className="action-menu-item" onClick={() => { setOpenUserActionMenu(null); openUserEditModal(u); }}><i className="fas fa-pen"></i> Edit</button>
                                         <button className="action-menu-item" onClick={() => { setOpenUserActionMenu(null); openGrantModal(u); }}><i className="fas fa-gift"></i> Grant Sub</button>
                                         <button className="action-menu-item" onClick={() => { setOpenUserActionMenu(null); handleViewCredentials(u.username); }} disabled={credsLoading}><i className="fas fa-eye"></i> Creds</button>
                                         <button className="action-menu-item danger" onClick={() => { setOpenUserActionMenu(null); handleDeleteUser(u.username); }}><i className="fas fa-trash"></i> Delete</button>
                                       </div>
-                                    </>
+                                    </>,
+                                    document.body
                                   )}
                                 </div>
                               </div>
@@ -9527,7 +9553,7 @@
                         <button onClick={() => { setShowAuth(true); setFlowStep('auth'); }} className="btn-neon-outline w-full px-10 py-4 text-lg"><i className="fas fa-user-plus mr-3"></i> Sign Up</button>
                       )}
                       <div className="flex gap-4 w-full">
-                        <button onClick={() => setFlowStep('select')} className="btn-neon flex-1 px-4 py-4 text-base"><i className="fas fa-plus-circle mr-2"></i> New Subscriptions</button>
+                        <button onClick={() => setFlowStep('select')} className="btn-neon flex-1 px-4 py-4 text-base"><i className="fas fa-plus-circle mr-2"></i> Subscription Services</button>
                         <button onClick={() => setFlowStep('social-select')} className="btn-neon flex-1 px-4 py-4 text-base"><i className="fas fa-share-alt mr-2"></i> Social Media Services</button>
                       </div>
                     </div>
