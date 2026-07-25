@@ -1640,10 +1640,15 @@ app.delete('/api/social-orders/:id', requireAdmin, async (req, res) => {
   }
 });
 
-// A customer's own order history for their dashboard — deliberately not
-// requireAdmin (the customer isn't an admin), scoped to just their username.
+// A customer's own order history for their dashboard — scoped to their
+// username, and only they (or the admin) may read it, since orders carry
+// account/video links and WhatsApp numbers.
 app.get('/api/social-orders/user/:username', async (req, res) => {
   try {
+    const auth = getAuth(req);
+    if (!auth || (auth.r !== 'admin' && auth.u !== req.params.username)) {
+      return res.status(403).json({ error: 'Not authorized to view this account' });
+    }
     const orders = await socialOrdersCollection.find({ username: req.params.username }).sort({ createdAt: -1 }).toArray();
     res.json(orders);
   } catch (err) {
@@ -1657,6 +1662,10 @@ app.get('/api/social-orders/user/:username', async (req, res) => {
 // bar, then checks the whole thing out in one go.
 app.get('/api/social-cart/:username', async (req, res) => {
   try {
+    const auth = getAuth(req);
+    if (!auth || (auth.r !== 'admin' && auth.u !== req.params.username)) {
+      return res.status(403).json({ error: 'Not authorized to view this account' });
+    }
     const items = await socialCartCollection.find({ username: req.params.username }).sort({ createdAt: 1 }).toArray();
     res.json(items);
   } catch (err) {
@@ -1672,6 +1681,10 @@ app.post('/api/social-cart', async (req, res) => {
     } = req.body;
     if (!username || !platformName || !serviceName || !quantity) {
       return res.status(400).json({ error: 'Missing required fields' });
+    }
+    const auth = getAuth(req);
+    if (!auth || (auth.r !== 'admin' && auth.u !== username)) {
+      return res.status(403).json({ error: 'Not authorized to add to this cart' });
     }
     const item = {
       id: Date.now().toString() + Math.random().toString(36).slice(2, 7),
@@ -1697,8 +1710,13 @@ app.post('/api/social-cart', async (req, res) => {
 
 app.delete('/api/social-cart/:id', async (req, res) => {
   try {
-    const result = await socialCartCollection.deleteOne({ id: req.params.id });
-    if (result.deletedCount === 0) return res.status(404).json({ error: 'Cart item not found' });
+    const item = await socialCartCollection.findOne({ id: req.params.id });
+    if (!item) return res.status(404).json({ error: 'Cart item not found' });
+    const auth = getAuth(req);
+    if (!auth || (auth.r !== 'admin' && auth.u !== item.username)) {
+      return res.status(403).json({ error: 'Not authorized to remove this item' });
+    }
+    await socialCartCollection.deleteOne({ id: req.params.id });
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -1711,8 +1729,12 @@ app.delete('/api/social-cart/:id', async (req, res) => {
 // can never be charged.
 app.post('/api/social-cart/:username/checkout', async (req, res) => {
   try {
-    const { name, whatsapp } = req.body;
     const username = req.params.username;
+    const auth = getAuth(req);
+    if (!auth || (auth.r !== 'admin' && auth.u !== username)) {
+      return res.status(403).json({ error: 'Not authorized to check out this cart' });
+    }
+    const { name, whatsapp } = req.body;
     const items = await socialCartCollection.find({ username }).toArray();
     if (items.length === 0) return res.status(400).json({ error: 'Your cart is empty' });
 

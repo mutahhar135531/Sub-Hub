@@ -984,7 +984,7 @@
     // A customer's own past social-media orders, for their dashboard.
     const fetchUserSocialOrders = async (username) => {
       const res = await fetch(`${API_BASE}/api/social-orders/user/${encodeURIComponent(username)}?t=${Date.now()}`, {
-        headers: { 'Cache-Control': 'no-cache' }
+        headers: authHeaders({ 'Cache-Control': 'no-cache' })
       });
       if (!res.ok) throw new Error('Failed to load your orders');
       return res.json();
@@ -995,7 +995,7 @@
     // Rs 300 minimum order — they keep adding until checkout clears it.
     const fetchSocialCart = async (username) => {
       const res = await fetch(`${API_BASE}/api/social-cart/${encodeURIComponent(username)}?t=${Date.now()}`, {
-        headers: { 'Cache-Control': 'no-cache' }
+        headers: authHeaders({ 'Cache-Control': 'no-cache' })
       });
       if (!res.ok) throw new Error('Failed to load your cart');
       return res.json();
@@ -1004,7 +1004,7 @@
     const addToSocialCart = async (data) => {
       const res = await fetch(`${API_BASE}/api/social-cart`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: authHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify(data),
       });
       const json = await res.json().catch(() => ({}));
@@ -1013,7 +1013,7 @@
     };
 
     const removeFromSocialCart = async (itemId) => {
-      const res = await fetch(`${API_BASE}/api/social-cart/${itemId}`, { method: 'DELETE' });
+      const res = await fetch(`${API_BASE}/api/social-cart/${itemId}`, { method: 'DELETE', headers: authHeaders() });
       const json = await res.json().catch(() => ({}));
       if (!res.ok || json.error) throw new Error(json.error || 'Failed to remove item');
       return json;
@@ -1022,7 +1022,7 @@
     const checkoutSocialCart = async (username, data) => {
       const res = await fetch(`${API_BASE}/api/social-cart/${encodeURIComponent(username)}/checkout`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: authHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify(data),
       });
       const json = await res.json().catch(() => ({}));
