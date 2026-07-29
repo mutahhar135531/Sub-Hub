@@ -1415,7 +1415,7 @@
 
       const navItemsFirst = [
         { id: 'home', label: 'Home', icon: 'fa-home' },
-        { id: 'subscriptions', label: 'Subscriptions', icon: 'fa-crown' },
+        { id: 'subscriptions', label: 'Services', icon: 'fa-crown' },
       ];
       const navItemsLast = [
         { id: 'help', label: 'Help', icon: 'fa-question-circle' },
@@ -3708,6 +3708,10 @@
           addToast('Please wait, your purchase is already processing…', 'info');
           return;
         }
+        if (!currentUser) {
+          requireAuth && requireAuth();
+          return;
+        }
         if (!canUseCredits) {
           addToast('Insufficient credits', 'error');
           return;
@@ -3808,7 +3812,7 @@
                 <p className="text-yellow-400 text-sm"><i className="fas fa-exclamation-circle mr-2"></i> Please log in to purchase with credits.</p>
               </div>
             )}
-            <button onClick={handlePayWithCredits} disabled={loading || !canUseCredits} className="btn-neon w-full py-3 bg-green-600 hover:bg-green-700 disabled:opacity-40 disabled:cursor-not-allowed">
+            <button onClick={handlePayWithCredits} disabled={loading || (currentUser && !canUseCredits)} className="btn-neon w-full py-3 bg-green-600 hover:bg-green-700 disabled:opacity-40 disabled:cursor-not-allowed">
               {loading ? <span className="spinner"></span> : <><i className="fas fa-coins mr-2"></i> Pay with Credits</>}
             </button>
           </div>
@@ -3944,6 +3948,10 @@
           addToast('Please wait, your purchase is already processing…', 'info');
           return;
         }
+        if (!currentUser) {
+          requireAuth && requireAuth();
+          return;
+        }
         if (!canUseCredits) {
           addToast('Insufficient credits', 'error');
           return;
@@ -3999,7 +4007,7 @@
                 <p className="text-yellow-400 text-sm"><i className="fas fa-exclamation-circle mr-2"></i> Please log in to purchase with credits.</p>
               </div>
             )}
-            <button onClick={handlePayWithCredits} disabled={loading || !canUseCredits} className="btn-neon w-full py-3 bg-green-600 hover:bg-green-700 disabled:opacity-40 disabled:cursor-not-allowed">
+            <button onClick={handlePayWithCredits} disabled={loading || (currentUser && !canUseCredits)} className="btn-neon w-full py-3 bg-green-600 hover:bg-green-700 disabled:opacity-40 disabled:cursor-not-allowed">
               {loading ? <span className="spinner"></span> : <><i className="fas fa-coins mr-2"></i> Pay with Credits</>}
             </button>
           </div>
@@ -4145,6 +4153,10 @@
           addToast('Please wait, your purchase is already processing…', 'info');
           return;
         }
+        if (!currentUser) {
+          requireAuth && requireAuth();
+          return;
+        }
         if (!canUseCredits) {
           addToast('Insufficient credits', 'error');
           return;
@@ -4230,7 +4242,7 @@
                 if (isSubmittingRef.current) { addToast('Please wait, your purchase is already processing…', 'info'); return; }
                 completePurchase(false);
               }}
-              disabled={loading || (creditsNeeded > 0 && !canUseCredits)}
+              disabled={loading || (creditsNeeded > 0 && currentUser && !canUseCredits)}
               className="btn-neon w-full py-3 bg-green-600 hover:bg-green-700 disabled:opacity-40 disabled:cursor-not-allowed"
             >
               {loading ? <span className="spinner"></span> : creditsNeeded > 0 ? <><i className="fas fa-coins mr-2"></i> Pay with Credits</> : <><i className="fas fa-check-circle mr-2"></i> Complete Purchase</>}
@@ -4242,7 +4254,7 @@
     }
 
     // ─── DEAL PURCHASE FLOW ──────────────────────────────────
-    function DealPurchaseFlow({ deal, subscriptions, onBack, onComplete, user }) {
+    function DealPurchaseFlow({ deal, subscriptions, onBack, onComplete, user, requireAuth }) {
       const [step, setStep] = useState('plan');
       const [whatsapp, setWhatsapp] = useState(user?.whatsapp || '');
       const [loading, setLoading] = useState(false);
@@ -4260,6 +4272,12 @@
 
       const completePurchase = async (useCreditsFlag = false) => {
         if (isSubmittingRef.current) return;
+        // Browsing is free — signup is only required right here, at the
+        // moment of actually completing the purchase.
+        if (!user) {
+          requireAuth && requireAuth();
+          return;
+        }
         isSubmittingRef.current = true;
         const purchaseId = genPurchaseId();
 
@@ -4407,6 +4425,10 @@
           addToast('Please wait, your purchase is already processing…', 'info');
           return;
         }
+        if (!currentUser) {
+          requireAuth && requireAuth();
+          return;
+        }
         if (!canUseCredits) {
           addToast('Insufficient credits', 'error');
           return;
@@ -4470,7 +4492,7 @@
                 <p className="text-yellow-400 text-sm"><i className="fas fa-exclamation-circle mr-2"></i> Please log in to purchase with credits.</p>
               </div>
             )}
-            <button onClick={handlePayWithCredits} disabled={loading || !canUseCredits} className="btn-neon w-full py-3 bg-green-600 hover:bg-green-700 disabled:opacity-40 disabled:cursor-not-allowed">
+            <button onClick={handlePayWithCredits} disabled={loading || (currentUser && !canUseCredits)} className="btn-neon w-full py-3 bg-green-600 hover:bg-green-700 disabled:opacity-40 disabled:cursor-not-allowed">
               {loading ? <span className="spinner"></span> : <><i className="fas fa-coins mr-2"></i> Pay with Credits</>}
             </button>
           </div>
@@ -9655,7 +9677,7 @@
 
       const renderFlow = () => {
         if (selectedDeal && flowStep === 'deal-purchase') {
-          return <DealPurchaseFlow deal={selectedDeal} subscriptions={subscriptions} onBack={() => { setFlowStep('select'); setSelectedDeal(null); }} onComplete={handleSubComplete} user={user} />;
+          return <DealPurchaseFlow deal={selectedDeal} subscriptions={subscriptions} onBack={() => { setFlowStep('select'); setSelectedDeal(null); }} onComplete={handleSubComplete} user={user} requireAuth={() => { addToast('Please sign up or login first to complete your purchase.', 'info'); setFlowStep('auth'); }} />;
         }
         if (!selectedSubscription) return null;
         const type = selectedSubscription.type;
