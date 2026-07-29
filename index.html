@@ -9358,6 +9358,11 @@
       };
 
       const handleSubSelect = (sub) => {
+        if (!user) {
+          setFlowStep('auth');
+          addToast('Please sign up or login first to purchase a subscription.', 'info');
+          return;
+        }
         setSelectedSubscription(sub);
         setFlowStep('flow');
       };
@@ -9659,11 +9664,10 @@
 
       const handleGetStarted = () => {
         navigateTo('/subscriptions');
-        if (user) {
-          setFlowStep('welcome');
-        } else {
-          setFlowStep('auth');
-        }
+        // Anyone can browse the "Get Started" menu (Subscription Services /
+        // Social Media Services) without signing up first — signup is only
+        // required later, at the point they actually try to purchase.
+        setFlowStep('welcome');
       };
 
       const handleCustomerPortal = () => {
