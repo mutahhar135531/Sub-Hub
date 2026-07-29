@@ -3531,7 +3531,7 @@
     }
 
     // ─── NETFLIX FLOW ────────────────────────────────────────
-    function NetflixFlow({ subscription, onBack, onComplete, user }) {
+    function NetflixFlow({ subscription, onBack, onComplete, user, requireAuth }) {
       const [screens, setScreens] = useState(1);
       const [durationType, setDurationType] = useState('months');
       const [months, setMonths] = useState(1);
@@ -3592,6 +3592,12 @@
         // Block re-entrant calls: if a purchase is already in flight (from
         // an earlier click that hasn't finished yet), ignore this one.
         if (isSubmittingRef.current) return;
+        // Browsing and configuring a plan is free — signup is only required
+        // right here, at the moment of actually completing the purchase.
+        if (!user) {
+          requireAuth && requireAuth();
+          return;
+        }
         isSubmittingRef.current = true;
         const purchaseId = genPurchaseId();
 
@@ -3812,7 +3818,7 @@
     }
 
     // ─── AMAZON FLOW ──────────────────────────────────────────
-    function AmazonFlow({ subscription, onBack, onComplete, user }) {
+    function AmazonFlow({ subscription, onBack, onComplete, user, requireAuth }) {
       const [durationType, setDurationType] = useState('months');
       const [months, setMonths] = useState(1);
       const [days, setDays] = useState(30);
@@ -3845,6 +3851,12 @@
 
       const completePurchase = async (useCreditsFlag = false) => {
         if (isSubmittingRef.current) return;
+        // Browsing and configuring a plan is free — signup is only required
+        // right here, at the moment of actually completing the purchase.
+        if (!user) {
+          requireAuth && requireAuth();
+          return;
+        }
         isSubmittingRef.current = true;
         const purchaseId = genPurchaseId();
 
@@ -3997,7 +4009,7 @@
     }
 
     // ─── SIMPLE SUBSCRIPTION FLOW ──────────────────────────
-    function SimpleSubscriptionFlow({ subscription, onBack, onComplete, user }) {
+    function SimpleSubscriptionFlow({ subscription, onBack, onComplete, user, requireAuth }) {
       const [months, setMonths] = useState(1);
       const [step, setStep] = useState('plan');
       const [whatsapp, setWhatsapp] = useState(user?.whatsapp || '');
@@ -4026,6 +4038,12 @@
 
       const completePurchase = async (useCreditsFlag = false) => {
         if (isSubmittingRef.current) return;
+        // Browsing and configuring a plan is free — signup is only required
+        // right here, at the moment of actually completing the purchase.
+        if (!user) {
+          requireAuth && requireAuth();
+          return;
+        }
         isSubmittingRef.current = true;
         const purchaseId = genPurchaseId();
 
@@ -9358,11 +9376,6 @@
       };
 
       const handleSubSelect = (sub) => {
-        if (!user) {
-          setFlowStep('auth');
-          addToast('Please sign up or login first to purchase a subscription.', 'info');
-          return;
-        }
         setSelectedSubscription(sub);
         setFlowStep('flow');
       };
@@ -9646,7 +9659,16 @@
         }
         if (!selectedSubscription) return null;
         const type = selectedSubscription.type;
-        const commonProps = { subscription: selectedSubscription, onBack: () => { setFlowStep('select'); setSelectedSubscription(null); }, onComplete: handleSubComplete, user: user };
+        const commonProps = {
+          subscription: selectedSubscription,
+          onBack: () => { setFlowStep('select'); setSelectedSubscription(null); },
+          onComplete: handleSubComplete,
+          user: user,
+          requireAuth: () => {
+            addToast('Please sign up or login first to complete your purchase.', 'info');
+            setFlowStep('auth');
+          },
+        };
         switch (type) {
           case 'netflix': return <NetflixFlow {...commonProps} />;
           case 'amazon': return <AmazonFlow {...commonProps} />;
@@ -9896,7 +9918,7 @@
                         <button onClick={() => { setShowAuth(true); setFlowStep('auth'); }} className="btn-neon-outline w-full px-10 py-4 text-lg"><i className="fas fa-user-plus mr-3"></i> Sign Up</button>
                       )}
                       <div className="flex gap-4 w-full">
-                        <button onClick={() => setFlowStep('select')} className="btn-neon flex-1 px-4 py-4 text-base"><i className="fas fa-plus-circle mr-2"></i> Subscription Services</button>
+                        <button onClick={() => setFlowStep('select')} className="btn-neon flex-1 px-4 py-4 text-base"><i className="fas fa-plus-circle mr-2"></i> Subscriptions</button>
                         <button onClick={() => setFlowStep('social-select')} className="btn-neon flex-1 px-4 py-4 text-base"><i className="fas fa-share-alt mr-2"></i> Social Media Services</button>
                       </div>
                     </div>
