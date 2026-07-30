@@ -95,10 +95,10 @@
        "show the Pakistan flag in the background" without ever competing
        with real content on top of it. */
     body::after {
-      content:''; position:fixed; right:-6%; bottom:-8%; z-index:0; pointer-events:none;
+      content:''; position:fixed; top:50%; left:50%; transform:translate(-50%,-50%); z-index:0; pointer-events:none;
       width:56vw; height:38vw; max-width:820px; max-height:560px;
       background-image: var(--t-flag-bg);
-      background-size: contain; background-repeat:no-repeat; background-position:bottom right;
+      background-size: contain; background-repeat:no-repeat; background-position:center;
       opacity: calc(var(--t-flag-opacity) * 0.05);
     }
     /* Gentle twinkle on the crescent-and-star corner badges added to cards
@@ -3819,6 +3819,15 @@
           addToast('Please wait, your purchase is already processing…', 'info');
           return;
         }
+        // Browsing and configuring a plan is free — signup is only
+        // required right here, at the moment of actually paying. Check this
+        // before the credits check, otherwise a logged-out visitor (who
+        // always reads as having 0 credits) sees a confusing "Insufficient
+        // credits" error instead of being sent to sign up.
+        if (!user) {
+          requireAuth && requireAuth();
+          return;
+        }
         if (!canUseCredits) {
           addToast('Insufficient credits', 'error');
           return;
@@ -4055,6 +4064,15 @@
           addToast('Please wait, your purchase is already processing…', 'info');
           return;
         }
+        // Browsing and configuring a plan is free — signup is only
+        // required right here, at the moment of actually paying. Check this
+        // before the credits check, otherwise a logged-out visitor (who
+        // always reads as having 0 credits) sees a confusing "Insufficient
+        // credits" error instead of being sent to sign up.
+        if (!user) {
+          requireAuth && requireAuth();
+          return;
+        }
         if (!canUseCredits) {
           addToast('Insufficient credits', 'error');
           return;
@@ -4254,6 +4272,15 @@
       const handlePayWithCredits = async () => {
         if (isSubmittingRef.current) {
           addToast('Please wait, your purchase is already processing…', 'info');
+          return;
+        }
+        // Browsing and configuring a plan is free — signup is only
+        // required right here, at the moment of actually paying. Check this
+        // before the credits check, otherwise a logged-out visitor (who
+        // always reads as having 0 credits) sees a confusing "Insufficient
+        // credits" error instead of being sent to sign up.
+        if (!user) {
+          requireAuth && requireAuth();
           return;
         }
         if (!canUseCredits) {
@@ -4516,6 +4543,15 @@
       const handlePayWithCredits = async () => {
         if (isSubmittingRef.current) {
           addToast('Please wait, your purchase is already processing…', 'info');
+          return;
+        }
+        // Browsing and configuring a plan is free — signup is only
+        // required right here, at the moment of actually paying. Check this
+        // before the credits check, otherwise a logged-out visitor (who
+        // always reads as having 0 credits) sees a confusing "Insufficient
+        // credits" error instead of being sent to sign up.
+        if (!user) {
+          requireAuth && requireAuth();
           return;
         }
         if (!canUseCredits) {
