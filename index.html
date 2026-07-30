@@ -9412,6 +9412,10 @@
       const [customFaqs, setCustomFaqs] = useState(() => readCache('faqs'));
       const [isAdmin, setIsAdmin] = useState(false);
       const [customerData, setCustomerData] = useState(null);
+      // Custom (out-of-catalog) grants aren't part of `subscriptions`, so
+      // they're tracked separately here and merged into customerData by the
+      // effect below — see the comment there for why.
+      const [customGrantEntries, setCustomGrantEntries] = useState([]);
       const [flowStep, setFlowStep] = useState('welcome');
       const [flowType, setFlowType] = useState(null);
       const [showAuth, setShowAuth] = useState(false);
@@ -9502,6 +9506,20 @@
           document.removeEventListener('visibilitychange', onVisible);
         };
       }, []);
+
+      // Keeps the customer dashboard live. `subscriptions` already refreshes
+      // itself every few seconds via the background poll above (and
+      // instantly on tab-focus) — but customerData used to be a one-time
+      // snapshot taken only when the dashboard was opened, so admin edits
+      // (account email/password, screen name/PIN, expiry, etc.) sat there
+      // stale until the customer manually refreshed the page. Recomputing
+      // it here, keyed on `subscriptions`, means every poll tick now
+      // refreshes what the customer actually sees too — no refresh needed.
+      useEffect(() => {
+        if (flowStep === 'customer-dash' && user) {
+          setCustomerData([...findCustomers(user.username, subscriptions), ...customGrantEntries]);
+        }
+      }, [subscriptions, customGrantEntries, flowStep, user]);
 
       // ─── URL ROUTING ──────────────────────────────────────────
       // Maps a browser path (e.g. /subscriptions, /admin) to the app's internal tab state.
@@ -9776,6 +9794,7 @@
       const handleLogout = () => {
         setUser(null);
         setCustomerData(null);
+        setCustomGrantEntries([]);
         setSocialCartItems([]);
         localStorage.removeItem('authToken'); // drop the login token
         try { sessionStorage.removeItem('authToken'); } catch (e) {}
@@ -9878,7 +9897,8 @@
           // Show what's already loaded right away — the customer shouldn't
           // have to stare at a frozen screen (and click again wondering if
           // it registered) just waiting on a network round trip to see
-          // their own portal.
+          // their own portal. The reactive effect above keeps this fresh
+          // from here on, so we only need to seed it once.
           setCustomerData(findCustomers(user.username));
           setFlowStep('customer-dash');
 
@@ -9887,7 +9907,7 @@
           Promise.all([refreshUser(), fetchSubscriptions(), fetchCustomGrants(user.username).catch(() => [])])
             .then(([, fresh, grants]) => {
               setSubscriptions(fresh);
-              setCustomerData([...findCustomers(user.username, fresh), ...mapCustomGrantsToEntries(grants)]);
+              setCustomGrantEntries(mapCustomGrantsToEntries(grants));
             })
             .catch(err => console.error('Background customer portal refresh failed:', err));
         } else {
@@ -10093,7 +10113,7 @@
                     <p className="text-white/40 mb-8">Choose an option to continue.</p>
                     <div className="flex flex-col items-center gap-4 max-w-md mx-auto">
                       {user ? (
-                        <button onClick={() => { const found = findCustomers(user.username); setCustomerData(found); setFlowStep('customer-dash'); fetchCustomGrants(user.username).then(grants => setCustomerData([...found, ...mapCustomGrantsToEntries(grants)])).catch(() => {}); }} className="btn-neon-outline w-full px-10 py-4 text-lg"><i className="fas fa-user-circle mr-3"></i> My Dashboard</button>
+                        <button onClick={() => { setCustomerData(findCustomers(user.username)); setFlowStep('customer-dash'); fetchCustomGrants(user.username).then(grants => setCustomGrantEntries(mapCustomGrantsToEntries(grants))).catch(() => {}); }} className="btn-neon-outline w-full px-10 py-4 text-lg"><i className="fas fa-user-circle mr-3"></i> My Dashboard</button>
                       ) : (
                         <button onClick={() => { setShowAuth(true); setFlowStep('auth'); }} className="btn-neon-outline w-full px-10 py-4 text-lg"><i className="fas fa-user-plus mr-3"></i> Sign Up</button>
                       )}
