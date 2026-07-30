@@ -401,7 +401,7 @@ app.put('/api/admin/settings', async (req, res) => {
     if (recoveryNumber !== undefined) update.recoveryNumber = recoveryNumber;
     // Only ever store a theme id we actually ship — an unrecognized value
     // here would otherwise silently break every visitor's page.
-    const VALID_THEMES = ['classic', 'spiderman'];
+    const VALID_THEMES = ['classic', 'spiderman', 'pakistan'];
     if (theme !== undefined) {
       if (!VALID_THEMES.includes(theme)) {
         return res.status(400).json({ error: 'Unknown theme' });

@@ -1526,7 +1526,7 @@
 
       const navItemsFirst = [
         { id: 'home', label: 'Home', icon: 'fa-home' },
-        { id: 'subscriptions', label: 'Subscriptions', icon: 'fa-crown' },
+        { id: 'subscriptions', label: 'Services', icon: 'fa-crown' },
       ];
       const navItemsLast = [
         { id: 'help', label: 'Help', icon: 'fa-question-circle' },
@@ -2924,7 +2924,7 @@
     // want, then send it — same WhatsApp handoff as the rest of the site,
     // plus a record saved server-side so the admin can track it from the
     // dashboard even before they open WhatsApp.
-    function SocialOrderModal({ open, platform, onClose, user, dealOverride, onCartChanged }) {
+    function SocialOrderModal({ open, platform, onClose, user, dealOverride, onCartChanged, requireAuth }) {
       const { addToast } = useContext(AppContext);
       const { setUser } = useContext(UserContext);
       const [step, setStep] = useState('service'); // 'service' | 'variation' | 'details'
@@ -3002,7 +3002,7 @@
       // subscription requests land.
       const handleSubmit = async () => {
         if (!user) {
-          addToast('Please log in to order using credits', 'error');
+          requireAuth && requireAuth();
           return;
         }
         if (!qtyNum || qtyNum <= 0) {
@@ -3085,7 +3085,7 @@
       // until the total clears the minimum, then all checked out together.
       const handleAddToCart = async () => {
         if (!user) {
-          addToast('Please log in to add services to your cart', 'error');
+          requireAuth && requireAuth();
           return;
         }
         if (!qtyNum || qtyNum <= 0) {
@@ -3229,12 +3229,12 @@
                   <div className="flex gap-3">
                     {!dealOverride && <button onClick={handleBack} className="btn-neon-outline px-5"><i className="fas fa-arrow-left"></i></button>}
                     {!dealOverride && (
-                      <button onClick={handleAddToCart} disabled={addingToCart || submitting || !user} className="btn-neon-outline flex-1 py-3">
+                      <button onClick={handleAddToCart} disabled={addingToCart || submitting} className="btn-neon-outline flex-1 py-3">
                         {addingToCart ? <><i className="fas fa-spinner fa-spin mr-2"></i> Adding...</> : <><i className="fas fa-cart-plus mr-2"></i> Add to Cart</>}
                       </button>
                     )}
                     {(dealOverride || price >= SOCIAL_MIN_ORDER) && (
-                      <button onClick={handleSubmit} disabled={submitting || addingToCart || !user} className="btn-neon flex-1 py-3">
+                      <button onClick={handleSubmit} disabled={submitting || addingToCart} className="btn-neon flex-1 py-3">
                         {submitting ? <><i className="fas fa-spinner fa-spin mr-2"></i> Confirming...</> : <><i className="fas fa-check mr-2"></i> Confirm & Pay with Credits</>}
                       </button>
                     )}
@@ -10138,6 +10138,12 @@
             onClose={() => { setSocialOrderPlatform(null); setSocialDealOrder(null); }}
             user={user}
             onCartChanged={loadSocialCart}
+            requireAuth={() => {
+              setSocialOrderPlatform(null);
+              setSocialDealOrder(null);
+              addToast('Please sign up or login first to complete your purchase.', 'info');
+              setFlowStep('auth');
+            }}
           />
           <SocialCartModal
             open={showSocialCart}
