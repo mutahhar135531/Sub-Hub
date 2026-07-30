@@ -61,6 +61,41 @@
       --spidey-corner-web: url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%20100%20100%27%3E%3Cg%20fill%3D%27none%27%20stroke%3D%27%23ffffff%27%20stroke-width%3D%272%27%20stroke-linecap%3D%27round%27%3E%3Cpath%20d%3D%27M100%200%20L55%20100%27%2F%3E%3Cpath%20d%3D%27M100%2015%20L40%2095%27%2F%3E%3Cpath%20d%3D%27M100%2032%20L28%2080%27%2F%3E%3Cpath%20d%3D%27M100%2050%20L20%2060%27%2F%3E%3Cpath%20d%3D%27M80%200%20L100%2065%27%2F%3E%3Cpath%20d%3D%27M60%200%20L100%2045%27%2F%3E%3Cpath%20d%3D%27M100%200%20L100%2032%27%2F%3E%3Cpath%20d%3D%27M88%2010%20Q60%2020%2035%2065%27%2F%3E%3Cpath%20d%3D%27M94%2025%20Q68%2035%2045%2078%27%2F%3E%3Cpath%20d%3D%27M98%2042%20Q75%2050%2055%2090%27%2F%3E%3C%2Fg%3E%3C%2Fsvg%3E");
       --spidey-face: url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%20300%20300%27%3E%3Cg%20fill%3D%27none%27%20stroke%3D%27%23ffffff%27%20stroke-width%3D%274%27%3E%3Cpath%20d%3D%27M150%2020%20C60%2020%2030%20100%2040%20170%20C48%20230%2090%20280%20150%20280%20C210%20280%20252%20230%20260%20170%20C270%20100%20240%2020%20150%2020%20Z%27%2F%3E%3C%2Fg%3E%3Cg%20fill%3D%27%23ffffff%27%3E%3Cpath%20d%3D%27M95%20120%20C70%20130%2065%20165%2085%20190%20C100%20208%20130%20205%20140%20180%20C150%20150%20130%20115%2095%20120%20Z%27%2F%3E%3Cpath%20d%3D%27M205%20120%20C230%20130%20235%20165%20215%20190%20C200%20208%20170%20205%20160%20180%20C150%20150%20170%20115%20205%20120%20Z%27%2F%3E%3C%2Fg%3E%3Cg%20fill%3D%27none%27%20stroke%3D%27%23ffffff%27%20stroke-width%3D%271.5%27%20opacity%3D%270.6%27%3E%3Cpath%20d%3D%27M150%2020%20L150%20280%27%2F%3E%3Cpath%20d%3D%27M40%20170%20L260%20170%27%2F%3E%3Cpath%20d%3D%27M60%2070%20L240%20230%27%2F%3E%3Cpath%20d%3D%27M240%2070%20L60%20230%27%2F%3E%3C%2Fg%3E%3C%2Fsvg%3E");
     }
+    /* ─── INDEPENDENCE DAY THEME (Pakistan, 14th August) ──────
+       Flag green + white, dark backdrop, and a large faint crescent-
+       and-star watermark fixed behind the whole page (via body::after
+       below) — mirrors how the Spider-Man theme's web tiling above
+       stays invisible on every other theme by defaulting its opacity
+       variable to 0 in :root and only this theme turning it on. */
+    html[data-theme="pakistan"] {
+      --t-primary: 1,65,28;              /* Pakistan flag green */
+      --t-primary-hex: #01411C;
+      --t-primary-dark: #00331A;
+      --t-primary-light: #006633;
+      --t-primary-lighter: #4caf7d;
+      --t-secondary: 1,65,28;            /* single accent theme, mirrors primary like classic does */
+      --t-secondary-hex: #01411C;
+      --t-bg: #0a0a0a;
+      --t-bg2: #1a1a1a;
+      --t-panel: 20,20,20;
+      --t-text: #f5f5f5;
+      --pk-watermark-opacity: 1;
+      --pk-crescent-star: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%20420%20300%22%3E%3Cpath%20d%3D%22M150%2C55%20A95%2C95%200%201%2C0%20150%2C245%20A78%2C78%200%201%2C1%20150%2C55%20Z%22%20fill%3D%22%23ffffff%22/%3E%3Cpath%20d%3D%22M300.0%2C73.0%20L309.4%2C102.1%20L339.9%2C102.0%20L315.2%2C119.9%20L324.7%2C149.0%20L300.0%2C131.0%20L275.3%2C149.0%20L284.8%2C119.9%20L260.1%2C102.0%20L290.6%2C102.1%20Z%22%20fill%3D%22%23ffffff%22/%3E%3C/svg%3E");
+    }
+    /* Large, faint crescent-and-star watermark, fixed so it stays in
+       place while the page scrolls — same technique as the Spider-Man
+       web tiling: the opacity variable defaults to 0 everywhere and
+       only this theme sets it above zero, so no other theme is
+       affected. Kept subtle (0.1) so it never fights with foreground
+       text for attention. */
+    body::after {
+      content:''; position:fixed; inset:0; z-index:0; pointer-events:none;
+      background-image: var(--pk-crescent-star, none);
+      background-repeat: no-repeat;
+      background-position: center;
+      background-size: min(60vmin, 620px);
+      opacity: calc(var(--pk-watermark-opacity, 0) * 0.1);
+    }
     /* Faint tiled spider-web behind the whole page, only visible when the
        Spider-Man theme sets --t-web-opacity to 1. Kept subtle so text on
        top always stays readable. */
@@ -1261,6 +1296,13 @@
         description: 'Red, blue & web-slinging black — made for release day',
         icon: 'fa-spider',
         swatches: ['#e21922', '#1a47c4', '#060810'],
+      },
+      {
+        id: 'pakistan',
+        name: 'Independence Day',
+        description: "Flag green, white & a faint crescent-and-star watermark — built for 14th August",
+        icon: 'fa-flag',
+        swatches: ['#01411C', '#006633', '#0a0a0a'],
       },
     ];
 
