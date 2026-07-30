@@ -44,6 +44,10 @@
       --t-panel: 20,20,20;
       --t-text: #e0e0e0;
       --t-web-opacity: 0;                /* spider-web overlay hidden unless theme uses it */
+      --t-hero-watermark: none;          /* big faint emblem behind hero copy, theme-specific */
+      --t-corner-badge: none;            /* small corner decoration on cards, theme-specific */
+      --t-flag-opacity: 0;               /* whole-page flag watermark, only Pakistan theme uses it */
+      --t-flag-bg: none;
     }
     html[data-theme="spiderman"] {
       --t-primary: 226,25,34;            /* Spidey suit red */
@@ -60,7 +64,82 @@
       --t-web-opacity: 1;
       --spidey-corner-web: url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%20100%20100%27%3E%3Cg%20fill%3D%27none%27%20stroke%3D%27%23ffffff%27%20stroke-width%3D%272%27%20stroke-linecap%3D%27round%27%3E%3Cpath%20d%3D%27M100%200%20L55%20100%27%2F%3E%3Cpath%20d%3D%27M100%2015%20L40%2095%27%2F%3E%3Cpath%20d%3D%27M100%2032%20L28%2080%27%2F%3E%3Cpath%20d%3D%27M100%2050%20L20%2060%27%2F%3E%3Cpath%20d%3D%27M80%200%20L100%2065%27%2F%3E%3Cpath%20d%3D%27M60%200%20L100%2045%27%2F%3E%3Cpath%20d%3D%27M100%200%20L100%2032%27%2F%3E%3Cpath%20d%3D%27M88%2010%20Q60%2020%2035%2065%27%2F%3E%3Cpath%20d%3D%27M94%2025%20Q68%2035%2045%2078%27%2F%3E%3Cpath%20d%3D%27M98%2042%20Q75%2050%2055%2090%27%2F%3E%3C%2Fg%3E%3C%2Fsvg%3E");
       --spidey-face: url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%20300%20300%27%3E%3Cg%20fill%3D%27none%27%20stroke%3D%27%23ffffff%27%20stroke-width%3D%274%27%3E%3Cpath%20d%3D%27M150%2020%20C60%2020%2030%20100%2040%20170%20C48%20230%2090%20280%20150%20280%20C210%20280%20252%20230%20260%20170%20C270%20100%20240%2020%20150%2020%20Z%27%2F%3E%3C%2Fg%3E%3Cg%20fill%3D%27%23ffffff%27%3E%3Cpath%20d%3D%27M95%20120%20C70%20130%2065%20165%2085%20190%20C100%20208%20130%20205%20140%20180%20C150%20150%20130%20115%2095%20120%20Z%27%2F%3E%3Cpath%20d%3D%27M205%20120%20C230%20130%20235%20165%20215%20190%20C200%20208%20170%20205%20160%20180%20C150%20150%20170%20115%20205%20120%20Z%27%2F%3E%3C%2Fg%3E%3Cg%20fill%3D%27none%27%20stroke%3D%27%23ffffff%27%20stroke-width%3D%271.5%27%20opacity%3D%270.6%27%3E%3Cpath%20d%3D%27M150%2020%20L150%20280%27%2F%3E%3Cpath%20d%3D%27M40%20170%20L260%20170%27%2F%3E%3Cpath%20d%3D%27M60%2070%20L240%20230%27%2F%3E%3Cpath%20d%3D%27M240%2070%20L60%20230%27%2F%3E%3C%2Fg%3E%3C%2Fsvg%3E");
+      --t-hero-watermark: var(--spidey-face);
+      --t-corner-badge: var(--spidey-corner-web);
     }
+    /* ─── PAKISTAN INDEPENDENCE DAY THEME (14 August) ─────────
+       Flag green + white, dressed over the same dark shell as every other
+       theme. Primary text stays crisp white against the dark background;
+       green carries all the accents that used to be red (buttons, borders,
+       hover glow, badges) so the whole site reads as "green & white" at a
+       glance, the way the flag does. */
+    html[data-theme="pakistan"] {
+      --t-primary: 22,163,74;            /* flag green, bright enough to glow */
+      --t-primary-hex: #16a34a;
+      --t-primary-dark: #0f7a37;
+      --t-primary-light: #4ade80;
+      --t-primary-lighter: #bbf7d0;
+      --t-secondary: 6,95,45;            /* deeper flag green for gradients */
+      --t-secondary-hex: #065f2d;
+      --t-bg: #060b07;
+      --t-bg2: #0d1a10;
+      --t-panel: 10,22,13;               /* dark green-black panels */
+      --t-text: #ffffff;                 /* primary text: crisp white */
+      --t-web-opacity: 0;
+      --t-flag-opacity: 1;
+      --t-flag-bg: url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%20300%20200%27%3E%3Crect%20width%3D%27300%27%20height%3D%27200%27%20fill%3D%27%230f9d58%27%2F%3E%3Crect%20width%3D%2775%27%20height%3D%27200%27%20fill%3D%27%23ffffff%27%2F%3E%3Cmask%20id%3D%27f%27%3E%3Crect%20width%3D%27300%27%20height%3D%27200%27%20fill%3D%27black%27%2F%3E%3Ccircle%20cx%3D%27222%27%20cy%3D%27100%27%20r%3D%2748%27%20fill%3D%27white%27%2F%3E%3C%2Fmask%3E%3Cg%20mask%3D%27url%28%23f%29%27%3E%3Ccircle%20cx%3D%27198%27%20cy%3D%27100%27%20r%3D%2748%27%20fill%3D%27%23ffffff%27%2F%3E%3C%2Fg%3E%3Cpolygon%20points%3D%27238%2C68%20242%2C80%20255%2C80%20244%2C88%20248%2C100%20238%2C92%20228%2C100%20232%2C88%20221%2C80%20234%2C80%27%20fill%3D%27%23ffffff%27%2F%3E%3C%2Fsvg%3E");
+      --t-hero-watermark: url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%20300%20300%27%3E%3Cmask%20id%3D%27c%27%3E%3Crect%20width%3D%27300%27%20height%3D%27300%27%20fill%3D%27white%27%2F%3E%3Ccircle%20cx%3D%27185%27%20cy%3D%27150%27%20r%3D%2772%27%20fill%3D%27black%27%2F%3E%3C%2Fmask%3E%3Ccircle%20cx%3D%27150%27%20cy%3D%27150%27%20r%3D%2795%27%20fill%3D%27%23ffffff%27%20mask%3D%27url%28%23c%29%27%2F%3E%3Cpolygon%20points%3D%27215.0%2C116.0%20222.6%2C139.5%20247.3%2C139.5%20227.4%2C154.0%20235.0%2C177.5%20215.0%2C163.0%20195.0%2C177.5%20202.6%2C154.0%20182.7%2C139.5%20207.4%2C139.5%27%20fill%3D%27%23ffffff%27%2F%3E%3C%2Fsvg%3E");
+      --t-corner-badge: url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%20100%20100%27%3E%3Cmask%20id%3D%27b%27%3E%3Crect%20width%3D%27100%27%20height%3D%27100%27%20fill%3D%27white%27%2F%3E%3Ccircle%20cx%3D%2762%27%20cy%3D%2750%27%20r%3D%2724%27%20fill%3D%27black%27%2F%3E%3C%2Fmask%3E%3Ccircle%20cx%3D%2750%27%20cy%3D%2750%27%20r%3D%2732%27%20fill%3D%27%23ffffff%27%20mask%3D%27url%28%23b%29%27%2F%3E%3Cpolygon%20points%3D%2772%2C39%2075%2C47%2084%2C47%2077%2C52%2079%2C60%2072%2C55%2065%2C60%2067%2C52%2060%2C47%2069%2C47%27%20fill%3D%27%23ffffff%27%2F%3E%3C%2Fsvg%3E");
+    }
+    /* Big, very faint flag watermark fixed in a corner of the whole page —
+       "show the Pakistan flag in the background" without ever competing
+       with real content on top of it. */
+    body::after {
+      content:''; position:fixed; right:-6%; bottom:-8%; z-index:0; pointer-events:none;
+      width:56vw; height:38vw; max-width:820px; max-height:560px;
+      background-image: var(--t-flag-bg);
+      background-size: contain; background-repeat:no-repeat; background-position:bottom right;
+      opacity: calc(var(--t-flag-opacity) * 0.05);
+    }
+    /* Gentle twinkle on the crescent-and-star corner badges added to cards
+       and buttons below — a slow pulse in glow + scale, distinct from the
+       Spider-Man theme's sway/drop so each theme has its own personality. */
+    @keyframes flag-twinkle {
+      0%, 100% { opacity:0.55; transform:scale(0.94); filter:drop-shadow(0 0 0 rgba(255,255,255,0)); }
+      50%      { opacity:1;    transform:scale(1.05); filter:drop-shadow(0 0 6px rgba(255,255,255,0.85)); }
+    }
+    html[data-theme="pakistan"] .deal-card::before,
+    html[data-theme="pakistan"] .promo-card::before,
+    html[data-theme="pakistan"] .sub-carousel-card::before {
+      content:''; position:absolute; top:8px; right:8px; width:26px; height:26px;
+      background-image:var(--t-corner-badge); background-size:contain; background-repeat:no-repeat;
+      opacity:0.7; pointer-events:none; z-index:2;
+      animation:flag-twinkle 3.2s ease-in-out infinite;
+    }
+    html[data-theme="pakistan"] .promo-card::before { animation-delay:0.6s; }
+    html[data-theme="pakistan"] .sub-carousel-card::before { animation-delay:1.2s; }
+    /* Big crescent-and-star watermark behind the hero copy — reuses the
+       same .hero-bg::before slot the Spider-Man theme uses, just with a
+       different emblem and opacity per theme (set below). */
+    html[data-theme="pakistan"] .hero-bg::before { opacity:0.09; }
+    /* Buttons: a small crescent-and-star glints in the corner on hover,
+       echoing the card badges above but scoped to interaction only. */
+    html[data-theme="pakistan"] .btn-neon::before,
+    html[data-theme="pakistan"] .btn-neon-outline::before,
+    html[data-theme="pakistan"] .btn-neon-sm::before {
+      content:''; position:absolute; top:-6px; right:-6px; width:20px; height:20px;
+      background-image:var(--t-corner-badge); background-size:contain; background-repeat:no-repeat;
+      opacity:0; transform:scale(0.6); pointer-events:none;
+      transition:opacity .25s ease, transform .25s ease;
+    }
+    html[data-theme="pakistan"] .btn-neon:hover::before,
+    html[data-theme="pakistan"] .btn-neon-outline:hover::before,
+    html[data-theme="pakistan"] .btn-neon-sm:hover::before {
+      opacity:1; transform:scale(1); animation:flag-twinkle 1.4s ease-in-out infinite;
+    }
+    /* A thin white/green independence-day ribbon along the very top of the
+       navbar — a small but unmistakable "14 August" touch. */
+    html[data-theme="pakistan"] .navbar-glass { box-shadow: 0 -3px 0 0 #ffffff inset, 0 -6px 0 0 var(--t-primary-hex) inset; }
     /* Faint tiled spider-web behind the whole page, only visible when the
        Spider-Man theme sets --t-web-opacity to 1. Kept subtle so text on
        top always stays readable. */
@@ -129,10 +208,12 @@
     html[data-theme="spiderman"] h2.neon-text::after { animation-delay:.7s; right:-16px; }
     html[data-theme="spiderman"] .hero-bg h1::after { top:-34px; right:6%; animation-delay:2.1s; }
 
-    /* Big, faint Spider-Man mask watermark sitting behind the hero copy. */
+    /* Big, faint themed mask watermark sitting behind the hero copy —
+       image comes from --t-hero-watermark, set per theme; classic theme
+       leaves it at 'none' so nothing shows. */
     .hero-bg::before {
       content:''; position:absolute; top:50%; right:-8%; width:560px; height:560px; max-width:70%;
-      transform:translateY(-50%); background-image:var(--spidey-face); background-size:contain; background-repeat:no-repeat;
+      transform:translateY(-50%); background-image:var(--t-hero-watermark); background-size:contain; background-repeat:no-repeat;
       opacity:0; pointer-events:none; z-index:0;
     }
     html[data-theme="spiderman"] .hero-bg::before { opacity:0.07; }
@@ -453,27 +534,48 @@
        Tailwind's red-* utilities are used directly in the markup (text-red-400,
        bg-red-500/10, etc). Rather than touch every JSX line, whichever theme is
        active on <html data-theme="..."> repaints them here. Classic theme needs
-       no rules since red *is* its color already. */
+       no rules since red *is* its color already. Values only ever reference the
+       --t-* custom properties, so every theme just plugs into the same rules. */
     html[data-theme="spiderman"] .text-red-400,
     html[data-theme="spiderman"] .text-red-300,
     html[data-theme="spiderman"] .text-red-500,
-    html[data-theme="spiderman"] .text-red-400\/70 { color: var(--t-primary-light) !important; }
+    html[data-theme="spiderman"] .text-red-400\/70,
+    html[data-theme="pakistan"] .text-red-400,
+    html[data-theme="pakistan"] .text-red-300,
+    html[data-theme="pakistan"] .text-red-500,
+    html[data-theme="pakistan"] .text-red-400\/70 { color: var(--t-primary-light) !important; }
     html[data-theme="spiderman"] .hover\:text-red-300:hover,
-    html[data-theme="spiderman"] .hover\:text-red-400:hover { color: var(--t-primary-lighter) !important; }
-    html[data-theme="spiderman"] .bg-red-500 { background-color: var(--t-primary-hex) !important; }
-    html[data-theme="spiderman"] .bg-red-500\/5 { background-color: rgba(var(--t-primary),0.05) !important; }
-    html[data-theme="spiderman"] .bg-red-500\/10 { background-color: rgba(var(--t-primary),0.10) !important; }
-    html[data-theme="spiderman"] .bg-red-500\/15 { background-color: rgba(var(--t-primary),0.15) !important; }
-    html[data-theme="spiderman"] .bg-red-500\/20 { background-color: rgba(var(--t-primary),0.20) !important; }
-    html[data-theme="spiderman"] .border-red-500 { border-color: var(--t-primary-hex) !important; }
-    html[data-theme="spiderman"] .border-red-500\/10 { border-color: rgba(var(--t-primary),0.10) !important; }
-    html[data-theme="spiderman"] .border-red-500\/15 { border-color: rgba(var(--t-primary),0.15) !important; }
-    html[data-theme="spiderman"] .border-red-500\/20 { border-color: rgba(var(--t-primary),0.20) !important; }
-    html[data-theme="spiderman"] .border-red-500\/40 { border-color: rgba(var(--t-primary),0.40) !important; }
-    html[data-theme="spiderman"] .border-red-500\/50 { border-color: rgba(var(--t-primary),0.50) !important; }
-    html[data-theme="spiderman"] .accent-red-500 { accent-color: var(--t-primary-hex) !important; }
-    html[data-theme="spiderman"] .from-red-500 { --tw-gradient-from: var(--t-primary-hex) var(--tw-gradient-from-position) !important; --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to) !important; }
-    html[data-theme="spiderman"] .to-red-700 { --tw-gradient-to: var(--t-secondary-hex) var(--tw-gradient-to-position) !important; }
+    html[data-theme="spiderman"] .hover\:text-red-400:hover,
+    html[data-theme="pakistan"] .hover\:text-red-300:hover,
+    html[data-theme="pakistan"] .hover\:text-red-400:hover { color: var(--t-primary-lighter) !important; }
+    html[data-theme="spiderman"] .bg-red-500,
+    html[data-theme="pakistan"] .bg-red-500 { background-color: var(--t-primary-hex) !important; }
+    html[data-theme="spiderman"] .bg-red-500\/5,
+    html[data-theme="pakistan"] .bg-red-500\/5 { background-color: rgba(var(--t-primary),0.05) !important; }
+    html[data-theme="spiderman"] .bg-red-500\/10,
+    html[data-theme="pakistan"] .bg-red-500\/10 { background-color: rgba(var(--t-primary),0.10) !important; }
+    html[data-theme="spiderman"] .bg-red-500\/15,
+    html[data-theme="pakistan"] .bg-red-500\/15 { background-color: rgba(var(--t-primary),0.15) !important; }
+    html[data-theme="spiderman"] .bg-red-500\/20,
+    html[data-theme="pakistan"] .bg-red-500\/20 { background-color: rgba(var(--t-primary),0.20) !important; }
+    html[data-theme="spiderman"] .border-red-500,
+    html[data-theme="pakistan"] .border-red-500 { border-color: var(--t-primary-hex) !important; }
+    html[data-theme="spiderman"] .border-red-500\/10,
+    html[data-theme="pakistan"] .border-red-500\/10 { border-color: rgba(var(--t-primary),0.10) !important; }
+    html[data-theme="spiderman"] .border-red-500\/15,
+    html[data-theme="pakistan"] .border-red-500\/15 { border-color: rgba(var(--t-primary),0.15) !important; }
+    html[data-theme="spiderman"] .border-red-500\/20,
+    html[data-theme="pakistan"] .border-red-500\/20 { border-color: rgba(var(--t-primary),0.20) !important; }
+    html[data-theme="spiderman"] .border-red-500\/40,
+    html[data-theme="pakistan"] .border-red-500\/40 { border-color: rgba(var(--t-primary),0.40) !important; }
+    html[data-theme="spiderman"] .border-red-500\/50,
+    html[data-theme="pakistan"] .border-red-500\/50 { border-color: rgba(var(--t-primary),0.50) !important; }
+    html[data-theme="spiderman"] .accent-red-500,
+    html[data-theme="pakistan"] .accent-red-500 { accent-color: var(--t-primary-hex) !important; }
+    html[data-theme="spiderman"] .from-red-500,
+    html[data-theme="pakistan"] .from-red-500 { --tw-gradient-from: var(--t-primary-hex) var(--tw-gradient-from-position) !important; --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to) !important; }
+    html[data-theme="spiderman"] .to-red-700,
+    html[data-theme="pakistan"] .to-red-700 { --tw-gradient-to: var(--t-secondary-hex) var(--tw-gradient-to-position) !important; }
 
     /* ─── ADMIN THEME PICKER ──────────────────────────────── */
     .theme-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(230px,1fr)); gap:18px; }
@@ -1262,6 +1364,13 @@
         icon: 'fa-spider',
         swatches: ['#e21922', '#1a47c4', '#060810'],
       },
+      {
+        id: 'pakistan',
+        name: 'Independence Day',
+        description: 'Green & white for 14th August — flag watermark, crescent-star accents',
+        icon: 'fa-star-and-crescent',
+        swatches: ['#16a34a', '#ffffff', '#060b07'],
+      },
     ];
 
     // Puts a theme on the page and remembers it locally so the next reload
@@ -1417,7 +1526,7 @@
 
       const navItemsFirst = [
         { id: 'home', label: 'Home', icon: 'fa-home' },
-        { id: 'subscriptions', label: 'Services', icon: 'fa-crown' },
+        { id: 'subscriptions', label: 'Subscriptions', icon: 'fa-crown' },
       ];
       const navItemsLast = [
         { id: 'help', label: 'Help', icon: 'fa-question-circle' },
@@ -3710,10 +3819,6 @@
           addToast('Please wait, your purchase is already processing…', 'info');
           return;
         }
-        if (!currentUser) {
-          requireAuth && requireAuth();
-          return;
-        }
         if (!canUseCredits) {
           addToast('Insufficient credits', 'error');
           return;
@@ -3814,7 +3919,7 @@
                 <p className="text-yellow-400 text-sm"><i className="fas fa-exclamation-circle mr-2"></i> Please log in to purchase with credits.</p>
               </div>
             )}
-            <button onClick={handlePayWithCredits} disabled={loading || (currentUser && !canUseCredits)} className="btn-neon w-full py-3 bg-green-600 hover:bg-green-700 disabled:opacity-40 disabled:cursor-not-allowed">
+            <button onClick={handlePayWithCredits} disabled={loading || !canUseCredits} className="btn-neon w-full py-3 bg-green-600 hover:bg-green-700 disabled:opacity-40 disabled:cursor-not-allowed">
               {loading ? <span className="spinner"></span> : <><i className="fas fa-coins mr-2"></i> Pay with Credits</>}
             </button>
           </div>
@@ -3950,10 +4055,6 @@
           addToast('Please wait, your purchase is already processing…', 'info');
           return;
         }
-        if (!currentUser) {
-          requireAuth && requireAuth();
-          return;
-        }
         if (!canUseCredits) {
           addToast('Insufficient credits', 'error');
           return;
@@ -4009,7 +4110,7 @@
                 <p className="text-yellow-400 text-sm"><i className="fas fa-exclamation-circle mr-2"></i> Please log in to purchase with credits.</p>
               </div>
             )}
-            <button onClick={handlePayWithCredits} disabled={loading || (currentUser && !canUseCredits)} className="btn-neon w-full py-3 bg-green-600 hover:bg-green-700 disabled:opacity-40 disabled:cursor-not-allowed">
+            <button onClick={handlePayWithCredits} disabled={loading || !canUseCredits} className="btn-neon w-full py-3 bg-green-600 hover:bg-green-700 disabled:opacity-40 disabled:cursor-not-allowed">
               {loading ? <span className="spinner"></span> : <><i className="fas fa-coins mr-2"></i> Pay with Credits</>}
             </button>
           </div>
@@ -4155,10 +4256,6 @@
           addToast('Please wait, your purchase is already processing…', 'info');
           return;
         }
-        if (!currentUser) {
-          requireAuth && requireAuth();
-          return;
-        }
         if (!canUseCredits) {
           addToast('Insufficient credits', 'error');
           return;
@@ -4244,7 +4341,7 @@
                 if (isSubmittingRef.current) { addToast('Please wait, your purchase is already processing…', 'info'); return; }
                 completePurchase(false);
               }}
-              disabled={loading || (creditsNeeded > 0 && currentUser && !canUseCredits)}
+              disabled={loading || (creditsNeeded > 0 && !canUseCredits)}
               className="btn-neon w-full py-3 bg-green-600 hover:bg-green-700 disabled:opacity-40 disabled:cursor-not-allowed"
             >
               {loading ? <span className="spinner"></span> : creditsNeeded > 0 ? <><i className="fas fa-coins mr-2"></i> Pay with Credits</> : <><i className="fas fa-check-circle mr-2"></i> Complete Purchase</>}
@@ -4256,7 +4353,7 @@
     }
 
     // ─── DEAL PURCHASE FLOW ──────────────────────────────────
-    function DealPurchaseFlow({ deal, subscriptions, onBack, onComplete, user, requireAuth }) {
+    function DealPurchaseFlow({ deal, subscriptions, onBack, onComplete, user }) {
       const [step, setStep] = useState('plan');
       const [whatsapp, setWhatsapp] = useState(user?.whatsapp || '');
       const [loading, setLoading] = useState(false);
@@ -4274,12 +4371,6 @@
 
       const completePurchase = async (useCreditsFlag = false) => {
         if (isSubmittingRef.current) return;
-        // Browsing is free — signup is only required right here, at the
-        // moment of actually completing the purchase.
-        if (!user) {
-          requireAuth && requireAuth();
-          return;
-        }
         isSubmittingRef.current = true;
         const purchaseId = genPurchaseId();
 
@@ -4427,10 +4518,6 @@
           addToast('Please wait, your purchase is already processing…', 'info');
           return;
         }
-        if (!currentUser) {
-          requireAuth && requireAuth();
-          return;
-        }
         if (!canUseCredits) {
           addToast('Insufficient credits', 'error');
           return;
@@ -4494,7 +4581,7 @@
                 <p className="text-yellow-400 text-sm"><i className="fas fa-exclamation-circle mr-2"></i> Please log in to purchase with credits.</p>
               </div>
             )}
-            <button onClick={handlePayWithCredits} disabled={loading || (currentUser && !canUseCredits)} className="btn-neon w-full py-3 bg-green-600 hover:bg-green-700 disabled:opacity-40 disabled:cursor-not-allowed">
+            <button onClick={handlePayWithCredits} disabled={loading || !canUseCredits} className="btn-neon w-full py-3 bg-green-600 hover:bg-green-700 disabled:opacity-40 disabled:cursor-not-allowed">
               {loading ? <span className="spinner"></span> : <><i className="fas fa-coins mr-2"></i> Pay with Credits</>}
             </button>
           </div>
@@ -9018,6 +9105,9 @@
                           </svg>
                         </div>
                       )}
+                      {t.id === 'pakistan' && (
+                        <i className="fas fa-star-and-crescent" style={{ position: 'absolute', top: 10, right: 12, fontSize: '1.6rem', color: 'rgba(255,255,255,0.55)' }}></i>
+                      )}
                       {t.swatches.map((c, i) => <span key={i} className="theme-swatch" style={{ background: c }}></span>)}
                       {theme === t.id && <span className="theme-active-badge">ACTIVE</span>}
                     </div>
@@ -9434,10 +9524,6 @@
       const [customFaqs, setCustomFaqs] = useState(() => readCache('faqs'));
       const [isAdmin, setIsAdmin] = useState(false);
       const [customerData, setCustomerData] = useState(null);
-      // Custom (out-of-catalog) grants aren't part of `subscriptions`, so
-      // they're tracked separately here and merged into customerData by the
-      // effect below — see the comment there for why.
-      const [customGrantEntries, setCustomGrantEntries] = useState([]);
       const [flowStep, setFlowStep] = useState('welcome');
       const [flowType, setFlowType] = useState(null);
       const [showAuth, setShowAuth] = useState(false);
@@ -9528,20 +9614,6 @@
           document.removeEventListener('visibilitychange', onVisible);
         };
       }, []);
-
-      // Keeps the customer dashboard live. `subscriptions` already refreshes
-      // itself every few seconds via the background poll above (and
-      // instantly on tab-focus) — but customerData used to be a one-time
-      // snapshot taken only when the dashboard was opened, so admin edits
-      // (account email/password, screen name/PIN, expiry, etc.) sat there
-      // stale until the customer manually refreshed the page. Recomputing
-      // it here, keyed on `subscriptions`, means every poll tick now
-      // refreshes what the customer actually sees too — no refresh needed.
-      useEffect(() => {
-        if (flowStep === 'customer-dash' && user) {
-          setCustomerData([...findCustomers(user.username, subscriptions), ...customGrantEntries]);
-        }
-      }, [subscriptions, customGrantEntries, flowStep, user]);
 
       // ─── URL ROUTING ──────────────────────────────────────────
       // Maps a browser path (e.g. /subscriptions, /admin) to the app's internal tab state.
@@ -9816,7 +9888,6 @@
       const handleLogout = () => {
         setUser(null);
         setCustomerData(null);
-        setCustomGrantEntries([]);
         setSocialCartItems([]);
         localStorage.removeItem('authToken'); // drop the login token
         try { sessionStorage.removeItem('authToken'); } catch (e) {}
@@ -9876,7 +9947,7 @@
 
       const renderFlow = () => {
         if (selectedDeal && flowStep === 'deal-purchase') {
-          return <DealPurchaseFlow deal={selectedDeal} subscriptions={subscriptions} onBack={() => { setFlowStep('select'); setSelectedDeal(null); }} onComplete={handleSubComplete} user={user} requireAuth={() => { addToast('Please sign up or login first to complete your purchase.', 'info'); setFlowStep('auth'); }} />;
+          return <DealPurchaseFlow deal={selectedDeal} subscriptions={subscriptions} onBack={() => { setFlowStep('select'); setSelectedDeal(null); }} onComplete={handleSubComplete} user={user} />;
         }
         if (!selectedSubscription) return null;
         const type = selectedSubscription.type;
@@ -9919,8 +9990,7 @@
           // Show what's already loaded right away — the customer shouldn't
           // have to stare at a frozen screen (and click again wondering if
           // it registered) just waiting on a network round trip to see
-          // their own portal. The reactive effect above keeps this fresh
-          // from here on, so we only need to seed it once.
+          // their own portal.
           setCustomerData(findCustomers(user.username));
           setFlowStep('customer-dash');
 
@@ -9929,7 +9999,7 @@
           Promise.all([refreshUser(), fetchSubscriptions(), fetchCustomGrants(user.username).catch(() => [])])
             .then(([, fresh, grants]) => {
               setSubscriptions(fresh);
-              setCustomGrantEntries(mapCustomGrantsToEntries(grants));
+              setCustomerData([...findCustomers(user.username, fresh), ...mapCustomGrantsToEntries(grants)]);
             })
             .catch(err => console.error('Background customer portal refresh failed:', err));
         } else {
@@ -10135,7 +10205,7 @@
                     <p className="text-white/40 mb-8">Choose an option to continue.</p>
                     <div className="flex flex-col items-center gap-4 max-w-md mx-auto">
                       {user ? (
-                        <button onClick={() => { setCustomerData(findCustomers(user.username)); setFlowStep('customer-dash'); fetchCustomGrants(user.username).then(grants => setCustomGrantEntries(mapCustomGrantsToEntries(grants))).catch(() => {}); }} className="btn-neon-outline w-full px-10 py-4 text-lg"><i className="fas fa-user-circle mr-3"></i> My Dashboard</button>
+                        <button onClick={() => { const found = findCustomers(user.username); setCustomerData(found); setFlowStep('customer-dash'); fetchCustomGrants(user.username).then(grants => setCustomerData([...found, ...mapCustomGrantsToEntries(grants)])).catch(() => {}); }} className="btn-neon-outline w-full px-10 py-4 text-lg"><i className="fas fa-user-circle mr-3"></i> My Dashboard</button>
                       ) : (
                         <button onClick={() => { setShowAuth(true); setFlowStep('auth'); }} className="btn-neon-outline w-full px-10 py-4 text-lg"><i className="fas fa-user-plus mr-3"></i> Sign Up</button>
                       )}
