@@ -369,8 +369,34 @@
     /* ─── WHATSAPP FLOATING BUTTON (right-aligned) ──────────── */
     .whatsapp-float { position:fixed; bottom:24px; right:24px; z-index:100; background:#25D366; color:#fff; width:60px; height:60px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:2rem; box-shadow:0 4px 30px rgba(37,211,102,0.4); transition:all .3s ease; text-decoration:none; }
     .whatsapp-float:hover { transform:scale(1.08); box-shadow:0 6px 40px rgba(37,211,102,0.5); }
-    .complaint-float { position:fixed; bottom:96px; right:24px; z-index:100; background:var(--t-primary-hex); color:#fff; width:52px; height:52px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:1.5rem; box-shadow:0 4px 30px rgba(var(--t-primary),0.4); transition:all .3s ease; text-decoration:none; border:none; cursor:pointer; }
-    .complaint-float:hover { transform:scale(1.08); box-shadow:0 6px 40px rgba(var(--t-primary),0.5); }
+    .chatbot-float { position:fixed; bottom:96px; right:24px; z-index:100; background:var(--t-primary-hex); color:#fff; width:52px; height:52px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:1.4rem; box-shadow:0 4px 30px rgba(var(--t-primary),0.4); transition:all .3s ease; text-decoration:none; border:none; cursor:pointer; }
+    .chatbot-float:hover { transform:scale(1.08); box-shadow:0 6px 40px rgba(var(--t-primary),0.5); }
+    .chatbot-float .unread-dot { position:absolute; top:2px; right:2px; width:12px; height:12px; border-radius:50%; background:#ef4444; border:2px solid var(--t-bg); }
+    .chatbot-window { position:fixed; bottom:160px; right:24px; z-index:150; width:360px; max-width:calc(100vw - 32px); height:480px; max-height:70vh; background:rgba(var(--t-panel),0.98); border:1px solid rgba(var(--t-primary),0.25); border-radius:20px; box-shadow:0 20px 60px rgba(0,0,0,0.5); display:flex; flex-direction:column; overflow:hidden; animation:chatSlideUp .25s ease; }
+    @keyframes chatSlideUp { from { opacity:0; transform:translateY(12px); } to { opacity:1; transform:translateY(0); } }
+    .chatbot-header { display:flex; align-items:center; justify-content:space-between; padding:14px 18px; background:linear-gradient(135deg, var(--t-primary-hex), rgba(var(--t-primary),0.7)); flex-shrink:0; }
+    .chatbot-header .close-btn { background:none; border:none; color:rgba(255,255,255,0.8); font-size:1.2rem; cursor:pointer; transition:color .2s ease; }
+    .chatbot-header .close-btn:hover { color:#fff; }
+    .chatbot-messages { flex:1; overflow-y:auto; padding:16px; display:flex; flex-direction:column; gap:10px; }
+    .chat-bubble { max-width:82%; padding:10px 14px; border-radius:16px; font-size:.88rem; line-height:1.45; white-space:pre-wrap; }
+    .chat-bubble.bot { align-self:flex-start; background:rgba(255,255,255,0.06); color:rgba(255,255,255,0.85); border-bottom-left-radius:4px; }
+    .chat-bubble.user { align-self:flex-end; background:var(--t-primary-hex); color:#fff; border-bottom-right-radius:4px; }
+    .chat-bubble-action { align-self:flex-start; margin-top:-2px; background:none; border:1px solid rgba(var(--t-primary),0.5); color:var(--t-primary-hex); font-size:.8rem; font-weight:600; padding:6px 14px; border-radius:20px; cursor:pointer; transition:all .2s ease; }
+    .chat-bubble-action:hover { background:rgba(var(--t-primary),0.15); }
+    .chat-quick-replies { display:flex; flex-wrap:wrap; gap:6px; padding:0 16px 12px; flex-shrink:0; }
+    .chat-quick-reply { background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.1); color:rgba(255,255,255,0.7); font-size:.75rem; padding:6px 12px; border-radius:14px; cursor:pointer; transition:all .2s ease; }
+    .chat-quick-reply:hover { background:rgba(var(--t-primary),0.15); border-color:rgba(var(--t-primary),0.4); color:#fff; }
+    .chatbot-input-row { display:flex; gap:8px; padding:12px; border-top:1px solid rgba(255,255,255,0.08); flex-shrink:0; }
+    .chatbot-input-row input { flex:1; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.1); border-radius:20px; padding:10px 16px; color:#fff; font-size:.85rem; outline:none; transition:border-color .2s ease; }
+    .chatbot-input-row input:focus { border-color:var(--t-primary-hex); }
+    .chatbot-input-row button { background:var(--t-primary-hex); color:#fff; border:none; width:38px; height:38px; border-radius:50%; flex-shrink:0; display:flex; align-items:center; justify-content:center; cursor:pointer; transition:transform .2s ease; }
+    .chatbot-input-row button:hover { transform:scale(1.08); }
+    .chatbot-input-row button:disabled { opacity:.4; cursor:not-allowed; transform:none; }
+    .chat-typing { display:flex; gap:4px; padding:10px 14px; }
+    .chat-typing span { width:6px; height:6px; border-radius:50%; background:rgba(255,255,255,0.4); animation:chatTypingBounce 1.2s infinite ease-in-out; }
+    .chat-typing span:nth-child(2) { animation-delay:.15s; }
+    .chat-typing span:nth-child(3) { animation-delay:.3s; }
+    @keyframes chatTypingBounce { 0%,60%,100% { transform:translateY(0); opacity:.4; } 30% { transform:translateY(-4px); opacity:1; } }
     .cart-float { position:fixed; bottom:160px; right:24px; z-index:100; background:#18181b; color:#fff; width:52px; height:52px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:1.35rem; box-shadow:0 4px 30px rgba(0,0,0,0.4); transition:all .3s ease; text-decoration:none; border:1px solid rgba(var(--t-primary),0.3); cursor:pointer; }
     .cart-float:hover { transform:scale(1.08); }
     .cart-float-badge { position:absolute; top:-4px; right:-4px; background:var(--t-primary-hex); color:#fff; font-size:.65rem; font-weight:700; min-width:18px; height:18px; border-radius:9px; display:flex; align-items:center; justify-content:center; padding:0 4px; }
@@ -537,7 +563,7 @@
     @media (max-width:1200px) { .carousel-slide { flex:0 0 25%; } }
     @media (max-width:992px) { .carousel-slide { flex:0 0 33.333%; } }
     @media (max-width:768px) { .carousel-slide { flex:0 0 50%; } .brand-z { width:1.8rem; height:1.8rem; font-size:1rem; } .logo-primary { font-size:1.2rem; } }
-    @media (max-width:640px) { .carousel-slide { flex:0 0 100%; } .sub-icon { font-size:2.2rem; } .otp-input { width:44px; height:52px; font-size:1.3rem; } .toast-container { left:16px; right:16px; max-width:100%; bottom:16px; } .admin-table th,.admin-table td { padding:8px 10px; font-size:.75rem; } .carousel-btn { width:30px; height:30px; font-size:.8rem; } .carousel-btn.prev { left:-2px; } .carousel-btn.next { right:-2px; } .whatsapp-float { width:50px; height:50px; font-size:1.6rem; bottom:16px; right:16px; } .complaint-float { width:44px; height:44px; font-size:1.25rem; bottom:74px; right:16px; } .cart-float { width:44px; height:44px; font-size:1.15rem; bottom:126px; right:16px; } .glass-panel { padding:16px 14px; } .deal-card { min-height:140px; padding:10px 10px; } .deal-price-discount { font-size:1.2rem; } .hero-bg { padding-top:0; } }
+    @media (max-width:640px) { .carousel-slide { flex:0 0 100%; } .sub-icon { font-size:2.2rem; } .otp-input { width:44px; height:52px; font-size:1.3rem; } .toast-container { left:16px; right:16px; max-width:100%; bottom:16px; } .admin-table th,.admin-table td { padding:8px 10px; font-size:.75rem; } .carousel-btn { width:30px; height:30px; font-size:.8rem; } .carousel-btn.prev { left:-2px; } .carousel-btn.next { right:-2px; } .whatsapp-float { width:50px; height:50px; font-size:1.6rem; bottom:16px; right:16px; } .chatbot-float { width:44px; height:44px; font-size:1.15rem; bottom:74px; right:16px; } .chatbot-window { bottom:126px; right:16px; width:calc(100vw - 32px); height:65vh; } .cart-float { width:44px; height:44px; font-size:1.15rem; bottom:126px; right:16px; } .glass-panel { padding:16px 14px; } .deal-card { min-height:140px; padding:10px 10px; } .deal-price-discount { font-size:1.2rem; } .hero-bg { padding-top:0; } }
     @media (max-width:480px) { .card-modal-content { padding:24px 16px; } .card-modal-content .modal-icon { font-size:3rem; } .card-modal-content .modal-name { font-size:1.4rem; } }
 
     /* ─── THEME OVERRIDES FOR TAILWIND UTILITY CLASSES ───────
@@ -2695,12 +2721,187 @@
       );
     }
 
-    // ─── COMPLAINT (floating button, sits just above the WhatsApp button) ──
-    function ComplaintFloatButton({ onClick }) {
+    // ─── CHATBOT (floating button + panel, sits just above the WhatsApp
+    // button — replaces the old floating Complaint button; Complaint is
+    // still reachable from the navbar via onOpenComplaint) ──────────────
+    //
+    // This is a lightweight, fully client-side keyword-matching assistant —
+    // no external AI API, no server calls, no cost per message. It answers
+    // from the same knowledge the Help page already uses (DEFAULT_FAQS +
+    // any admin-added FAQs) plus live subscription pricing, and falls back
+    // to a WhatsApp handoff for anything it doesn't confidently know.
+    const CHAT_STOPWORDS = new Set(['a','an','the','is','are','am','was','were','do','does','did','how','what','which','who','when','where','why','can','could','will','would','should','i','my','me','you','your','to','for','of','in','on','at','with','and','or','it','its','this','that','please','need','want','get','have','has','about','if']);
+
+    function chatTokenize(str) {
+      return (str || '').toLowerCase().replace(/[^\w\s]/g, ' ').split(/\s+/).filter(w => w.length > 1 && !CHAT_STOPWORDS.has(w));
+    }
+
+    // Scores one FAQ against the visitor's message: every shared word with
+    // the answer/category counts once, but a shared word with the FAQ's own
+    // question counts extra — matching the actual question someone would
+    // ask is a much stronger signal than just sharing a word with the answer.
+    function chatScoreFaq(faq, queryTokens) {
+      const questionTokens = new Set(chatTokenize(faq.question));
+      const allTokens = new Set(chatTokenize(faq.question + ' ' + faq.answer + ' ' + (faq.category || '')));
+      let score = 0;
+      queryTokens.forEach(t => {
+        if (questionTokens.has(t)) score += 2;
+        else if (allTokens.has(t)) score += 1;
+      });
+      return score;
+    }
+
+    function ChatbotFloatButton({ onClick, hasUnread }) {
       return (
-        <button onClick={onClick} className="complaint-float" aria-label="File a Complaint" title="File a Complaint">
-          <i className="fas fa-exclamation-circle"></i>
+        <button onClick={onClick} className="chatbot-float" aria-label="Chat with us" title="Chat with us">
+          <i className="fas fa-comment-dots"></i>
+          {hasUnread && <span className="unread-dot"></span>}
         </button>
+      );
+    }
+
+    function ChatbotWidget({ open, onClose, faqs, subscriptions, onAction, user }) {
+      const [messages, setMessages] = useState(() => [
+        { role: 'bot', text: "Hi! 👋 I'm the Zetlify assistant. Ask me about signing up, buying a subscription, credits, or your account — or tap a question below to get started." }
+      ]);
+      const [input, setInput] = useState('');
+      const [typing, setTyping] = useState(false);
+      const scrollRef = useRef(null);
+
+      useEffect(() => {
+        if (scrollRef.current) {
+          scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+        }
+      }, [messages, typing, open]);
+
+      const quickQuestions = useMemo(() => {
+        // A small, varied starter set so a first-time visitor has something
+        // to tap instead of staring at an empty input box.
+        const ids = ['buy-subscription', 'buy-credits', 'signup', 'refund'];
+        return ids.map(id => (faqs || []).find(f => f.id === id)).filter(Boolean);
+      }, [faqs]);
+
+      const answerFor = (text) => {
+        const lower = text.toLowerCase().trim();
+
+        if (/^(hi|hello|hey|salam|assalam|asalam)\b/.test(lower)) {
+          return { text: "Hey there! What would you like to know — signing up, buying a subscription, credits, or something else?" };
+        }
+        if (/\b(thanks|thank you|shukriya)\b/.test(lower)) {
+          return { text: "You're welcome! Anything else I can help with?" };
+        }
+        if (/\b(bye|goodbye|khuda hafiz)\b/.test(lower)) {
+          return { text: "Take care! I'm right here whenever you need anything." };
+        }
+
+        // Live pricing lookup — answers with the real current price instead
+        // of a canned FAQ, since this changes and a stale hardcoded answer
+        // would be actively wrong.
+        const matchedSub = (subscriptions || []).find(s => s.name && lower.includes(s.name.toLowerCase()));
+        if (matchedSub && /\b(price|cost|rate|how much|charges?)\b/.test(lower)) {
+          return {
+            text: `${matchedSub.name} is RS ${matchedSub.sellingPrice || 0} per month, paid with credits. Want to go ahead?`,
+            action: { label: 'Browse Subscriptions', type: 'subscriptions' }
+          };
+        }
+        if (matchedSub) {
+          return {
+            text: `${matchedSub.name} is one of our available subscriptions — RS ${matchedSub.sellingPrice || 0}/month. You can pick your plan and pay with credits from the Services page.`,
+            action: { label: 'Browse Subscriptions', type: 'subscriptions' }
+          };
+        }
+        if (/\b(subscriptions?|services?)\b.*\b(list|available|have|offer|options?)\b|\bwhat.*(do you|you)\s+(have|offer|sell)\b/.test(lower)) {
+          const names = (subscriptions || []).map(s => s.name).filter(Boolean).slice(0, 8);
+          if (names.length) {
+            return {
+              text: `We currently have: ${names.join(', ')}${(subscriptions || []).length > names.length ? ', and more' : ''}. Tap below to see full plans and pricing.`,
+              action: { label: 'Browse Subscriptions', type: 'subscriptions' }
+            };
+          }
+        }
+        if (user && /\b(my credits?|credit balance|how many credits)\b/.test(lower)) {
+          return { text: `You currently have ${user.credits || 0} credits. Need more? Our team can top you up on WhatsApp.`, action: { label: 'Chat on WhatsApp', type: 'whatsapp' } };
+        }
+
+        // Fall back to the FAQ knowledge base.
+        const tokens = chatTokenize(text);
+        if (tokens.length) {
+          const scored = (faqs || [])
+            .map(f => ({ faq: f, score: chatScoreFaq(f, tokens) }))
+            .sort((a, b) => b.score - a.score);
+          if (scored.length && scored[0].score >= 2) {
+            return { text: scored[0].faq.answer, action: scored[0].faq.action || null };
+          }
+        }
+
+        return {
+          text: "I don't have an exact answer for that yet, but our support team on WhatsApp can help right away.",
+          action: { label: 'Chat on WhatsApp', type: 'whatsapp' }
+        };
+      };
+
+      const send = (text) => {
+        const trimmed = (text || '').trim();
+        if (!trimmed) return;
+        setMessages(prev => [...prev, { role: 'user', text: trimmed }]);
+        setInput('');
+        setTyping(true);
+        // A brief pause reads as a reply being "typed" rather than a jarring
+        // instant dump of text the moment you hit send.
+        setTimeout(() => {
+          const reply = answerFor(trimmed);
+          setTyping(false);
+          setMessages(prev => [...prev, { role: 'bot', text: reply.text, action: reply.action || null }]);
+        }, 500 + Math.random() * 400);
+      };
+
+      const handleActionClick = (action) => {
+        onClose();
+        onAction(action.type);
+      };
+
+      if (!open) return null;
+
+      return (
+        <div className="chatbot-window">
+          <div className="chatbot-header">
+            <div className="flex items-center gap-2 text-white font-semibold text-sm">
+              <i className="fas fa-robot"></i> Zetlify Assistant
+            </div>
+            <button onClick={onClose} className="close-btn" aria-label="Close chat"><i className="fas fa-times"></i></button>
+          </div>
+          <div ref={scrollRef} className="chatbot-messages">
+            {messages.map((m, idx) => (
+              <React.Fragment key={idx}>
+                <div className={`chat-bubble ${m.role}`}>{m.text}</div>
+                {m.role === 'bot' && m.action && (
+                  <button className="chat-bubble-action" onClick={() => handleActionClick(m.action)}>{m.action.label}</button>
+                )}
+              </React.Fragment>
+            ))}
+            {typing && (
+              <div className="chat-bubble bot chat-typing"><span></span><span></span><span></span></div>
+            )}
+          </div>
+          {messages.length <= 1 && quickQuestions.length > 0 && (
+            <div className="chat-quick-replies">
+              {quickQuestions.map(q => (
+                <button key={q.id} className="chat-quick-reply" onClick={() => send(q.question)}>{q.question}</button>
+              ))}
+            </div>
+          )}
+          <div className="chatbot-input-row">
+            <input
+              type="text"
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') send(input); }}
+              placeholder="Ask a question..."
+              aria-label="Type your question"
+            />
+            <button onClick={() => send(input)} disabled={!input.trim()} aria-label="Send"><i className="fas fa-paper-plane"></i></button>
+          </div>
+        </div>
       );
     }
 
@@ -9574,6 +9775,7 @@
       const [flowType, setFlowType] = useState(null);
       const [showAuth, setShowAuth] = useState(false);
       const [showComplaintModal, setShowComplaintModal] = useState(false);
+      const [showChatbot, setShowChatbot] = useState(false);
       const [selectedDeal, setSelectedDeal] = useState(null);
       // Only block the page with a spinner when we truly have nothing to
       // show yet (first-ever visit, empty cache). Once anything is
@@ -10177,6 +10379,14 @@
           <Navbar activeTab={activeTab} setActiveTab={setActiveTab} showSubscriptions={showSubscriptions} setShowSubscriptions={setShowSubscriptions} onCustomerPortal={handleCustomerPortal} onLogout={handleLogout} onOpenComplaint={() => setShowComplaintModal(true)} />
           <ToastContainer />
           <ComplaintModal open={showComplaintModal} onClose={() => setShowComplaintModal(false)} user={user} subscriptions={subscriptions} />
+          <ChatbotWidget
+            open={showChatbot}
+            onClose={() => setShowChatbot(false)}
+            faqs={[...DEFAULT_FAQS, ...(customFaqs || []).map(f => ({ ...f, isCustom: true }))]}
+            subscriptions={subscriptions}
+            onAction={handleHelpAction}
+            user={user}
+          />
           <SocialOrderModal
             open={!!socialOrderPlatform || !!socialDealOrder}
             platform={socialDealOrder ? { id: socialDealOrder.deal.socialPlatformId, name: socialDealOrder.deal.socialPlatformName, services: [] } : socialOrderPlatform}
@@ -10241,7 +10451,7 @@
                 </div>
               )}
 
-              <ComplaintFloatButton onClick={() => setShowComplaintModal(true)} />
+              <ChatbotFloatButton onClick={() => setShowChatbot(true)} />
               <WhatsAppButton />
               <Footer />
             </>
@@ -10308,7 +10518,7 @@
                 {flowStep === 'customer-dash' && customerData !== null && (
                   <>
                     <CustomerDashboard customerData={customerData} onLogout={() => { resetFlow(); navigateTo('/'); }} onBack={() => setFlowStep('welcome')} deals={dealsWithSub} onDealPurchase={handleDealPurchase} subscriptions={subscriptions} cartItems={socialCartItems} onOpenCart={() => setShowSocialCart(true)} />
-                    <ComplaintFloatButton onClick={() => setShowComplaintModal(true)} />
+                    <ChatbotFloatButton onClick={() => setShowChatbot(true)} />
                     <WhatsAppButton />
                     <Footer />
                   </>
