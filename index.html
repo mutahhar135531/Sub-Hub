@@ -2732,140 +2732,109 @@
     // to a WhatsApp handoff for anything it doesn't confidently know.
     const CHAT_STOPWORDS = new Set(['a','an','the','is','are','am','was','were','do','does','did','how','what','which','who','when','where','why','can','could','will','would','should','i','my','me','you','your','to','for','of','in','on','at','with','and','or','it','its','this','that','please','need','want','get','have','has','about','if']);
 
-    // Same idea in Roman Urdu (and a little native Urdu script) — function
-    // words that carry no topic meaning, filtered out the same way English
-    // "the/is/a" already are so they don't dilute matching.
-    const CHAT_STOPWORDS_UR = new Set(['mein','main','hai','hy','hain','ka','ki','ke','ko','se','aur','ap','aap','apka','apki','apko','ye','yeh','wo','woh','mera','meri','mere','hum','tum','ho','hu','tha','thi','the','par','pr','bhi','ni','ma','mje','mujhe','ise','is','us','un','in','plz','pls','ka','kar','k','hme','hamy','hamein','یہ','وہ','میں','ہے','کا','کی','کے','کو','سے','اور','آپ']);
-
-    // Common Roman-Urdu (and a few native-script) words mapped to their
-    // closest English equivalent from the FAQ vocabulary below, so
-    // "subscription kaise kharidon" scores against the same FAQ as
-    // "how do I buy a subscription".
-    const CHAT_URDU_MAP = {
-      'kaise':'how', 'kese':'how', 'kesy':'how', 'kysy':'how', 'kaisay':'how',
-      'kya':'what', 'kia':'what', 'kyun':'why', 'kyu':'why', 'kion':'why', 'kiun':'why',
-      'kab':'when', 'kahan':'where', 'kaha':'where', 'kidhar':'where',
-      'kitna':'how much', 'kitne':'how many', 'kitni':'how much', 'kitnay':'how much',
-      'kaun':'who', 'kon':'who',
-      'chahiye':'need', 'chaiye':'need', 'chaye':'need', 'chahiy':'need', 'chahye':'need',
-      'karna':'do', 'krna':'do', 'karain':'do', 'krain':'do', 'kren':'do', 'krni':'do', 'krni h':'do',
-      'madad':'help', 'madat':'help', 'help chahiye':'help',
-      'khareedna':'buy', 'khareed':'buy', 'kharidna':'buy', 'kharidain':'buy', 'kharido':'buy', 'kharidoon':'buy', 'kharidna hai':'buy', 'khareedni':'buy',
-      'lena':'buy', 'lenа':'buy', 'lena hai':'buy',
-      'banana':'create', 'bnana':'create', 'bnwana':'create',
-      'paisa':'credits', 'paise':'credits', 'paisay':'credits', 'credit':'credits',
-      'khata':'account', 'akount':'account', 'acount':'account',
-      'qeemat':'price', 'qimat':'price', 'rate':'price',
-      'wapsi':'refund', 'wapas':'refund', 'wapis':'refund',
-      'nahi':'no', 'nai':'no', 'nhi':'no',
-      'haan':'yes', 'han':'yes',
-      'shukriya':'thanks', 'mehrbani':'please', 'meherbani':'please',
-      'signup':'signup', 'sinup':'signup', 'sigup':'signup', 'sign up':'signup', 'registration':'signup', 'register':'signup',
-      'login':'signin', 'log in':'signin', 'signin':'signin',
-      'password':'password', 'pasword':'password', 'passwrd':'password',
-      'bill':'price', 'daam':'price', 'daam kitna':'price',
-      'کیسے':'how', 'کیا':'what', 'کیوں':'why', 'کب':'when', 'کہاں':'where',
-      'کتنا':'how much', 'خریدنا':'buy', 'مدد':'help', 'پیسے':'credits', 'واپسی':'refund'
-    };
-
-    // Core domain words worth fuzzy-correcting English typos against —
-    // deliberately small so correction stays fast and doesn't overreach.
-    const CHAT_VOCAB = ['signup','signin','login','password','subscription','subscriptions','credit','credits','buy','purchase','price','cost','account','whatsapp','refund','deal','deals','bundle','custom','portal','screen','screens','month','months','pin','order','stock','help','support','contact','number','email','username'];
-
-    // Small edit-distance check (Levenshtein) — used only to nudge an
-    // obvious typo ("subscribtion", "pasword") back onto the real word, not
-    // to do anything fancier than that.
+    // ─── Fuzzy word matching (typo tolerance) ───────────────────────
+    // People type fast and misspell things — this lets "subcription" or
+    // "wtsapp" still match "subscription" / "whatsapp" instead of the bot
+    // drawing a blank just because a word wasn't spelled perfectly.
     function chatLevenshtein(a, b) {
-      if (a === b) return 0;
       const m = a.length, n = b.length;
-      if (!m) return n;
-      if (!n) return m;
-      let prev = Array.from({ length: n + 1 }, (_, i) => i);
+      if (m === 0) return n;
+      if (n === 0) return m;
+      let prev = Array.from({ length: n + 1 }, (_, j) => j);
       for (let i = 1; i <= m; i++) {
-        const cur = [i];
+        const curr = [i];
         for (let j = 1; j <= n; j++) {
-          cur[j] = a[i - 1] === b[j - 1] ? prev[j - 1] : 1 + Math.min(prev[j - 1], prev[j], cur[j - 1]);
+          curr[j] = a[i - 1] === b[j - 1] ? prev[j - 1] : 1 + Math.min(prev[j - 1], prev[j], curr[j - 1]);
         }
-        prev = cur;
+        prev = curr;
       }
       return prev[n];
     }
-
-    function chatCorrectTypo(word) {
-      if (word.length < 4) return word; // too short to safely guess at
-      let best = word, bestDist = 2; // only accept a correction within 2 edits
-      for (const v of CHAT_VOCAB) {
-        if (v === word) return word;
-        if (Math.abs(v.length - word.length) > 2) continue;
-        const d = chatLevenshtein(word, v);
-        if (d < bestDist) { bestDist = d; best = v; }
+    // True on an exact match, or a close-enough typo of something in
+    // `set` — tolerance scales with word length so short words still
+    // need to be close, while longer words forgive a couple of slips.
+    function chatFuzzyHas(set, word) {
+      if (set.has(word)) return true;
+      if (word.length < 3) return false;
+      const tolerance = word.length <= 5 ? 1 : word.length <= 8 ? 2 : 3;
+      for (const candidate of set) {
+        if (Math.abs(candidate.length - word.length) > tolerance) continue;
+        if (chatLevenshtein(word, candidate) <= tolerance) return true;
       }
-      return best;
+      return false;
     }
 
-    // Roman Urdu spelling varies a lot from person to person (kharidna /
-    // kharidon / kharidni / kharido / kharidien are all "to buy"). Rather
-    // than list every inflection, match on the shared root once the exact
-    // dictionary above has had first shot.
-    const CHAT_URDU_PREFIXES = [
-      ['kharid', 'buy'], ['khareed', 'buy'],
-      ['chah', 'need'],
-      ['madad', 'help'], ['madat', 'help'],
-      ['wapas', 'refund'], ['wapis', 'refund'], ['wapsi', 'refund'],
-      ['pais', 'credits'],
-      ['qeem', 'price'], ['qim', 'price'],
-    ];
-
-    function chatUrduRootMatch(word) {
-      for (const [prefix, mapped] of CHAT_URDU_PREFIXES) {
-        if (word.startsWith(prefix)) return mapped;
-      }
-      return null;
+    // ─── Roman Urdu ↔ English bridge ─────────────────────────────────
+    // Lets someone typing Roman Urdu (Urdu written in English letters —
+    // extremely common in Pakistan, e.g. "subscription kaise len") match
+    // the same English FAQ knowledge base, and lets the bot notice they
+    // wrote in Roman Urdu so it can reply in Roman Urdu too.
+    const ROMAN_URDU_MAP = {
+      kaise:'how', kaisay:'how', kese:'how', kesy:'how', kyunke:'why', kyun:'why', kiun:'why', kion:'why',
+      kya:'what', kia:'what', kaunsa:'which', konsa:'which', kaunsi:'which', kab:'when', kahan:'where', kidhar:'where',
+      kitna:'how much', kitne:'how much', kitni:'how much',
+      chahiye:'need', chahye:'need', chaiye:'need', lena:'buy', lenay:'buy', lenaa:'buy',
+      khareedna:'buy', kharidna:'buy', khareedu:'buy', kharidu:'buy',
+      banana:'create', bnana:'create', bnwana:'create', banwana:'create',
+      bhejo:'send', bhejain:'send', bhej:'send', dikhao:'show', dikhayen:'show',
+      batao:'tell', batayen:'tell', batadein:'tell',
+      karna:'do', krna:'do', karain:'do', kro:'do',
+      paisay:'money', paise:'money', paisa:'money', rupay:'money', rupaye:'money',
+      wapis:'refund', wapas:'refund', wapsi:'refund',
+      khata:'account', accnt:'account',
+      nahi:'not', nai:'not', nhi:'not', sahi:'correct', theek:'okay', thek:'okay',
+      band:'locked', lock:'locked',
+      shukriya:'thanks', meherbani:'thanks',
+      subscribtion:'subscription', subscripton:'subscription', membership:'subscription',
+      pakage:'package', pakej:'package', milta:'get', milega:'get', milegi:'get',
+      purana:'old', naya:'new', abhi:'now', bhool:'forgot', bhul:'forgot', bhola:'forgot', bholi:'forgot',
+      khatam:'expired', khatm:'expired', expiry:'expired',
+    };
+    // Common Roman Urdu function words. Even one appearing is a strong
+    // signal the whole message is Roman Urdu, since these essentially
+    // never show up in an English sentence by coincidence.
+    const ROMAN_URDU_SIGNAL_WORDS = new Set([
+      'hai','hy','ho','hain','ka','ke','ki','ko','se','mein','main','mujhe','mujhay',
+      'mera','meri','mere','apka','apna','apni','ap','aap','tum','tumhara',
+      'kaise','kaisay','kese','kesy','kya','kia','kyun','kiun','kitna','kitne','kitni',
+      'chahiye','chahye','paisay','paisa','paise','nahi','nai','nhi','theek','thek','sahi',
+      'wapis','wapas','karna','krna','karain','kro','kren','bhejo','bhejain','batao','batayen',
+      'dikhao','lena','lenay','kholna','khulay','milta','milega','milegi','shukriya',
+      'acha','accha','bilkul','zaroor','abhi','phir','kuch','sub','sab','yahan','wahan'
+    ]);
+    function chatDetectRomanUrdu(text) {
+      const tokens = (text || '').toLowerCase().replace(/[^\w\s]/g, ' ').split(/\s+/).filter(Boolean);
+      return tokens.some(t => ROMAN_URDU_SIGNAL_WORDS.has(t) || ROMAN_URDU_MAP[t]);
     }
 
+    // Tokenizes for matching purposes — includes both the original words
+    // AND, for any recognized Roman Urdu word, its English equivalent.
+    // That second part is what lets "subscription kaise len" actually
+    // match FAQ content written in English ("how do I buy a subscription").
     function chatTokenize(str) {
-      let normalized = (str || '').toLowerCase();
-      // "signup" (how most people actually type it) needs to match FAQ text
-      // that spells it "sign up" as two words, and likewise for sign-in/login.
-      normalized = normalized
-        .replace(/\bsign\s*up\b/g, 'signup')
-        .replace(/\bsign\s*in\b/g, 'signin')
-        .replace(/\blog\s*in\b/g, 'signin');
-      const raw = normalized
-        // Keep letters and numbers from ANY script (English or Urdu) and
-        // turn everything else into spaces. Using \w here would silently
-        // delete Urdu-script characters — they aren't in \w — so this needs
-        // the Unicode-aware \p{L}/\p{N} classes with the "u" flag instead.
-        .replace(/[^\p{L}\p{N}\s]/gu, ' ')
-        .split(/\s+/)
-        .filter(Boolean);
-
-      const out = [];
+      const raw = (str || '').toLowerCase().replace(/[^\w\s]/g, ' ').split(/\s+/).filter(w => w.length > 1 && !CHAT_STOPWORDS.has(w));
+      const expanded = [];
       raw.forEach(w => {
-        if (CHAT_STOPWORDS.has(w) || CHAT_STOPWORDS_UR.has(w)) return;
-        const mapped = CHAT_URDU_MAP[w];
-        if (mapped) {
-          mapped.split(' ').forEach(mw => { if (!CHAT_STOPWORDS.has(mw)) out.push(mw); });
-          return;
-        }
-        const rootMapped = chatUrduRootMatch(w);
-        if (rootMapped) { out.push(rootMapped); return; }
-        out.push(chatCorrectTypo(w));
+        expanded.push(w);
+        const mapped = ROMAN_URDU_MAP[w];
+        if (mapped) mapped.split(' ').forEach(mw => expanded.push(mw));
       });
-      return out.filter(w => w.length > 1);
+      return expanded;
     }
 
     // Scores one FAQ against the visitor's message: every shared word with
     // the answer/category counts once, but a shared word with the FAQ's own
     // question counts extra — matching the actual question someone would
-    // ask is a much stronger signal than just sharing a word with the answer.
+    // ask is a much stronger signal than just sharing a word with the
+    // answer. Uses fuzzy matching throughout, so typos and near-misses
+    // still count.
     function chatScoreFaq(faq, queryTokens) {
       const questionTokens = new Set(chatTokenize(faq.question));
       const allTokens = new Set(chatTokenize(faq.question + ' ' + faq.answer + ' ' + (faq.category || '')));
       let score = 0;
       queryTokens.forEach(t => {
-        if (questionTokens.has(t)) score += 2;
-        else if (allTokens.has(t)) score += 1;
+        if (chatFuzzyHas(questionTokens, t)) score += 2;
+        else if (chatFuzzyHas(allTokens, t)) score += 1;
       });
       return score;
     }
@@ -2881,7 +2850,7 @@
 
     function ChatbotWidget({ open, onClose, faqs, subscriptions, onAction, user }) {
       const [messages, setMessages] = useState(() => [
-        { role: 'bot', text: "Hi! 👋 I'm the Zetlify assistant. Ask me about signing up, buying a subscription, credits, or your account — or tap a question below to get started." }
+        { role: 'bot', text: "Hi! 👋 I'm the Zetlify assistant. Ask me in English or Roman Urdu — dono zabanon mein baat kar saktay hain! Signing up, buying a subscription, credits, ya apne account ke baare mein kuch bhi puchein." }
       ]);
       const [input, setInput] = useState('');
       const [typing, setTyping] = useState(false);
@@ -2900,62 +2869,108 @@
         return ids.map(id => (faqs || []).find(f => f.id === id)).filter(Boolean);
       }, [faqs]);
 
+      // Turns typed text into a reply. Tries, in order: greetings/small
+      // talk, live pricing lookups (never stale, since these come straight
+      // from the current subscriptions data), then the FAQ knowledge base
+      // with fuzzy + Roman Urdu matching. Confidence decides what happens:
+      //   confident match  → answer directly
+      //   weak match       → ask a simple clarifying question with the
+      //                      closest few candidates as tappable chips,
+      //                      rather than guessing wrong or giving up
+      //   no match at all  → same idea, but with the general topic list
+      // Nothing ever just dead-ends — there's always either a direct
+      // answer, something to tap, or a way to reach a human.
       const answerFor = (text) => {
         const lower = text.toLowerCase().trim();
+        const isRoman = chatDetectRomanUrdu(text);
+        const pick = (faq) => (isRoman && faq.roman) ? faq.roman : faq.answer;
 
-        if (/^(hi|hello|hey|salam|assalam|asalam|salam alaikum|assalamualaikum|aoa|slm)\b/.test(lower)) {
-          return { text: "Hey there! What would you like to know — signing up, buying a subscription, credits, or something else?" };
+        if (/^(hi|hello|hey|salam|assalam|asalam|aoa|slam)\b/.test(lower)) {
+          return { text: isRoman
+            ? "Assalam-o-Alaikum! 👋 Sign up, subscription khareedne, credits ya apne account ke baare mein kuch bhi puchein."
+            : "Hey there! What would you like to know — signing up, buying a subscription, credits, or something else?" };
         }
-        if (/\b(thanks|thank you|thankyou|shukriya|shukria)\b/.test(lower)) {
-          return { text: "You're welcome! Anything else I can help with?" };
+        if (/\b(thanks|thank you|shukriya|meherbani|mehrbani)\b/.test(lower)) {
+          return { text: isRoman ? "Koi baat nahi! Aur kuch madad chahiye?" : "You're welcome! Anything else I can help with?" };
         }
-        if (/\b(bye|goodbye|khuda hafiz|khudahafiz|allah hafiz)\b/.test(lower)) {
-          return { text: "Take care! I'm right here whenever you need anything." };
+        if (/\b(bye|goodbye|khuda hafiz|allah hafiz)\b/.test(lower)) {
+          return { text: isRoman ? "Allah Hafiz! Jab bhi zaroorat ho, yahin hun." : "Take care! I'm right here whenever you need anything." };
         }
 
-        // Live pricing lookup — answers with the real current price instead
-        // of a canned FAQ, since this changes and a stale hardcoded answer
-        // would be actively wrong.
+        // Live pricing/catalog lookup — answers with the real current data
+        // instead of a canned FAQ, since this changes and a stale hardcoded
+        // answer would be actively wrong.
         const matchedSub = (subscriptions || []).find(s => s.name && lower.includes(s.name.toLowerCase()));
-        if (matchedSub && /\b(price|cost|rate|how much|charges?|kitna|kitne|kitni|qeemat|qimat|daam)\b/.test(lower)) {
+        if (matchedSub && /\b(price|cost|rate|how much|charges?|kitna|kitne|kitni|paisa|paisay|paise)\b/.test(lower)) {
           return {
-            text: `${matchedSub.name} is RS ${matchedSub.sellingPrice || 0} per month, paid with credits. Want to go ahead?`,
-            action: { label: 'Browse Subscriptions', type: 'subscriptions' }
+            text: isRoman
+              ? `${matchedSub.name} ki price RS ${matchedSub.sellingPrice || 0} per month hai, credits se pay hoti hai. Aage barhna chahtay hain?`
+              : `${matchedSub.name} is RS ${matchedSub.sellingPrice || 0} per month, paid with credits. Want to go ahead?`,
+            action: { label: isRoman ? 'Subscriptions Dekhein' : 'Browse Subscriptions', type: 'subscriptions' }
           };
         }
         if (matchedSub) {
           return {
-            text: `${matchedSub.name} is one of our available subscriptions — RS ${matchedSub.sellingPrice || 0}/month. You can pick your plan and pay with credits from the Services page.`,
-            action: { label: 'Browse Subscriptions', type: 'subscriptions' }
+            text: isRoman
+              ? `${matchedSub.name} humari available subscriptions mein se ek hai — RS ${matchedSub.sellingPrice || 0}/month. Apna plan choose kar ke Services page se credits se pay kar saktay hain.`
+              : `${matchedSub.name} is one of our available subscriptions — RS ${matchedSub.sellingPrice || 0}/month. You can pick your plan and pay with credits from the Services page.`,
+            action: { label: isRoman ? 'Subscriptions Dekhein' : 'Browse Subscriptions', type: 'subscriptions' }
           };
         }
-        if (/\b(subscriptions?|services?)\b.*\b(list|available|have|offer|options?)\b|\bwhat.*(do you|you)\s+(have|offer|sell)\b/.test(lower)) {
+        if (/\b(subscriptions?|services?)\b.*\b(list|available|have|offer|options?)\b|\bwhat.*(do you|you)\s+(have|offer|sell)\b|\bkonsi?\b.*\bsubscription/.test(lower)) {
           const names = (subscriptions || []).map(s => s.name).filter(Boolean).slice(0, 8);
           if (names.length) {
             return {
-              text: `We currently have: ${names.join(', ')}${(subscriptions || []).length > names.length ? ', and more' : ''}. Tap below to see full plans and pricing.`,
-              action: { label: 'Browse Subscriptions', type: 'subscriptions' }
+              text: isRoman
+                ? `Filhaal humare paas yeh available hain: ${names.join(', ')}${(subscriptions || []).length > names.length ? ', aur bhi' : ''}. Poori details aur pricing ke liye neeche tap karein.`
+                : `We currently have: ${names.join(', ')}${(subscriptions || []).length > names.length ? ', and more' : ''}. Tap below to see full plans and pricing.`,
+              action: { label: isRoman ? 'Subscriptions Dekhein' : 'Browse Subscriptions', type: 'subscriptions' }
             };
           }
         }
-        if (user && /\b(my credits?|credit balance|how many credits)\b/.test(lower)) {
-          return { text: `You currently have ${user.credits || 0} credits. Need more? Our team can top you up on WhatsApp.`, action: { label: 'Chat on WhatsApp', type: 'whatsapp' } };
+        if (user && /\b(my credits?|credit balance|how many credits|kitne credits|mere credits)\b/.test(lower)) {
+          return {
+            text: isRoman
+              ? `Aap ke paas is waqt ${user.credits || 0} credits hain. Aur chahiye? Humari team WhatsApp par top-up kar degi.`
+              : `You currently have ${user.credits || 0} credits. Need more? Our team can top you up on WhatsApp.`,
+            action: { label: isRoman ? 'WhatsApp pe Baat Karein' : 'Chat on WhatsApp', type: 'whatsapp' }
+          };
         }
 
-        // Fall back to the FAQ knowledge base.
+        // FAQ knowledge base — fuzzy + Roman Urdu aware (see chatTokenize /
+        // chatScoreFaq above). Tiered by confidence rather than a single
+        // pass/fail cutoff, so a rough or partially-understood question
+        // still gets somewhere useful instead of an immediate shrug.
         const tokens = chatTokenize(text);
-        if (tokens.length) {
-          const scored = (faqs || [])
-            .map(f => ({ faq: f, score: chatScoreFaq(f, tokens) }))
-            .sort((a, b) => b.score - a.score);
-          if (scored.length && scored[0].score >= 2) {
-            return { text: scored[0].faq.answer, action: scored[0].faq.action || null };
-          }
+        const scored = tokens.length
+          ? (faqs || []).map(f => ({ faq: f, score: chatScoreFaq(f, tokens) })).sort((a, b) => b.score - a.score)
+          : [];
+        const top = scored[0];
+
+        if (top && top.score >= 3) {
+          return { text: pick(top.faq), action: top.faq.action || null };
+        }
+        if (top && top.score >= 1) {
+          // Not confident enough to just answer — but there's clearly
+          // something relevant. Ask, simply, rather than guess.
+          const candidates = scored.filter(s => s.score > 0).slice(0, 3).map(s => s.faq);
+          return {
+            text: isRoman
+              ? "Mujhe thori si confusion ho rahi hai — kya aap in mein se kisi baat ke baare mein puch rahe hain? 🙂"
+              : "I want to make sure I understand you right — are you asking about one of these? 🙂",
+            quickReplies: candidates.map(f => f.question)
+          };
         }
 
+        // No match at all — still don't just give up. Ask them to simplify,
+        // offer the most common topics as one-tap options, and leave a
+        // WhatsApp door open for anything genuinely outside what the bot knows.
         return {
-          text: "I don't have an exact answer for that yet, but our support team on WhatsApp can help right away.",
-          action: { label: 'Chat on WhatsApp', type: 'whatsapp' }
+          text: isRoman
+            ? "Maazrat, mujhe thori si samajh nahi aayi 😅 Kya aap thora simple alfaaz mein bata saktay hain aap ko kis cheez mein madad chahiye? Ya neeche se ek topic chun lein:"
+            : "Sorry, I didn't quite catch that 😅 Could you say it in a few simpler words? Or pick a topic below:",
+          quickReplies: ['How do I sign up?', 'How do I buy a subscription?', 'How do I buy or add credits?', 'Can I get a refund?'],
+          action: { label: isRoman ? 'WhatsApp pe Baat Karein' : 'Chat on WhatsApp', type: 'whatsapp' }
         };
       };
 
@@ -2970,7 +2985,7 @@
         setTimeout(() => {
           const reply = answerFor(trimmed);
           setTyping(false);
-          setMessages(prev => [...prev, { role: 'bot', text: reply.text, action: reply.action || null }]);
+          setMessages(prev => [...prev, { role: 'bot', text: reply.text, action: reply.action || null, quickReplies: reply.quickReplies || null }]);
         }, 500 + Math.random() * 400);
       };
 
@@ -2996,6 +3011,13 @@
                 {m.role === 'bot' && m.action && (
                   <button className="chat-bubble-action" onClick={() => handleActionClick(m.action)}>{m.action.label}</button>
                 )}
+                {m.role === 'bot' && m.quickReplies && m.quickReplies.length > 0 && (
+                  <div className="chat-quick-replies" style={{ padding: 0 }}>
+                    {m.quickReplies.map((q, qi) => (
+                      <button key={qi} className="chat-quick-reply" onClick={() => send(q)}>{q}</button>
+                    ))}
+                  </div>
+                )}
               </React.Fragment>
             ))}
             {typing && (
@@ -3015,7 +3037,7 @@
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Enter') send(input); }}
-              placeholder="Ask a question..."
+              placeholder="Ask a question... / Urdu mein bhi likh saktay hain"
               aria-label="Type your question"
             />
             <button onClick={() => send(input)} disabled={!input.trim()} aria-label="Send"><i className="fas fa-paper-plane"></i></button>
@@ -6105,75 +6127,88 @@
         id: 'signup', category: 'Getting Started',
         question: 'How do I sign up?',
         answer: "Tap \"Customer Portal\" in the navbar, choose Sign Up, and enter your WhatsApp number with a username and password. That WhatsApp number is what confirms it's really you on every purchase afterwards, so make sure it's correct.",
+        roman: "Navbar mein \"Customer Portal\" pe tap karein, Sign Up select karein, aur apna WhatsApp number, username aur password dalein. Yehi WhatsApp number confirm karta hai ke har purchase aap hi kar rahe hain, is liye sahi number dalna zaroori hai.",
         action: { label: 'Sign Up Now', type: 'auth' }
       },
       {
         id: 'signin', category: 'Getting Started',
         question: 'How do I sign in?',
         answer: 'Tap "Customer Portal" in the navbar and enter the username and password you signed up with.',
+        roman: "Navbar mein \"Customer Portal\" pe tap karein aur wohi username aur password dalein jo aap ne sign up ke waqt banaya tha.",
         action: { label: 'Sign In', type: 'auth' }
       },
       {
         id: 'forgot-password', category: 'Getting Started',
         question: 'I forgot my password. How do I recover it?',
         answer: "For your account's security, passwords can't be recovered automatically. Message our support team on WhatsApp with your registered username and WhatsApp number — once we verify it's you, we'll reset it for you.",
+        roman: "Security ki wajah se password khud-ba-khud recover nahi hota. Humari WhatsApp support team ko apna registered username aur WhatsApp number bhej dein — verify hone ke baad hum aap ka password reset kar dein ge.",
         action: { label: 'Chat on WhatsApp', type: 'whatsapp' }
       },
       {
         id: 'buy-subscription', category: 'Purchases & Payments',
         question: 'How do I buy a subscription?',
         answer: 'Browse Subscriptions, pick the one you want, choose your plan (screens/months), fill in your name and WhatsApp number, then tap "Pay with Credits". Once confirmed, your login details show up instantly in your Customer Portal.',
+        roman: "Subscriptions browse karein, jo pasand ho wo select karein, apna plan (screens/months) choose karein, apna naam aur WhatsApp number dalein, phir \"Pay with Credits\" pe tap karein. Confirm hote hi login details turant aap ke Customer Portal mein aa jayen gi.",
         action: { label: 'Browse Subscriptions', type: 'subscriptions' }
       },
       {
         id: 'buy-credits', category: 'Purchases & Payments',
         question: 'How do I buy or add credits?',
         answer: "Credits are topped up by our team, not purchased inside the app directly. Message us on WhatsApp with how many credits you'd like — once your payment is confirmed, we'll add them to your account right away. Credits are the only way to pay for a subscription in the app.",
+        roman: "Credits humari team khud add karti hai, app ke andar direct purchase nahi hotay. WhatsApp pe message karein ke kitne credits chahiye — payment confirm hote hi hum turant aap ke account mein add kar dein ge. App mein subscription lene ka sirf yehi tareeqa hai.",
         action: { label: 'Chat on WhatsApp', type: 'whatsapp' }
       },
       {
         id: 'insufficient-credits', category: 'Purchases & Payments',
         question: "I don't have enough credits to buy a subscription. What do I do?",
         answer: 'Message our team on WhatsApp to top up your credit balance — once your payment is confirmed, we\'ll add the credits to your account and you can complete the purchase right away.',
+        roman: "WhatsApp pe humari team ko message karein apna credit balance top-up karne ke liye — payment confirm hote hi credits add ho jayen ge aur aap turant purchase complete kar saktay hain.",
         action: { label: 'Chat on WhatsApp', type: 'whatsapp' }
       },
       {
         id: 'out-of-stock', category: 'Purchases & Payments',
         question: 'What happens if a subscription is out of stock?',
-        answer: "You can still complete your purchase — payment goes through as normal. Instead of getting login details immediately, you're added to our waiting list and we'll deliver your account soon after, usually within 24 hours."
+        answer: "You can still complete your purchase — payment goes through as normal. Instead of getting login details immediately, you're added to our waiting list and we'll deliver your account soon after, usually within 24 hours.",
+        roman: "Aap phir bhi purchase complete kar saktay hain — payment normal tarah se hoti hai. Bas login details turant nahi miltin, aap waiting list mein add ho jate hain aur aam tor par 24 ghanton ke andar account mil jata hai."
       },
       {
         id: 'custom-request', category: 'Purchases & Payments',
         question: "The subscription I want isn't listed. What can I do?",
         answer: "Use \"Request Custom Subscription\" on the subscription selection page. Tell us exactly what you need and for how many months, and we'll follow up with pricing and availability.",
+        roman: "Subscription selection page par \"Request Custom Subscription\" use karein. Humein batayein ke aap ko kya chahiye aur kitne months ke liye — hum pricing aur availability ke saath follow-up karain ge.",
         action: { label: 'Browse Subscriptions', type: 'subscriptions' }
       },
       {
         id: 'deals', category: 'Purchases & Payments',
         question: 'How do deals / bundles work?',
-        answer: "Deals bundle two or more subscriptions together at a discounted price. Fill in your details and confirm just like a normal purchase — every subscription in the bundle gets added to your portal."
+        answer: "Deals bundle two or more subscriptions together at a discounted price. Fill in your details and confirm just like a normal purchase — every subscription in the bundle gets added to your portal.",
+        roman: "Deals mein do ya zyada subscriptions ek sath discounted price par milti hain. Apni details bhar kar normal purchase ki tarah confirm karein — bundle ki har subscription aap ke portal mein add ho jaye gi."
       },
       {
         id: 'check-purchases', category: 'Your Account',
         question: 'How do I check my purchased subscriptions?',
         answer: 'Open "Customer Portal" from the navbar — every active subscription you own, its login details, and its expiry date are all listed there.',
+        roman: "Navbar se \"Customer Portal\" kholein — aap ki har active subscription, uski login details aur expiry date wahan list hoti hain.",
         action: { label: 'Go to Customer Portal', type: 'portal' }
       },
       {
         id: 'whatsapp-locked', category: 'Your Account',
         question: 'Why is my WhatsApp number locked during purchase?',
-        answer: "It's locked to the number you signed up with so we can always verify a purchase is really coming from you, and reach you directly if there's ever an issue with your order."
+        answer: "It's locked to the number you signed up with so we can always verify a purchase is really coming from you, and reach you directly if there's ever an issue with your order.",
+        roman: "Yeh usi number se lock hota hai jis se aap ne sign up kiya tha, taake hum hamesha confirm kar sakein ke purchase waqai aap hi kar rahe hain, aur kisi order mein masla hone par seedha aap se raabta kar sakein."
       },
       {
         id: 'refund', category: 'Support',
         question: 'Can I get a refund?',
         answer: "Refund eligibility depends on your specific order. Message our support team on WhatsApp with your order details and we'll help sort it out.",
+        roman: "Refund milna aap ke order par depend karta hai. WhatsApp pe humari support team ko apne order ki details bhejein, hum masla hal karne mein madad karain ge.",
         action: { label: 'Chat on WhatsApp', type: 'whatsapp' }
       },
       {
         id: 'contact-support', category: 'Support',
         question: 'How do I contact support?',
         answer: 'Tap the WhatsApp button visible anywhere in the app, or check the Contact page for our phone number and email.',
+        roman: "App mein kahin bhi nazar aane wala WhatsApp button tap karein, ya Contact page par jaa kar humara phone number aur email dekhein.",
         action: { label: 'Chat on WhatsApp', type: 'whatsapp' }
       }
     ];
