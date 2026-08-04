@@ -3849,8 +3849,15 @@
 
       const creditsNeeded = useMemo(() => {
         const totalMonths = durationType === 'months' ? months : Math.ceil(days / 30);
-        return getSubscriptionPrice(subscription, totalMonths);
-      }, [subscription, durationType, months, days]);
+        // Multi-screen pricing: scales linearly per screen, except buying
+        // all 5 ("full account"), which uses its own flat price when the
+        // admin has set one — that's normally sold as a discounted bundle,
+        // not simply 5x the single-screen rate.
+        const perMonth = (screens >= 5 && Number(subscription?.fullAccountPrice) > 0)
+          ? Number(subscription.fullAccountPrice)
+          : (Number(subscription?.sellingPrice) || 0) * screens;
+        return Math.round(perMonth * totalMonths);
+      }, [subscription, durationType, months, days, screens]);
 
       const canUseCredits = useMemo(() => {
         return (currentUser?.credits || 0) >= creditsNeeded && creditsNeeded > 0;
@@ -3940,7 +3947,7 @@
         if (useCreditsFlag) {
           try {
             const totalMonths = durationType === 'months' ? months : Math.ceil(days / 30);
-            const updatedUser = await deductCredits(user.username, creditsNeeded, purchaseId, `Purchased ${subscription.name}`, { subscriptionId: subscription.id, months: totalMonths });
+            const updatedUser = await deductCredits(user.username, creditsNeeded, purchaseId, `Purchased ${subscription.name}`, { subscriptionId: subscription.id, months: totalMonths, screens });
             setUser(updatedUser);
             addToast(`✅ ${creditsNeeded} credits deducted. Subscription activated!`, 'success');
           } catch (err) {
@@ -6356,6 +6363,11 @@
       const [newSubType, setNewSubType] = useState('custom');
       const [newSubCost, setNewSubCost] = useState(0);
       const [newSubSelling, setNewSubSelling] = useState(0);
+      // Only meaningful for Netflix-type subscriptions (1-5 screens): the
+      // flat monthly price for buying all 5 screens as one bundle, instead
+      // of paying sellingPrice x 5. Optional — leave at 0 to just charge
+      // sellingPrice x screens with no bundle discount.
+      const [newSubFullAccountPrice, setNewSubFullAccountPrice] = useState(0);
       const [newSubSlots, setNewSubSlots] = useState(1);
       const [newSubAskFor, setNewSubAskFor] = useState(['name', 'number']);
       const [newSubDescription, setNewSubDescription] = useState('');
@@ -7032,6 +7044,7 @@
         setNewSubName('');
         setNewSubCost(0);
         setNewSubSelling(0);
+        setNewSubFullAccountPrice(0);
         setNewSubSlots(1);
         setNewSubAskFor(['name', 'number']);
         setNewSubDescription('');
@@ -7049,6 +7062,7 @@
           type: newSubType,
           costPerMonth: newSubCost || 0,
           sellingPrice: newSubSelling || 0,
+          fullAccountPrice: newSubFullAccountPrice || 0,
           slots: newSubSlots || 0,
           askFor: newSubAskFor,
           description: newSubDescription.trim(),
@@ -7074,6 +7088,7 @@
         setNewSubType(sub.type);
         setNewSubCost(sub.costPerMonth || 0);
         setNewSubSelling(sub.sellingPrice || 0);
+        setNewSubFullAccountPrice(sub.fullAccountPrice || 0);
         setNewSubSlots(sub.slots || 1);
         setNewSubAskFor(sub.askFor || ['name', 'number']);
         setNewSubDescription(sub.description || '');
@@ -7089,6 +7104,7 @@
           type: newSubType,
           costPerMonth: newSubCost || 0,
           sellingPrice: newSubSelling || 0,
+          fullAccountPrice: newSubFullAccountPrice || 0,
           slots: newSubSlots || 0,
           askFor: newSubAskFor,
           description: newSubDescription.trim(),
@@ -8248,6 +8264,13 @@
                   <input type="number" value={newSubSelling} onChange={(e) => setNewSubSelling(Number(e.target.value))} className="input-neon mt-1" placeholder="0" />
                 </div>
               </div>
+              {newSubType === 'netflix' && (
+                <div>
+                  <label className="text-white/50 text-sm">Full Account Price (RS / mo) — all 5 screens</label>
+                  <input type="number" value={newSubFullAccountPrice} onChange={(e) => setNewSubFullAccountPrice(Number(e.target.value))} className="input-neon mt-1" placeholder="0" />
+                  <p className="text-white/30 text-xs mt-1">Customers picking 1-4 screens pay Selling Price × screens. Picking all 5 (a "full account") charges this flat bundle price instead — leave at 0 to just charge Selling Price × 5 with no bundle discount.</p>
+                </div>
+              )}
               <div>
                 <label className="text-white/50 text-sm">Slots (Total capacity)</label>
                 <input type="number" value={newSubSlots} onChange={(e) => setNewSubSlots(Number(e.target.value))} className="input-neon mt-1" min="1" placeholder="1" />

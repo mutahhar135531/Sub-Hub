@@ -1199,24 +1199,32 @@ app.get('/api/users/:username/credit-history', async (req, res) => {
 // balance.
 app.post('/api/users/:username/deductCredits', async (req, res) => {
   try {
-    let { amount, purchaseId, reason, subscriptionId, months, dealId } = req.body;
+    let { amount, purchaseId, reason, subscriptionId, months, screens, dealId } = req.body;
 
     // For a real purchase, never trust the credit amount the browser sends —
     // always recompute it here from the subscription's (or deal's) actual
     // current price in the database. The client only sends subscriptionId/
-    // months (or dealId) to identify WHAT was bought; the server decides
-    // WHAT IT COSTS. This closes two problems at once: a customer's browser
-    // showing a stale/out-of-date price (e.g. after the admin changes it)
-    // can no longer result in under-charging, and nobody can tamper with
-    // the request to pay less than the real price.
+    // months/screens (or dealId) to identify WHAT was bought; the server
+    // decides WHAT IT COSTS. This closes two problems at once: a customer's
+    // browser showing a stale/out-of-date price (e.g. after the admin
+    // changes it) can no longer result in under-charging, and nobody can
+    // tamper with the request to pay less than the real price.
     // Admin's manual credit adjustments (add/deduct from the Users tab)
     // pass neither subscriptionId nor dealId, so they keep using the raw
     // `amount` exactly as before.
     if (subscriptionId) {
       const sub = await subscriptionsCollection.findOne({ id: subscriptionId });
       if (!sub) return res.status(404).json({ error: 'Subscription not found' });
-      const perMonth = Number(sub.sellingPrice) || 0;
       const totalMonths = Number(months) || 1;
+      const screenCount = Number(screens) || 1;
+      // Multi-screen subscriptions (currently only Netflix, 1-5 screens)
+      // scale linearly per screen — except buying all 5 ("full account"),
+      // which uses its own flat price when the admin has set one, since
+      // that's normally sold as a discounted bundle rather than 5x the
+      // single-screen rate.
+      const perMonth = (screenCount >= 5 && Number(sub.fullAccountPrice) > 0)
+        ? Number(sub.fullAccountPrice)
+        : (Number(sub.sellingPrice) || 0) * screenCount;
       amount = Math.round(perMonth * totalMonths);
     } else if (dealId) {
       const deal = await dealsCollection.findOne({ id: dealId });
