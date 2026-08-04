@@ -2574,7 +2574,291 @@ async function cleanupExpiredCustomers() {
   }
 }
 
-const PORT = process.env.PORT || 5000;
+// ═══════════════════════════════════════════════════════════════
+// JARVIS — AI admin assistant
+// Lets the admin manage the business by just talking to it (typed or
+// voice-transcribed-to-text from the browser) instead of clicking through
+// every screen — "add 500 credits to john_doe", "create a user for Sara",
+// "how many credits does ali have", etc. Runs on Claude with tool-use: each
+// action Jarvis can take is a real, narrow, server-side function — Jarvis
+// can only ever do exactly what these tools allow, nothing more.
+// ═══════════════════════════════════════════════════════════════
+
+const JARVIS_MODEL = 'claude-sonnet-4-6';
+
+const JARVIS_SYSTEM_PROMPT = `You are Jarvis, the AI assistant built into the admin portal of a subscription-reselling business (shared Netflix/Amazon Prime/etc. accounts sold to customers, plus a credits wallet system).
+
+You act on the admin's behalf using the tools available to you — adding/deducting credits, creating or deleting user accounts, granting one-off custom subscriptions, and looking up user info. You are NOT just answering questions about how to do things — when the admin asks you to do something, actually call the tool and do it.
+
+Style: warm, human, and conversational — like a sharp, unflappable assistant, never robotic or overly formal. Keep replies short and natural, since they may be read aloud with text-to-speech. After taking an action, confirm plainly what you did and the result (e.g. "Done — added 500 credits to john_doe, new balance is 1,250."). If something fails (user not found, insufficient credits, duplicate username, etc.), explain what went wrong in plain language and suggest a fix rather than just repeating the raw error.
+
+If a request is ambiguous or you're missing required info (e.g. no password given for a new account), ask ONE short clarifying question instead of guessing or inventing values — this handles real money and real accounts, so don't improvise details that matter (usernames, amounts, passwords).
+
+Never fabricate a result — only report what a tool actually returned.`;
+
+const JARVIS_TOOLS = [
+  {
+    name: 'add_credits',
+    description: "Add credits to a customer's wallet balance.",
+    input_schema: {
+      type: 'object',
+      properties: {
+        username: { type: 'string', description: 'The exact username of the customer.' },
+        amount: { type: 'number', description: 'How many credits to add. Must be positive.' },
+        reason: { type: 'string', description: 'Short note on why (optional).' }
+      },
+      required: ['username', 'amount']
+    }
+  },
+  {
+    name: 'deduct_credits',
+    description: "Deduct credits from a customer's wallet balance.",
+    input_schema: {
+      type: 'object',
+      properties: {
+        username: { type: 'string', description: 'The exact username of the customer.' },
+        amount: { type: 'number', description: 'How many credits to deduct. Must be positive.' },
+        reason: { type: 'string', description: 'Short note on why (optional).' }
+      },
+      required: ['username', 'amount']
+    }
+  },
+  {
+    name: 'find_user',
+    description: 'Look up a customer by username — returns their name, whatsapp, credit balance, and signup date. Use this to check something exists before acting on it, or to answer a question about a user.',
+    input_schema: {
+      type: 'object',
+      properties: { username: { type: 'string' } },
+      required: ['username']
+    }
+  },
+  {
+    name: 'list_users',
+    description: 'List recent customers (most recently signed up first). Use to answer "how many users do we have" or "who are our newest customers".',
+    input_schema: {
+      type: 'object',
+      properties: { limit: { type: 'number', description: 'Max number of users to return, default 20.' } }
+    }
+  },
+  {
+    name: 'create_user',
+    description: 'Create a brand-new customer account. All four fields are required — never invent a password or whatsapp number; ask the admin if not given.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        name: { type: 'string' },
+        username: { type: 'string', description: 'No spaces or special characters; must include at least one letter.' },
+        password: { type: 'string', description: 'At least 8 characters, starts with a capital letter, has at least one number and one special character, and must differ from the username.' },
+        whatsapp: { type: 'string' }
+      },
+      required: ['name', 'username', 'password', 'whatsapp']
+    }
+  },
+  {
+    name: 'delete_user',
+    description: 'Permanently delete a customer account. Destructive — only call this when the admin has clearly confirmed they want this specific user deleted.',
+    input_schema: {
+      type: 'object',
+      properties: { username: { type: 'string' } },
+      required: ['username']
+    }
+  },
+  {
+    name: 'grant_subscription',
+    description: "Manually grant a subscription to a customer's portal that isn't from the regular account/screen inventory — e.g. a one-off or out-of-catalog service. Shows up in the customer's portal with the given login. Cost/sellingPrice are for the admin's own profit tracking only and are never shown to the customer.",
+    input_schema: {
+      type: 'object',
+      properties: {
+        username: { type: 'string' },
+        subscriptionName: { type: 'string', description: 'e.g. "Disney+ Premium"' },
+        email: { type: 'string' },
+        password: { type: 'string' },
+        months: { type: 'number', description: 'Duration in months, default 1.' },
+        notes: { type: 'string', description: 'Optional note shown to the customer.' },
+        costPerMonth: { type: 'number', description: "The admin's own cost — required if this isn't a known catalog item." },
+        sellingPrice: { type: 'number', description: 'What the customer paid — required if this isn\'t a known catalog item.' }
+      },
+      required: ['username', 'subscriptionName', 'email', 'password']
+    }
+  }
+];
+
+async function executeJarvisTool(name, input) {
+  switch (name) {
+    case 'add_credits': {
+      const { username, amount, reason } = input;
+      if (!username || !amount || amount <= 0) return { error: 'A valid username and positive amount are required.' };
+      const result = await usersCollection.findOneAndUpdate(
+        { username },
+        { $inc: { credits: amount } },
+        { returnDocument: 'after' }
+      );
+      const updated = result && result.value !== undefined ? result.value : result;
+      if (!updated) return { error: `No user found with username "${username}".` };
+      await creditHistoryCollection.insertOne({
+        id: crypto.randomUUID(), username, type: 'credit', amount,
+        reason: reason || 'Added by Jarvis (AI assistant)', balanceAfter: updated.credits, createdAt: new Date()
+      });
+      return { success: true, username, added: amount, newBalance: updated.credits };
+    }
+    case 'deduct_credits': {
+      const { username, amount, reason } = input;
+      if (!username || !amount || amount <= 0) return { error: 'A valid username and positive amount are required.' };
+      const result = await usersCollection.findOneAndUpdate(
+        { username, credits: { $gte: amount } },
+        { $inc: { credits: -amount } },
+        { returnDocument: 'after' }
+      );
+      const updated = result && result.value !== undefined ? result.value : result;
+      if (!updated) {
+        const exists = await usersCollection.findOne({ username });
+        if (!exists) return { error: `No user found with username "${username}".` };
+        return { error: `Insufficient credits — ${username} only has ${exists.credits}.` };
+      }
+      await creditHistoryCollection.insertOne({
+        id: crypto.randomUUID(), username, type: 'debit', amount,
+        reason: reason || 'Deducted by Jarvis (AI assistant)', balanceAfter: updated.credits, createdAt: new Date()
+      });
+      return { success: true, username, deducted: amount, newBalance: updated.credits };
+    }
+    case 'find_user': {
+      const { username } = input;
+      const u = await usersCollection.findOne({ username });
+      if (!u) return { error: `No user found with username "${username}".` };
+      return { found: true, name: u.name, username: u.username, whatsapp: u.whatsapp, credits: u.credits, signedUpAt: u.createdAt };
+    }
+    case 'list_users': {
+      const limit = Math.min(Number(input.limit) || 20, 50);
+      const list = await usersCollection.find({}).sort({ createdAt: -1 }).limit(limit).toArray();
+      return { count: list.length, users: list.map(u => ({ name: u.name, username: u.username, credits: u.credits, signedUpAt: u.createdAt })) };
+    }
+    case 'create_user': {
+      const { name, username, password, whatsapp } = input;
+      if (!name || !username || !password || !whatsapp) return { error: 'Name, username, password, and whatsapp are all required.' };
+      if (/\s/.test(username) || !/^[A-Za-z0-9]+$/.test(username)) return { error: 'Username must not contain spaces or special characters.' };
+      if (!/[A-Za-z]/.test(username)) return { error: "Username must include at least one letter — it can't be only numbers." };
+      if (password.length < 8) return { error: 'Password must be at least 8 characters.' };
+      if (!/^[A-Z]/.test(password)) return { error: 'Password must start with a capital letter.' };
+      if (!/[0-9]/.test(password)) return { error: 'Password must contain at least 1 number.' };
+      if (!/[^A-Za-z0-9]/.test(password)) return { error: 'Password must contain at least 1 special character.' };
+      if (password === username) return { error: 'Password must be different from the username.' };
+      const existing = await usersCollection.findOne({ username });
+      if (existing) return { error: `Username "${username}" is already taken.` };
+      const existingWhatsapp = await usersCollection.findOne({ whatsapp });
+      if (existingWhatsapp) return { error: 'An account with this WhatsApp number already exists.' };
+      const newUser = { name, username, password: encryptCustomerPassword(password), whatsapp, purchaseCount: 0, credits: 0, createdAt: new Date() };
+      await usersCollection.insertOne(newUser);
+      return { success: true, username, name };
+    }
+    case 'delete_user': {
+      const { username } = input;
+      const result = await usersCollection.deleteOne({ username });
+      if (result.deletedCount === 0) return { error: `No user found with username "${username}".` };
+      return { success: true, deleted: username };
+    }
+    case 'grant_subscription': {
+      const { username, subscriptionName, email, password, months, notes, costPerMonth, sellingPrice } = input;
+      if (!username || !subscriptionName || !email || !password) return { error: 'username, subscriptionName, email, and password are required.' };
+      const user = await usersCollection.findOne({ username });
+      if (!user) return { error: `No user found with username "${username}".` };
+      if ((costPerMonth === undefined || sellingPrice === undefined)) {
+        return { error: "This isn't a known catalog item, so costPerMonth and sellingPrice are both needed for profit tracking — ask the admin for these." };
+      }
+      const now = new Date();
+      const totalDays = (Number(months) || 1) * 30;
+      const expiry = new Date(now);
+      expiry.setDate(expiry.getDate() + totalDays);
+      const entry = {
+        id: crypto.randomUUID(), username, name: user.name || '', whatsapp: user.whatsapp || '',
+        subscriptionName: subscriptionName.trim(), email, password, notes: notes || '',
+        months: Number(months) || 1, days: totalDays, expiryDate: expiry.toISOString().split('T')[0],
+        matchedSubscriptionId: null, costPerMonth: Number(costPerMonth) || 0, sellingPrice: Number(sellingPrice) || 0,
+        purchasedAt: now.toISOString(), createdAt: now
+      };
+      await customGrantsCollection.insertOne(entry);
+      return { success: true, username, subscriptionName, expiryDate: entry.expiryDate };
+    }
+    default:
+      return { error: `Unknown tool "${name}".` };
+  }
+}
+
+app.post('/api/jarvis', requireAdmin, async (req, res) => {
+  try {
+    const apiKey = process.env.ANTHROPIC_API_KEY;
+    if (!apiKey) {
+      return res.status(500).json({ error: 'Jarvis is not configured yet — ANTHROPIC_API_KEY is missing on the server.' });
+    }
+    const { message, history } = req.body;
+    if (!message || !message.trim()) {
+      return res.status(400).json({ error: 'Message is required.' });
+    }
+
+    // `history` is the prior turns of this conversation as sent by the
+    // client (kept client-side, not stored server-side) — plain
+    // {role, content} pairs, content always a string for past turns.
+    const messages = [...(Array.isArray(history) ? history : []), { role: 'user', content: message }];
+
+    const actionsTaken = [];
+    let finalText = '';
+
+    // Agentic loop: Claude may need several tool calls in a row (e.g. look
+    // up a user, then act on them) before it has a final answer for the
+    // admin. Capped so a confused loop can't run away.
+    for (let turn = 0; turn < 6; turn++) {
+      const response = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': apiKey,
+          'anthropic-version': '2023-06-01'
+        },
+        body: JSON.stringify({
+          model: JARVIS_MODEL,
+          max_tokens: 1024,
+          system: JARVIS_SYSTEM_PROMPT,
+          tools: JARVIS_TOOLS,
+          messages
+        })
+      });
+
+      if (!response.ok) {
+        const errBody = await response.json().catch(() => ({}));
+        return res.status(502).json({ error: errBody?.error?.message || `Jarvis's brain is unreachable right now (${response.status}).` });
+      }
+
+      const data = await response.json();
+      const toolUses = (data.content || []).filter(b => b.type === 'tool_use');
+      const textBlocks = (data.content || []).filter(b => b.type === 'text');
+      finalText = textBlocks.map(b => b.text).join('\n').trim();
+
+      messages.push({ role: 'assistant', content: data.content });
+
+      if (data.stop_reason !== 'tool_use' || toolUses.length === 0) {
+        break; // Claude has a final answer — done.
+      }
+
+      const toolResults = [];
+      for (const call of toolUses) {
+        const result = await executeJarvisTool(call.name, call.input || {});
+        actionsTaken.push({ tool: call.name, input: call.input, result });
+        toolResults.push({
+          type: 'tool_result',
+          tool_use_id: call.id,
+          content: JSON.stringify(result)
+        });
+      }
+      messages.push({ role: 'user', content: toolResults });
+    }
+
+    res.json({ reply: finalText || "Done.", actions: actionsTaken });
+  } catch (err) {
+    console.error('Jarvis error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+
 
 connectDB()
   .then(() => seedData())
