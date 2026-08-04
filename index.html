@@ -1355,15 +1355,72 @@
     };
 
     // ─── PRICING ──────────────────────────────────────────────
-    // Every subscription is charged using ONLY the "Selling Price (RS / mo)"
-    // that the admin sets for it in the admin portal — nothing is hardcoded
-    // here anymore. If the admin hasn't set a selling price yet, the price
-    // is 0 (and credit payment stays disabled) until they set one.
+    // Every subscription is charged using the "Selling Price (RS / mo)" that
+    // the admin sets for it in the admin portal — nothing is hardcoded here.
+    // If the admin hasn't set a selling price yet, the price is 0 (and
+    // credit payment stays disabled) until they set one. Netflix is the one
+    // exception: it's sold by screen count, so it uses getNetflixPrice
+    // below instead, which layers an optional per-screen-count and
+    // per-duration discount table on top of this same Selling Price.
     const getSubscriptionPrice = (subscription, months) => {
       const perMonth = Number(subscription?.sellingPrice) || 0;
       const totalMonths = Number(months) || 1;
       return Math.round(perMonth * totalMonths);
     };
+
+    // ─── Netflix tiered pricing (screens × duration) ──────────────
+    // Netflix is the one subscription type sold by screen count (1-5), and
+    // both screen count AND how many months someone buys can carry their
+    // own bulk-discount curve, set by the admin as two small tables:
+    //   netflixPricing.screens = { 1: 350, 2: 650, 3: 800, 4: 900, 5: 1000 }   (all for 1 month)
+    //   netflixPricing.months  = { 1: 350, 2: 700, ... , 12: 3000 }            (all for 1 screen)
+    // To combine both dimensions for e.g. 3 screens over 6 months, this
+    // multiplies the two discount curves together relative to the shared
+    // base rate (sellingPrice, i.e. 1 screen for 1 month):
+    //   price = screenTablePrice × monthTablePrice / basePrice
+    // This exactly reproduces each table on its own edge — at months=1 it
+    // collapses to exactly the screens table, and at screens=1 it collapses
+    // to exactly the months table — while blending both discounts smoothly
+    // everywhere else. Any screen count or month not explicitly set by the
+    // admin falls back to a plain linear rate (basePrice × count), and
+    // months beyond 12 extrapolate using the steady per-month increase seen
+    // across months 4-12 of whatever table the admin entered.
+    const getNetflixPrice = (subscription, screens, months) => {
+      const basePrice = Number(subscription?.sellingPrice) || 0;
+      const screenCount = Number(screens) || 1;
+      const totalMonths = Number(months) || 1;
+      const screenTable = (subscription?.netflixPricing && subscription.netflixPricing.screens) || {};
+      const monthTable = (subscription?.netflixPricing && subscription.netflixPricing.months) || {};
+
+      const screenPrice = screenTable[screenCount] != null
+        ? Number(screenTable[screenCount])
+        : basePrice * screenCount;
+
+      let monthPrice;
+      if (monthTable[totalMonths] != null) {
+        monthPrice = Number(monthTable[totalMonths]);
+      } else if (totalMonths > 12 && Object.keys(monthTable).length) {
+        // Extrapolate past whatever the admin's table covers, using the
+        // average step between the last two entries they set (falls back
+        // to a flat per-month rate if only one entry exists).
+        const enteredMonths = Object.keys(monthTable).map(Number).sort((a, b) => a - b);
+        const last = enteredMonths[enteredMonths.length - 1];
+        const prev = enteredMonths[enteredMonths.length - 2];
+        const step = prev != null ? (Number(monthTable[last]) - Number(monthTable[prev])) / (last - prev) : basePrice;
+        monthPrice = Number(monthTable[last]) + step * (totalMonths - last);
+      } else {
+        monthPrice = basePrice * totalMonths;
+      }
+
+      if (!basePrice) return Math.round(screenPrice + monthPrice - basePrice); // degenerate fallback if sellingPrice was never set
+      return Math.round((screenPrice * monthPrice) / basePrice);
+    };
+
+    // Fixed tier lists the admin pricing form renders inputs for — 1-5
+    // screens (matches the purchase flow's screen selector) and 1-12
+    // months (a full year; longer durations extrapolate, see getNetflixPrice).
+    const NETFLIX_SCREEN_TIERS = [1, 2, 3, 4, 5];
+    const NETFLIX_MONTH_TIERS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
 
     // ─── THEMES ──────────────────────────────────────────────
     // Every theme this site supports. Adding a new one later means adding
@@ -3849,14 +3906,7 @@
 
       const creditsNeeded = useMemo(() => {
         const totalMonths = durationType === 'months' ? months : Math.ceil(days / 30);
-        // Multi-screen pricing: scales linearly per screen, except buying
-        // all 5 ("full account"), which uses its own flat price when the
-        // admin has set one — that's normally sold as a discounted bundle,
-        // not simply 5x the single-screen rate.
-        const perMonth = (screens >= 5 && Number(subscription?.fullAccountPrice) > 0)
-          ? Number(subscription.fullAccountPrice)
-          : (Number(subscription?.sellingPrice) || 0) * screens;
-        return Math.round(perMonth * totalMonths);
+        return getNetflixPrice(subscription, screens, totalMonths);
       }, [subscription, durationType, months, days, screens]);
 
       const canUseCredits = useMemo(() => {
@@ -6363,11 +6413,14 @@
       const [newSubType, setNewSubType] = useState('custom');
       const [newSubCost, setNewSubCost] = useState(0);
       const [newSubSelling, setNewSubSelling] = useState(0);
-      // Only meaningful for Netflix-type subscriptions (1-5 screens): the
-      // flat monthly price for buying all 5 screens as one bundle, instead
-      // of paying sellingPrice x 5. Optional — leave at 0 to just charge
-      // sellingPrice x screens with no bundle discount.
-      const [newSubFullAccountPrice, setNewSubFullAccountPrice] = useState(0);
+      // Only used for Netflix-type subscriptions: per-screen-count price
+      // (all for 1 month) and per-duration price (all for 1 screen). See
+      // getNetflixPrice — combining both tables covers every screens+months
+      // combination, not just these two edge cases. Leaving entries blank
+      // just falls back to a plain linear rate (Selling Price × count) for
+      // that screen count or month.
+      const [newSubScreenPricing, setNewSubScreenPricing] = useState({});
+      const [newSubMonthPricing, setNewSubMonthPricing] = useState({});
       const [newSubSlots, setNewSubSlots] = useState(1);
       const [newSubAskFor, setNewSubAskFor] = useState(['name', 'number']);
       const [newSubDescription, setNewSubDescription] = useState('');
@@ -7044,7 +7097,8 @@
         setNewSubName('');
         setNewSubCost(0);
         setNewSubSelling(0);
-        setNewSubFullAccountPrice(0);
+        setNewSubScreenPricing({});
+        setNewSubMonthPricing({});
         setNewSubSlots(1);
         setNewSubAskFor(['name', 'number']);
         setNewSubDescription('');
@@ -7062,7 +7116,7 @@
           type: newSubType,
           costPerMonth: newSubCost || 0,
           sellingPrice: newSubSelling || 0,
-          fullAccountPrice: newSubFullAccountPrice || 0,
+          netflixPricing: { screens: newSubScreenPricing, months: newSubMonthPricing },
           slots: newSubSlots || 0,
           askFor: newSubAskFor,
           description: newSubDescription.trim(),
@@ -7088,7 +7142,8 @@
         setNewSubType(sub.type);
         setNewSubCost(sub.costPerMonth || 0);
         setNewSubSelling(sub.sellingPrice || 0);
-        setNewSubFullAccountPrice(sub.fullAccountPrice || 0);
+        setNewSubScreenPricing((sub.netflixPricing && sub.netflixPricing.screens) || {});
+        setNewSubMonthPricing((sub.netflixPricing && sub.netflixPricing.months) || {});
         setNewSubSlots(sub.slots || 1);
         setNewSubAskFor(sub.askFor || ['name', 'number']);
         setNewSubDescription(sub.description || '');
@@ -7104,7 +7159,7 @@
           type: newSubType,
           costPerMonth: newSubCost || 0,
           sellingPrice: newSubSelling || 0,
-          fullAccountPrice: newSubFullAccountPrice || 0,
+          netflixPricing: { screens: newSubScreenPricing, months: newSubMonthPricing },
           slots: newSubSlots || 0,
           askFor: newSubAskFor,
           description: newSubDescription.trim(),
@@ -8265,10 +8320,30 @@
                 </div>
               </div>
               {newSubType === 'netflix' && (
-                <div>
-                  <label className="text-white/50 text-sm">Full Account Price (RS / mo) — all 5 screens</label>
-                  <input type="number" value={newSubFullAccountPrice} onChange={(e) => setNewSubFullAccountPrice(Number(e.target.value))} className="input-neon mt-1" placeholder="0" />
-                  <p className="text-white/30 text-xs mt-1">Customers picking 1-4 screens pay Selling Price × screens. Picking all 5 (a "full account") charges this flat bundle price instead — leave at 0 to just charge Selling Price × 5 with no bundle discount.</p>
+                <div className="bg-red-500/5 rounded-xl p-4 border border-red-500/10 space-y-4">
+                  <p className="text-white/40 text-xs">Netflix is sold by screen count, so it can have its own bulk-discount pricing on top of the Selling Price above. Leave any box blank to fall back to a plain linear rate (Selling Price × count) for that screen count or month.</p>
+                  <div>
+                    <label className="text-white/50 text-sm font-medium">Price by Screen Count (RS, for 1 month)</label>
+                    <div className="grid grid-cols-5 gap-2 mt-1">
+                      {NETFLIX_SCREEN_TIERS.map(n => (
+                        <div key={n}>
+                          <label className="text-white/30 text-xs">{n} scr.</label>
+                          <input type="number" value={newSubScreenPricing[n] ?? ''} onChange={(e) => setNewSubScreenPricing({ ...newSubScreenPricing, [n]: e.target.value === '' ? undefined : Number(e.target.value) })} className="input-neon mt-1 text-sm" placeholder="—" />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-white/50 text-sm font-medium">Price by Duration (RS, for 1 screen)</label>
+                    <div className="grid grid-cols-4 sm:grid-cols-6 gap-2 mt-1">
+                      {NETFLIX_MONTH_TIERS.map(n => (
+                        <div key={n}>
+                          <label className="text-white/30 text-xs">{n} mo</label>
+                          <input type="number" value={newSubMonthPricing[n] ?? ''} onChange={(e) => setNewSubMonthPricing({ ...newSubMonthPricing, [n]: e.target.value === '' ? undefined : Number(e.target.value) })} className="input-neon mt-1 text-sm" placeholder="—" />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
                 </div>
               )}
               <div>

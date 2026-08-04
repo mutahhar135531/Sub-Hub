@@ -113,6 +113,40 @@ async function claimIdempotencyKey(key) {
 // takes effect for every device, not just the one that made the change.
 const ADMIN_SETTINGS_ID = 'main';
 
+// ─── Netflix tiered pricing (screens × duration) ────────────
+// Mirrors the identically-named calculation in the client (index.html) —
+// see the comment there for the full explanation of how the two admin-set
+// tables (per screen-count, per duration) combine. This copy is what
+// actually authorizes the charge, so it must stay in sync with the client's
+// version; the client version exists only to show the price before purchase.
+function getNetflixPriceServer(sub, screens, months) {
+  const basePrice = Number(sub?.sellingPrice) || 0;
+  const screenCount = Number(screens) || 1;
+  const totalMonths = Number(months) || 1;
+  const screenTable = (sub?.netflixPricing && sub.netflixPricing.screens) || {};
+  const monthTable = (sub?.netflixPricing && sub.netflixPricing.months) || {};
+
+  const screenPrice = screenTable[screenCount] != null
+    ? Number(screenTable[screenCount])
+    : basePrice * screenCount;
+
+  let monthPrice;
+  if (monthTable[totalMonths] != null) {
+    monthPrice = Number(monthTable[totalMonths]);
+  } else if (totalMonths > 12 && Object.keys(monthTable).length) {
+    const enteredMonths = Object.keys(monthTable).map(Number).sort((a, b) => a - b);
+    const last = enteredMonths[enteredMonths.length - 1];
+    const prev = enteredMonths[enteredMonths.length - 2];
+    const step = prev != null ? (Number(monthTable[last]) - Number(monthTable[prev])) / (last - prev) : basePrice;
+    monthPrice = Number(monthTable[last]) + step * (totalMonths - last);
+  } else {
+    monthPrice = basePrice * totalMonths;
+  }
+
+  if (!basePrice) return Math.round(screenPrice + monthPrice - basePrice);
+  return Math.round((screenPrice * monthPrice) / basePrice);
+}
+
 // Remove sensitive fields before sending a user document to the browser.
 // The password must never leave the server in a response — the client has
 // no legitimate reason to ever see it, and anything sent to the browser is
@@ -1216,16 +1250,12 @@ app.post('/api/users/:username/deductCredits', async (req, res) => {
       const sub = await subscriptionsCollection.findOne({ id: subscriptionId });
       if (!sub) return res.status(404).json({ error: 'Subscription not found' });
       const totalMonths = Number(months) || 1;
-      const screenCount = Number(screens) || 1;
-      // Multi-screen subscriptions (currently only Netflix, 1-5 screens)
-      // scale linearly per screen — except buying all 5 ("full account"),
-      // which uses its own flat price when the admin has set one, since
-      // that's normally sold as a discounted bundle rather than 5x the
-      // single-screen rate.
-      const perMonth = (screenCount >= 5 && Number(sub.fullAccountPrice) > 0)
-        ? Number(sub.fullAccountPrice)
-        : (Number(sub.sellingPrice) || 0) * screenCount;
-      amount = Math.round(perMonth * totalMonths);
+      if (sub.type === 'netflix' && screens != null) {
+        amount = getNetflixPriceServer(sub, screens, totalMonths);
+      } else {
+        const perMonth = Number(sub.sellingPrice) || 0;
+        amount = Math.round(perMonth * totalMonths);
+      }
     } else if (dealId) {
       const deal = await dealsCollection.findOne({ id: dealId });
       if (!deal) return res.status(404).json({ error: 'Deal not found' });
