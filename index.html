@@ -6450,16 +6450,16 @@
 
     // ─── ADMIN DASHBOARD ──────────────────────────────────────
     // ─── JARVIS: local admin assistant (typed or voice) ─────────
-    // Everything below runs in the browser — there is no API call to any
-    // AI model, no "thinking" step. Jarvis pattern-matches the admin's
-    // sentence against a small set of known actions (add/deduct credits,
-    // create/delete a user, reset a password, look someone up), finds
-    // the matching customer with fuzzy name/username/WhatsApp matching
-    // against `usersList`, and calls the site's own existing admin
-    // functions (addCredits, deductCredits, signUpUser, deleteUserAPI,
-    // updateUserAPI) directly. If something needed is missing — which
-    // user, how many credits — it asks one short follow-up question
-    // instead of guessing.
+    // The UI below just sends text to POST /api/jarvis and shows the
+    // reply — all the actual understanding happens server-side in
+    // server.js (parseJarvisIntent / executeJarvisTool), and none of it
+    // calls any external AI API. It covers the full admin surface:
+    // credits, customer accounts/passwords, subscriptions/accounts,
+    // deals, promotions, social media services, the waiting list, custom
+    // grants, FAQs, and notices. If something needed is missing — which
+    // user, how many credits, which subscription — it asks one short
+    // follow-up question instead of guessing, and a short answer to that
+    // question ("100", "john123") completes the original request.
     function JarvisAssistant() {
       const [open, setOpen] = useState(false);
       const [messages, setMessages] = useState([
@@ -6489,12 +6489,14 @@
         } catch (e) { /* speech synthesis unavailable — silently skip */ }
       };
 
-      // Full natural-language turn: sent to /api/jarvis, which runs Claude
-      // with tool-use against the real admin API (credits, users,
-      // subscriptions, deals, promotions, social services, waiting,
-      // custom grants, FAQs, notices — see server.js for the exact list).
-      // Conversation history is kept client-side only, as plain
-      // {role, text} turns, and replayed on each new message for context.
+      // Full natural-language turn: sent to /api/jarvis, which runs a
+      // local (no external API) text parser against the real admin API
+      // (credits, users, subscriptions, deals, promotions, social
+      // services, waiting, custom grants, FAQs, notices — see server.js
+      // for the exact list). Conversation history is kept client-side
+      // only, as plain {role, text} turns, and the last user turn is
+      // replayed alongside a new message so a short follow-up answer
+      // ("100", "john123") can complete an earlier clarifying question.
       const sendMessage = async (textOverride) => {
         const text = (textOverride !== undefined ? textOverride : input).trim();
         if (!text || thinking) return;

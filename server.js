@@ -2554,106 +2554,425 @@ app.get('/api/health', (req, res) => {
 });
 
 // ═══════════════════════════════════════════════════════════════
-// JARVIS — AI admin assistant
-// Full natural-language access to the admin surface: the admin types or
-// speaks whatever they want done, Claude figures out the intent and calls
-// the matching tool(s) below — each one a real, narrow, server-side
-// action. Jarvis can only ever do exactly what these tools allow.
+// JARVIS — local admin assistant (no external API of any kind)
+// The admin types or speaks a request, this file pattern-matches it
+// against a broad list of known intents below, pulls out the details
+// (username, amount, price, etc.) with plain text parsing, and calls
+// the matching tool in executeJarvisTool() directly — the same real,
+// narrow, server-side actions as before. If something required is
+// missing, it asks one short follow-up question; answering it lets
+// Jarvis pick the request back up without repeating everything.
 // ═══════════════════════════════════════════════════════════════
 
-const JARVIS_MODEL = 'claude-sonnet-4-6';
+// Common words that should never be mistaken for a username, name, or
+// title when scanning a sentence for "the token that must be the thing
+// the admin means".
+const JARVIS_STOPWORDS = new Set([
+  'a','an','the','to','from','for','of','with','and','or','please','pls','plz',
+  'add','adds','added','adding','deduct','deducts','deducted','remove','removes','removed',
+  'subtract','minus','give','gives','giving','grant','grants','granting','credit','credits',
+  'user','users','username','usernames','customer','customers','account','accounts',
+  'password','passwords','reset','resets','change','changes','changed','update','updates','updated',
+  'create','creates','creating','new','delete','deletes','deleting','find','finds','finding',
+  'look','looks','looking','up','show','shows','showing','list','lists','listing',
+  'subscription','subscriptions','sub','deal','deals','promotion','promotions','promo','promos',
+  'banner','banners','platform','platforms','service','service','waiting','faq','faqs',
+  'notice','notices','announcement','summary','overview','business','how','many','much',
+  'is','are','was','were','it','that','this','their','his','her','them','they',
+  'set','name','named','called','titled','into','onto','on','at','by','as','my','me',
+  'i','want','need','can','you','please','make','set','worth','currently','currently,'
+]);
 
-const JARVIS_SYSTEM_PROMPT = `You are Jarvis, the AI assistant built into the admin portal of a subscription-reselling business. You act on the admin's behalf using the tools available to you — when they ask you to do something, actually call the tool and do it; don't just describe how they'd do it themselves.
+function jarvisExtractNumber(text) {
+  const m = text.match(/(\d[\d,]*\.?\d*)/);
+  if (!m) return null;
+  const n = parseFloat(m[1].replace(/,/g, ''));
+  return isNaN(n) ? null : n;
+}
 
-WHAT THIS BUSINESS IS: it resells shared logins to streaming/subscription services (Netflix, Amazon Prime, etc.) — each "subscription" listing has one or more "accounts" (a real login), and each account has "screens" (slots), and each screen can have one or more "customers" (people currently using that slot) with their own expiry date. It also sells "deals" (bundled/discounted combos of subscriptions), runs "promotions" (banner images shown to customers), and separately sells social media services (Instagram/TikTok/YouTube followers, likes, views, etc. sold per platform) which customers add to a cart and check out. Customers have a wallet of "credits" they can spend instead of paying per-purchase. "Custom grants" are one-off subscriptions the admin manually hands a specific customer outside the normal account/screen inventory (e.g. something out of stock). "Waiting" customers are people who tried to buy something that had no account/screen available. FAQs and notices are customer-facing help content.
+function jarvisExtractAllNumbers(text) {
+  const matches = text.match(/\d[\d,]*\.?\d*/g) || [];
+  return matches.map(s => parseFloat(s.replace(/,/g, ''))).filter(n => !isNaN(n));
+}
 
-Style: warm, human, and conversational — like a sharp, unflappable assistant, never robotic or overly formal. Keep replies short and natural, since they may be read aloud with text-to-speech. After taking an action, confirm plainly what you did and the result. If something fails, explain what went wrong in plain language and suggest a fix rather than repeating a raw error.
+function jarvisExtractQuoted(text) {
+  const m = text.match(/["'“”‘’]([^"'“”‘’]+)["'“”‘’]/);
+  return m ? m[1].trim() : null;
+}
 
-If a request is ambiguous or you're missing required info, ask ONE short clarifying question instead of guessing or inventing values — this handles real money and real accounts, so don't improvise details that matter (usernames, amounts, passwords, prices). Destructive actions (delete_user, delete_subscription, delete_deal, delete_custom_grant, delete_faq) should only be called once the admin has clearly confirmed that specific target.
+// Finds the token right after any of the given keywords ("to", "user",
+// "from"...), skipping an optional filler word ("is"/"to"/"as") in
+// between, and stripping trailing punctuation/possessive.
+function jarvisExtractAfterKeyword(text, keywords) {
+  for (const kw of keywords) {
+    const re = new RegExp(`\\b${kw}\\b\\s*(?:is|to|as|:|=)?\\s+([a-zA-Z0-9_.@+-]+)`, 'i');
+    const m = text.match(re);
+    if (m) return m[1].replace(/[.,!?]+$/, '').replace(/['’]s$/, '');
+  }
+  return null;
+}
 
-If the admin asks something no tool covers, say so plainly and suggest the closest thing you *can* do instead of pretending to do it.`;
+// Same idea, but grabs everything to the end of the sentence rather than
+// one token — for fields that are a whole phrase (a notice's message, an
+// FAQ's answer), not a single value.
+function jarvisExtractRestAfter(text, keywords) {
+  for (const kw of keywords) {
+    const re = new RegExp(`\\b${kw}\\b\\s*(?:is|to|as|:)?\\s+(.+)$`, 'i');
+    const m = text.match(re);
+    if (m) return m[1].replace(/^["'“”‘’]+|["'“”‘’]+$/g, '').trim();
+  }
+  return null;
+}
 
-const JARVIS_TOOLS = [
-  // ── Users / credits ──────────────────────────────────────────
-  { name: 'add_credits', description: "Add credits to a customer's wallet balance.",
-    input_schema: { type: 'object', properties: { username: { type: 'string' }, amount: { type: 'number' }, reason: { type: 'string' } }, required: ['username', 'amount'] } },
-  { name: 'deduct_credits', description: "Deduct credits from a customer's wallet balance.",
-    input_schema: { type: 'object', properties: { username: { type: 'string' }, amount: { type: 'number' }, reason: { type: 'string' } }, required: ['username', 'amount'] } },
-  { name: 'find_user', description: 'Look up a customer by username — name, whatsapp, credit balance, signup date.',
-    input_schema: { type: 'object', properties: { username: { type: 'string' } }, required: ['username'] } },
-  { name: 'list_users', description: 'List recent customers, most recently signed up first.',
-    input_schema: { type: 'object', properties: { limit: { type: 'number', description: 'default 20, max 50' } } } },
-  { name: 'create_user', description: 'Create a brand-new customer account. Never invent a password or whatsapp — ask if not given.',
-    input_schema: { type: 'object', properties: {
-      name: { type: 'string' }, username: { type: 'string', description: 'No spaces/special chars, must include a letter.' },
-      password: { type: 'string', description: '8+ chars, starts capital, has a number and a special char, differs from username.' },
-      whatsapp: { type: 'string' } }, required: ['name', 'username', 'password', 'whatsapp'] } },
-  { name: 'delete_user', description: 'Permanently delete a customer account. Only after the admin clearly confirms.',
-    input_schema: { type: 'object', properties: { username: { type: 'string' } }, required: ['username'] } },
-  { name: 'reset_user_password', description: "Set a new password on an existing customer's account.",
-    input_schema: { type: 'object', properties: { username: { type: 'string' }, newPassword: { type: 'string' } }, required: ['username', 'newPassword'] } },
+function jarvisExtractWhatsapp(text) {
+  const m = text.match(/(\+?\d[\d\s-]{7,}\d)/);
+  return m ? m[1].replace(/[\s-]/g, '') : null;
+}
 
-  // ── Subscriptions / accounts ─────────────────────────────────
-  { name: 'list_subscriptions', description: 'List all subscription listings with id, name, type, price, account/screen counts.', input_schema: { type: 'object', properties: {} } },
-  { name: 'get_subscription', description: 'Full detail on one subscription by id or name.',
-    input_schema: { type: 'object', properties: { idOrName: { type: 'string' } }, required: ['idOrName'] } },
-  { name: 'create_subscription', description: 'Create a brand-new subscription listing.',
-    input_schema: { type: 'object', properties: {
-      name: { type: 'string' }, type: { type: 'string', description: 'e.g. netflix, amazon, spotify, other' },
-      costPerMonth: { type: 'number', description: "Admin's own cost per account, per month." },
-      sellingPrice: { type: 'number', description: 'Price charged per screen/slot per month.' },
-      slots: { type: 'number', description: 'Screens per account.' }, description: { type: 'string' } },
-      required: ['name', 'type', 'sellingPrice'] } },
-  { name: 'update_subscription', description: "Change a subscription's price, cost, name, or description.",
-    input_schema: { type: 'object', properties: { idOrName: { type: 'string' }, name: { type: 'string' }, costPerMonth: { type: 'number' }, sellingPrice: { type: 'number' }, description: { type: 'string' } }, required: ['idOrName'] } },
-  { name: 'delete_subscription', description: 'Delete a subscription listing entirely, including its accounts. Only after clear confirmation.',
-    input_schema: { type: 'object', properties: { idOrName: { type: 'string' } }, required: ['idOrName'] } },
-  { name: 'add_account', description: 'Add a new login (account) with one screen/slot to an existing subscription.',
-    input_schema: { type: 'object', properties: { idOrName: { type: 'string' }, email: { type: 'string' }, password: { type: 'string' } }, required: ['idOrName', 'email', 'password'] } },
+// A username usually shows up either right after a keyword ("to john123",
+// "user john123") or as a bare token containing a digit somewhere in the
+// sentence ("give john123 100 credits"). Tries the reliable path first.
+function jarvisExtractUsername(text) {
+  const kw = jarvisExtractAfterKeyword(text, ['username', 'user', 'customer', 'account', 'to', 'from', 'for']);
+  if (kw && !JARVIS_STOPWORDS.has(kw.toLowerCase())) return kw;
+  const tokens = text.split(/\s+/).map(t => t.replace(/^[.,!?'"]+|[.,!?'"]+$/g, ''));
+  const withDigit = tokens.find(t => /\d/.test(t) && /^[a-zA-Z][a-zA-Z0-9_.]*$/.test(t) && !JARVIS_STOPWORDS.has(t.toLowerCase()));
+  return withDigit || null;
+}
 
-  // ── Deals ─────────────────────────────────────────────────────
-  { name: 'list_deals', description: 'List all deals with price and active/inactive status.', input_schema: { type: 'object', properties: {} } },
-  { name: 'create_deal', description: 'Create a bundled-subscription deal (not a social-media deal).',
-    input_schema: { type: 'object', properties: { title: { type: 'string' }, subscriptionNames: { type: 'array', items: { type: 'string' }, description: 'Names of subscriptions to bundle.' }, actualPrice: { type: 'number' }, discountPrice: { type: 'number' }, description: { type: 'string' } }, required: ['title', 'subscriptionNames', 'actualPrice', 'discountPrice'] } },
-  { name: 'toggle_deal', description: 'Activate or deactivate a deal by title.',
-    input_schema: { type: 'object', properties: { title: { type: 'string' }, active: { type: 'boolean' } }, required: ['title', 'active'] } },
-  { name: 'delete_deal', description: 'Delete a deal by title. Only after clear confirmation.',
-    input_schema: { type: 'object', properties: { title: { type: 'string' } }, required: ['title'] } },
+// Best-effort human name: "named John Smith" / "name is John Smith", or
+// two consecutive capitalized words that aren't at the very start of the
+// sentence (to dodge "Add 100 credits...").
+function jarvisExtractPersonName(text) {
+  let m = text.match(/\b(?:named|name is|call(?:ed)? them|full name)\s+([A-Z][a-zA-Z'-]+(?:\s+[A-Z][a-zA-Z'-]+)?)/);
+  if (m) return m[1].trim();
+  m = text.match(/[a-z]\s+([A-Z][a-zA-Z'-]+\s+[A-Z][a-zA-Z'-]+)\b/);
+  if (m) return m[1].trim();
+  return null;
+}
 
-  // ── Promotions ────────────────────────────────────────────────
-  { name: 'list_promotions', description: 'List promotional banners and whether each is active.', input_schema: { type: 'object', properties: {} } },
-  { name: 'toggle_promotion', description: 'Activate or deactivate a promotion banner by its heading text.',
-    input_schema: { type: 'object', properties: { heading: { type: 'string' }, active: { type: 'boolean' } }, required: ['heading', 'active'] } },
-  { name: 'delete_promotion', description: 'Delete a promotion banner by heading text.',
-    input_schema: { type: 'object', properties: { heading: { type: 'string' } }, required: ['heading'] } },
+function jarvisExtractPassword(text) {
+  if (/\bpassword\b/i.test(text)) {
+    const toMatch = text.match(/\bto\b\s+(\S+)\s*$/i);
+    if (toMatch && toMatch[1].length >= 4) return toMatch[1];
+  }
+  const m = text.match(/\b(?:password|pass|pwd)\b\s*(?:is|to|as|:|=)?\s+(\S+)/i);
+  if (m && m[1].length >= 4 && !/^(for|to|is|as|of|the|a)$/i.test(m[1])) return m[1];
+  const quoted = jarvisExtractQuoted(text);
+  if (quoted && /[A-Z]/.test(quoted) && /\d/.test(quoted)) return quoted;
+  return null;
+}
 
-  // ── Social media services ────────────────────────────────────
-  { name: 'list_social_services', description: 'List social-media platforms and the services/prices under each.', input_schema: { type: 'object', properties: {} } },
-  { name: 'add_social_service', description: 'Add a new sellable service under an existing social-media platform.',
-    input_schema: { type: 'object', properties: { platformName: { type: 'string' }, serviceName: { type: 'string' }, costPrice: { type: 'number' }, sellingPrice: { type: 'number' } }, required: ['platformName', 'serviceName', 'costPrice', 'sellingPrice'] } },
+// Anything the admin wrapped in quotes is almost always the title/name of
+// the thing they mean (a subscription, deal, FAQ question, platform...).
+// Falls back to whatever's left after stripping known command words.
+function jarvisExtractTitle(text, stripWords) {
+  const quoted = jarvisExtractQuoted(text);
+  if (quoted) return quoted;
+  const called = text.match(/\b(?:called|titled|named)\s+(.+)/i);
+  if (called) return called[1].replace(/[.!?]+$/, '').trim();
+  let cleaned = text;
+  stripWords.forEach(w => { cleaned = cleaned.replace(new RegExp(`\\b${w}\\b`, 'ig'), ''); });
+  cleaned = cleaned.replace(/\s+/g, ' ').trim();
+  return cleaned || null;
+}
 
-  // ── Waiting customers / custom grants ────────────────────────
-  { name: 'list_waiting', description: 'List customers waiting on a subscription that had no account/screen available.', input_schema: { type: 'object', properties: {} } },
-  { name: 'resolve_waiting', description: 'Mark a waiting-list entry as fulfilled/resolved and remove it, by the customer\'s username.',
-    input_schema: { type: 'object', properties: { username: { type: 'string' } }, required: ['username'] } },
-  { name: 'list_custom_grants', description: 'List manually-granted, out-of-catalog subscriptions.', input_schema: { type: 'object', properties: {} } },
-  { name: 'grant_subscription', description: "Manually grant a subscription to a customer's portal outside the normal inventory. Cost/sellingPrice are for the admin's own profit tracking only, never shown to the customer.",
-    input_schema: { type: 'object', properties: { username: { type: 'string' }, subscriptionName: { type: 'string' }, email: { type: 'string' }, password: { type: 'string' }, months: { type: 'number' }, notes: { type: 'string' }, costPerMonth: { type: 'number' }, sellingPrice: { type: 'number' } }, required: ['username', 'subscriptionName', 'email', 'password'] } },
-  { name: 'delete_custom_grant', description: "Remove a custom grant from a customer's portal, by their username and the subscription name.",
-    input_schema: { type: 'object', properties: { username: { type: 'string' }, subscriptionName: { type: 'string' } }, required: ['username', 'subscriptionName'] } },
-
-  // ── FAQs / notices ────────────────────────────────────────────
-  { name: 'list_faqs', description: 'List customer-facing FAQ entries.', input_schema: { type: 'object', properties: {} } },
-  { name: 'create_faq', description: 'Add a new FAQ entry.',
-    input_schema: { type: 'object', properties: { question: { type: 'string' }, answer: { type: 'string' }, category: { type: 'string' } }, required: ['question', 'answer'] } },
-  { name: 'delete_faq', description: 'Delete an FAQ by its question text.',
-    input_schema: { type: 'object', properties: { question: { type: 'string' } }, required: ['question'] } },
-  { name: 'create_notice', description: 'Post a site-wide notice/announcement banner for customers.',
-    input_schema: { type: 'object', properties: { message: { type: 'string' } }, required: ['message'] } },
-
-  // ── Business overview ─────────────────────────────────────────
-  { name: 'get_business_summary', description: 'Quick counts: total users, subscriptions, active deals, pending waiting-list entries, active custom grants.', input_schema: { type: 'object', properties: {} } }
+const JARVIS_CAPABILITIES = [
+  'add or deduct a customer\'s credits', 'look up or list customers', 'create, delete, or reset the password on a customer account',
+  'list, create, update, or delete subscriptions, and add a new login/account to one',
+  'list, create, activate/deactivate, or delete deals', 'list, activate/deactivate, or delete promotion banners',
+  'list social-media platforms/services or add a new service under a platform',
+  'list waiting customers or resolve one', 'list, grant, or remove a custom subscription grant',
+  'list, create, or delete FAQs, and post a customer notice', 'give a quick business summary'
 ];
+
+const JARVIS_FALLBACK_TEXT = "I didn't catch a specific action there. I can " + JARVIS_CAPABILITIES.join('; ') + ". Try something like \"add 100 credits to john123\" or \"list waiting customers\".";
+
+// Tries to turn one sentence into { tool, input }. Returns null if nothing
+// matched at all, or { needsInfo: '...question...' } if the intent was
+// clear but a required detail is missing.
+function parseJarvisIntent(rawText) {
+  const text = (rawText || '').trim();
+  if (!text) return null;
+  const lower = text.toLowerCase();
+  const has = (...words) => words.some(w => lower.includes(w));
+
+  // ── Business summary ──────────────────────────────────────
+  if (has('business summary', 'overview', 'how is business', "how's business", 'dashboard stats', 'quick stats', 'business stats')) {
+    return { tool: 'get_business_summary', input: {} };
+  }
+
+  // ── Credits ────────────────────────────────────────────────
+  if (has('credit')) {
+    const amount = jarvisExtractNumber(text);
+    const username = jarvisExtractUsername(text);
+    const isDeduct = has('deduct', 'subtract', 'remove', 'take away', 'minus');
+    const tool = isDeduct ? 'deduct_credits' : 'add_credits';
+    if (!username) return { needsInfo: `Sure — whose account should I ${isDeduct ? 'deduct' : 'add'} credits ${isDeduct ? 'from' : 'to'}?` };
+    if (!amount) return { needsInfo: `How many credits should I ${isDeduct ? 'deduct from' : 'add to'} ${username}?` };
+    return { tool, input: { username, amount } };
+  }
+
+  // ── Password reset ────────────────────────────────────────
+  if (has('password') && (has('reset', 'change', 'update', 'new password', 'forgot') || /\bset\b.*\bpassword\b/.test(lower)) && !has('create', 'new user', 'sign up', 'signup', 'register', 'grant')) {
+    const beforePassword = text.split(/\bpassword\b/i)[0];
+    const afterPassword = text.split(/\bpassword\b/i)[1] || '';
+    const username = jarvisExtractAfterKeyword(text, ['for', 'of']) || jarvisExtractUsername(beforePassword) || jarvisExtractUsername(afterPassword);
+    const newPassword = jarvisExtractPassword(text);
+    if (!username) return { needsInfo: "Whose password should I reset?" };
+    if (!newPassword) return { needsInfo: `What should ${username}'s new password be?` };
+    return { tool: 'reset_user_password', input: { username, newPassword } };
+  }
+
+  // ── Waiting list ───────────────────────────────────────────
+  if (has('waiting')) {
+    if (has('resolve', 'fulfill', 'fulfilled', 'clear', 'done with', 'sorted')) {
+      const username = jarvisExtractUsername(text);
+      if (!username) return { needsInfo: 'Which customer\'s waiting entry should I resolve?' };
+      return { tool: 'resolve_waiting', input: { username } };
+    }
+    return { tool: 'list_waiting', input: {} };
+  }
+
+  // ── Add a login to a subscription ───────────────────────────
+  // Checked before the generic user/customer branch below since both use
+  // the word "account" — this one's the login-with-an-email-and-password
+  // flavor, so an email address in the sentence is the tell.
+  {
+    const emailMatch = text.match(/[\w.+-]+@[\w-]+\.[\w.-]+/);
+    if (emailMatch && has('add', 'new') && has('account', 'login')) {
+      const idOrName = jarvisExtractQuoted(text) || jarvisExtractAfterKeyword(text, ['to', 'subscription']);
+      const password = jarvisExtractPassword(text);
+      if (!idOrName) return { needsInfo: 'Which subscription should I add this account to?' };
+      if (!password) return { needsInfo: `I need the login password for the new ${idOrName} account.` };
+      return { tool: 'add_account', input: { idOrName, email: emailMatch[0], password } };
+    }
+  }
+
+  // ── Users / customers ─────────────────────────────────────
+  if (has('user', 'customer', 'account') && !has('subscription', 'deal', 'promo', 'faq', 'notice', 'social', 'platform', 'waiting')) {
+    if (has('list', 'recent', 'show me', 'who signed up')) {
+      return { tool: 'list_users', input: { limit: jarvisExtractNumber(text) || 20 } };
+    }
+    if (has('find', 'look up', 'lookup', 'search', 'who is', 'check')) {
+      const username = jarvisExtractUsername(text);
+      if (!username) return { needsInfo: 'Which username should I look up?' };
+      return { tool: 'find_user', input: { username } };
+    }
+    if (has('delete', 'remove')) {
+      const username = jarvisExtractUsername(text);
+      if (!username) return { needsInfo: 'Which username should I delete?' };
+      return { tool: 'delete_user', input: { username } };
+    }
+    if (has('create', 'new', 'register', 'sign up', 'signup')) {
+      const username = jarvisExtractUsername(text);
+      const name = jarvisExtractPersonName(text) || username;
+      const password = jarvisExtractPassword(text);
+      const whatsapp = jarvisExtractWhatsapp(text);
+      const missing = [];
+      if (!username) missing.push('a username');
+      if (!password) missing.push('a password');
+      if (!whatsapp) missing.push('a WhatsApp number');
+      if (missing.length) return { needsInfo: `To create that account I still need ${missing.join(', ')}.` };
+      return { tool: 'create_user', input: { name, username, password, whatsapp } };
+    }
+    // Bare lookup: "john123" mentioned with "user"/"customer" but no clear verb
+    const username = jarvisExtractUsername(text);
+    if (username) return { tool: 'find_user', input: { username } };
+  }
+
+  // ── Custom grants ──────────────────────────────────────────
+  if (has('grant')) {
+    if (has('list', 'show')) return { tool: 'list_custom_grants', input: {} };
+    if (has('delete', 'remove', 'revoke')) {
+      const username = jarvisExtractUsername(text);
+      const subscriptionName = jarvisExtractTitle(text, ['delete', 'remove', 'revoke', 'grant', 'custom', 'from', username || '']);
+      if (!username) return { needsInfo: 'Whose custom grant should I remove, and which subscription?' };
+      if (!subscriptionName) return { needsInfo: `Which subscription grant should I remove from ${username}?` };
+      return { tool: 'delete_custom_grant', input: { username, subscriptionName } };
+    }
+    const textNoMonths = text.replace(/\bfor\s+\d+\s*months?\b/i, '');
+    const username = jarvisExtractAfterKeyword(text, ['grant']) || jarvisExtractUsername(textNoMonths);
+    const subscriptionName = jarvisExtractQuoted(text);
+    const email = jarvisExtractAfterKeyword(text, ['email']);
+    const password = jarvisExtractPassword(text);
+    const monthsMatch = text.match(/(\d+)\s*months?\b/i);
+    const months = monthsMatch ? parseInt(monthsMatch[1], 10) : 1;
+    const missing = [];
+    if (!username) missing.push('who it\'s for');
+    if (!subscriptionName) missing.push('the subscription name (in quotes is safest)');
+    if (!email) missing.push('the login email');
+    if (!password) missing.push('the login password');
+    if (missing.length) return { needsInfo: `To grant that I still need: ${missing.join(', ')}.` };
+    return { tool: 'grant_subscription', input: { username, subscriptionName, email, password, months: months || 1 } };
+  }
+
+  // ── FAQs ────────────────────────────────────────────────────
+  if (has('faq')) {
+    if (has('delete', 'remove')) {
+      const question = jarvisExtractQuoted(text) || jarvisExtractTitle(text, ['delete', 'remove', 'faq']);
+      if (!question) return { needsInfo: 'Which FAQ (by its question) should I delete?' };
+      return { tool: 'delete_faq', input: { question } };
+    }
+    if (has('create', 'add', 'new')) {
+      const question = jarvisExtractQuoted(text);
+      if (!question) return { needsInfo: 'What should the FAQ question say (put it in quotes), and what\'s the answer?' };
+      const rest = text.replace(`"${question}"`, '').replace(`'${question}'`, '');
+      const answer = jarvisExtractQuoted(rest) || jarvisExtractRestAfter(rest, ['answer']);
+      if (!answer) return { needsInfo: `Got the question — what's the answer?` };
+      return { tool: 'create_faq', input: { question, answer } };
+    }
+    return { tool: 'list_faqs', input: {} };
+  }
+
+  // ── Notices ─────────────────────────────────────────────────
+  if (has('notice', 'announcement', 'broadcast', 'post a message')) {
+    const message = jarvisExtractQuoted(text) || jarvisExtractRestAfter(text, ['saying', 'that says', 'that']);
+    if (!message) return { needsInfo: 'What should the notice say?' };
+    return { tool: 'create_notice', input: { message } };
+  }
+
+  // ── Social media services ──────────────────────────────────
+  if (has('social', 'instagram', 'tiktok', 'youtube', 'facebook', 'snapchat', 'followers', 'likes')) {
+    if (has('add', 'create', 'new') && has('service')) {
+      const platformName = jarvisExtractAfterKeyword(text, ['platform', 'to', 'under', 'on']);
+      const serviceName = jarvisExtractQuoted(text);
+      const numbers = jarvisExtractAllNumbers(text);
+      if (!platformName) return { needsInfo: 'Which platform is this service under?' };
+      if (!serviceName) return { needsInfo: `What's the service called (e.g. "Followers")?` };
+      if (numbers.length < 2) return { needsInfo: `What's the cost price and selling price (per 1000) for ${serviceName}?` };
+      return { tool: 'add_social_service', input: { platformName, serviceName, costPrice: numbers[0], sellingPrice: numbers[1] } };
+    }
+    return { tool: 'list_social_services', input: {} };
+  }
+
+  // ── Deals ───────────────────────────────────────────────────
+  if (has('deal')) {
+    const dealTurnOff = has('deactivate', 'disable', 'turn off');
+    const dealTurnOn = !dealTurnOff && has('activate', 'enable', 'turn on');
+    if (dealTurnOff || dealTurnOn) {
+      const title = jarvisExtractQuoted(text) || jarvisExtractTitle(text, ['activate', 'enable', 'turn', 'on', 'deactivate', 'disable', 'off', 'deal', 'the']);
+      const active = dealTurnOn;
+      if (!title) return { needsInfo: `Which deal should I ${active ? 'activate' : 'deactivate'}?` };
+      return { tool: 'toggle_deal', input: { title, active } };
+    }
+    if (has('delete', 'remove')) {
+      const title = jarvisExtractQuoted(text) || jarvisExtractTitle(text, ['delete', 'remove', 'deal', 'the']);
+      if (!title) return { needsInfo: 'Which deal should I delete?' };
+      return { tool: 'delete_deal', input: { title } };
+    }
+    if (has('create', 'new', 'add')) {
+      const title = jarvisExtractQuoted(text);
+      const numbers = jarvisExtractAllNumbers(text);
+      if (!title) return { needsInfo: 'What should the deal be called (put the title in quotes)?' };
+      if (numbers.length < 2) return { needsInfo: `What's the original price and the discounted price for "${title}"?` };
+      return { needsInfo: `Got "${title}" at RS ${numbers[1]} (was RS ${numbers[0]}) — which subscriptions should it bundle? Name them and I'll set it up.` };
+    }
+    return { tool: 'list_deals', input: {} };
+  }
+
+  // ── Promotions ──────────────────────────────────────────────
+  if (has('promotion', 'promo', 'banner')) {
+    const promoTurnOff = has('deactivate', 'disable', 'turn off');
+    const promoTurnOn = !promoTurnOff && has('activate', 'enable', 'turn on');
+    if (promoTurnOff || promoTurnOn) {
+      const heading = jarvisExtractQuoted(text) || jarvisExtractTitle(text, ['activate', 'enable', 'turn', 'on', 'deactivate', 'disable', 'off', 'promotion', 'promo', 'banner', 'the']);
+      const active = promoTurnOn;
+      if (!heading) return { needsInfo: `Which promotion should I ${active ? 'activate' : 'deactivate'}?` };
+      return { tool: 'toggle_promotion', input: { heading, active } };
+    }
+    if (has('delete', 'remove')) {
+      const heading = jarvisExtractQuoted(text) || jarvisExtractTitle(text, ['delete', 'remove', 'promotion', 'promo', 'banner', 'the']);
+      if (!heading) return { needsInfo: 'Which promotion should I delete?' };
+      return { tool: 'delete_promotion', input: { heading } };
+    }
+    return { tool: 'list_promotions', input: {} };
+  }
+
+  // ── Subscriptions / accounts ────────────────────────────────
+  if (has('subscription', 'sub ') || lower.startsWith('sub ')) {
+    if (has('add') && has('account', 'login')) {
+      const idOrName = jarvisExtractQuoted(text) || jarvisExtractAfterKeyword(text, ['to', 'subscription']);
+      const email = jarvisExtractAfterKeyword(text, ['email']) || (text.match(/[\w.+-]+@[\w-]+\.[\w.-]+/) || [])[0];
+      const password = jarvisExtractPassword(text);
+      if (!idOrName) return { needsInfo: 'Which subscription should I add this account to?' };
+      if (!email || !password) return { needsInfo: `I need both the login email and password for the new ${idOrName} account.` };
+      return { tool: 'add_account', input: { idOrName, email, password } };
+    }
+    if (has('delete', 'remove')) {
+      const idOrName = jarvisExtractQuoted(text) || jarvisExtractTitle(text, ['delete', 'remove', 'subscription', 'the']);
+      if (!idOrName) return { needsInfo: 'Which subscription should I delete?' };
+      return { tool: 'delete_subscription', input: { idOrName } };
+    }
+    if (has('create', 'new') && !has('deal')) {
+      const name = jarvisExtractQuoted(text);
+      const numbers = jarvisExtractAllNumbers(text);
+      if (!name) return { needsInfo: 'What should the subscription be called (put the name in quotes)?' };
+      if (!numbers.length) return { needsInfo: `What's the selling price for "${name}"?` };
+      const type = (jarvisExtractAfterKeyword(text, ['type']) || name).toLowerCase().replace(/[^a-z]/g, '') || 'other';
+      return { tool: 'create_subscription', input: { name, type, sellingPrice: numbers[numbers.length - 1], costPerMonth: numbers.length > 1 ? numbers[0] : 0 } };
+    }
+    if (has('update', 'change', 'edit') && has('price', 'cost', 'name', 'description')) {
+      const idOrName = jarvisExtractQuoted(text) || jarvisExtractAfterKeyword(text, ['for', 'to', 'of']);
+      const numbers = jarvisExtractAllNumbers(text);
+      if (!idOrName) return { needsInfo: 'Which subscription should I update?' };
+      const update = {};
+      if (has('selling price') && numbers.length) update.sellingPrice = numbers[0];
+      else if (has('cost') && numbers.length) update.costPerMonth = numbers[0];
+      else if (numbers.length) update.sellingPrice = numbers[0];
+      if (!Object.keys(update).length) return { needsInfo: `What should change on ${idOrName}, and to what?` };
+      return { tool: 'update_subscription', input: { idOrName, ...update } };
+    }
+    if (has('list', 'show', 'what')) return { tool: 'list_subscriptions', input: {} };
+    const idOrName = jarvisExtractQuoted(text) || jarvisExtractAfterKeyword(text, ['about', 'on']);
+    if (idOrName) return { tool: 'get_subscription', input: { idOrName } };
+    return { tool: 'list_subscriptions', input: {} };
+  }
+
+  if (has('help', 'what can you do', 'what do you do')) {
+    return { needsInfo: "I can " + JARVIS_CAPABILITIES.join('; ') + ". Just tell me plainly, like \"add 100 credits to john123\" or \"deactivate the summer deal\"." };
+  }
+
+  return null;
+}
+
+function formatJarvisReply(tool, input, r) {
+  if (r && r.error) return r.error;
+  switch (tool) {
+    case 'add_credits': return `Done — added ${input.amount} credits to ${r.username}. New balance: ${r.newBalance}.`;
+    case 'deduct_credits': return `Done — deducted ${input.amount} credits from ${r.username}. New balance: ${r.newBalance}.`;
+    case 'find_user': return `${r.name || r.username} (@${r.username}) — WhatsApp ${r.whatsapp || 'N/A'}, ${r.credits} credits, signed up ${r.signedUpAt ? new Date(r.signedUpAt).toLocaleDateString() : 'N/A'}.`;
+    case 'list_users': return r.count === 0 ? 'No users yet.' : `${r.count} most recent user${r.count > 1 ? 's' : ''}: ` + r.users.map(u => `${u.name || u.username} (@${u.username}, ${u.credits} credits)`).join('; ') + '.';
+    case 'create_user': return `Created the account for ${r.name} (@${r.username}).`;
+    case 'delete_user': return `Deleted the account "${r.deleted}".`;
+    case 'reset_user_password': return `Password reset for @${r.username}.`;
+    case 'list_subscriptions': return r.count === 0 ? 'No subscriptions yet.' : `${r.count} subscription${r.count > 1 ? 's' : ''}: ` + r.subscriptions.map(s => `${s.name} (RS ${s.sellingPrice}, ${s.accounts} account${s.accounts !== 1 ? 's' : ''})`).join('; ') + '.';
+    case 'get_subscription': return `${r.name} (${r.type}) — RS ${r.sellingPrice}/screen, cost RS ${r.costPerMonth}/month. ${(r.accounts || []).length} account(s).`;
+    case 'create_subscription': return `Created the subscription "${r.name}".`;
+    case 'update_subscription': return `Updated subscription — ${Object.keys(r.updated).join(', ')}.`;
+    case 'delete_subscription': return `Deleted the subscription "${r.deleted}".`;
+    case 'add_account': return `Added a new account (${r.addedAccount}) to ${r.subscription}.`;
+    case 'list_deals': return r.count === 0 ? 'No deals yet.' : `${r.count} deal${r.count > 1 ? 's' : ''}: ` + r.deals.map(d => `${d.title} (RS ${d.discountPrice}, was RS ${d.actualPrice}) — ${d.active ? 'active' : 'inactive'}`).join('; ') + '.';
+    case 'toggle_deal': return `"${r.title}" is now ${r.active ? 'active' : 'inactive'}.`;
+    case 'delete_deal': return `Deleted the deal "${r.deleted}".`;
+    case 'list_promotions': return r.count === 0 ? 'No promotions yet.' : `${r.count} promotion${r.count > 1 ? 's' : ''}: ` + r.promotions.map(p => `${p.heading} — ${p.active ? 'active' : 'inactive'}`).join('; ') + '.';
+    case 'toggle_promotion': return `"${r.heading}" is now ${r.active ? 'active' : 'inactive'}.`;
+    case 'delete_promotion': return `Deleted the promotion "${r.deleted}".`;
+    case 'list_social_services': return (!r.platforms || r.platforms.length === 0) ? 'No social platforms yet.' : r.platforms.map(p => `${p.name}: ` + (p.services.length ? p.services.map(s => `${s.name} (RS ${s.sellingPrice})`).join(', ') : 'no services yet')).join(' | ');
+    case 'add_social_service': return `Added "${r.addedService}" under ${r.platform}.`;
+    case 'list_waiting': return r.count === 0 ? 'Nobody is waiting right now.' : `${r.count} waiting: ` + r.waiting.map(w => `${w.username} (${w.subscriptionName})`).join('; ') + '.';
+    case 'resolve_waiting': return `Marked ${r.resolved}'s waiting entry as resolved.`;
+    case 'list_custom_grants': return r.count === 0 ? 'No custom grants yet.' : `${r.count} custom grant${r.count > 1 ? 's' : ''}: ` + r.grants.map(g => `${g.username} → ${g.subscriptionName} (expires ${g.expiryDate})`).join('; ') + '.';
+    case 'grant_subscription': return `Granted "${r.subscriptionName}" to ${r.username}, expiring ${r.expiryDate}.`;
+    case 'delete_custom_grant': return `Removed "${r.removed}" from ${r.from}.`;
+    case 'list_faqs': return r.count === 0 ? 'No FAQs yet.' : `${r.count} FAQ${r.count > 1 ? 's' : ''}: ` + r.faqs.map(f => f.question).join('; ') + '.';
+    case 'create_faq': return `Added the FAQ "${r.question}".`;
+    case 'delete_faq': return `Deleted the FAQ "${r.deleted}".`;
+    case 'create_notice': return `Posted the notice: "${r.posted}".`;
+    case 'get_business_summary': return `Right now: ${r.totalUsers} users, ${r.totalSubscriptions} subscriptions, ${r.activeDeals} active deals, ${r.pendingWaiting} people waiting, ${r.activeCustomGrants} active custom grants.`;
+    default: return 'Done.';
+  }
+}
 
 // Small helper: resolve a subscription by its exact id, or fall back to a
 // case-insensitive name match — lets the admin say "netflix family plan"
@@ -2911,50 +3230,34 @@ async function executeJarvisTool(name, input) {
 
 app.post('/api/jarvis', requireAdmin, async (req, res) => {
   try {
-    const apiKey = process.env.ANTHROPIC_API_KEY;
-    if (!apiKey) {
-      return res.status(500).json({ error: 'Jarvis needs an ANTHROPIC_API_KEY environment variable set on the server — ask whoever manages hosting to add it, then Jarvis will work immediately with no other changes needed.' });
-    }
     const { message, history } = req.body;
     if (!message || !message.trim()) {
       return res.status(400).json({ error: 'Message is required.' });
     }
 
-    const messages = [...(Array.isArray(history) ? history : []), { role: 'user', content: message }];
-    const actionsTaken = [];
-    let finalText = '';
+    // If the previous turn ended in a clarifying question, the admin's
+    // reply here is often just the missing piece ("100", or "john123") —
+    // re-parsing it combined with their own last message usually resolves
+    // the whole request in one go, without needing any real conversation
+    // state to be tracked.
+    const lastUserFromHistory = Array.isArray(history) ? [...history].reverse().find(h => h.role === 'user') : null;
 
-    for (let turn = 0; turn < 8; turn++) {
-      const response = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
-        body: JSON.stringify({ model: JARVIS_MODEL, max_tokens: 1024, system: JARVIS_SYSTEM_PROMPT, tools: JARVIS_TOOLS, messages })
-      });
-
-      if (!response.ok) {
-        const errBody = await response.json().catch(() => ({}));
-        return res.status(502).json({ error: errBody?.error?.message || `Jarvis's brain is unreachable right now (${response.status}).` });
-      }
-
-      const data = await response.json();
-      const toolUses = (data.content || []).filter(b => b.type === 'tool_use');
-      const textBlocks = (data.content || []).filter(b => b.type === 'text');
-      finalText = textBlocks.map(b => b.text).join('\n').trim();
-
-      messages.push({ role: 'assistant', content: data.content });
-
-      if (data.stop_reason !== 'tool_use' || toolUses.length === 0) break;
-
-      const toolResults = [];
-      for (const call of toolUses) {
-        const result = await executeJarvisTool(call.name, call.input || {});
-        actionsTaken.push({ tool: call.name, input: call.input, result });
-        toolResults.push({ type: 'tool_result', tool_use_id: call.id, content: JSON.stringify(result) });
-      }
-      messages.push({ role: 'user', content: toolResults });
+    let parsed = parseJarvisIntent(message);
+    if (parsed && parsed.needsInfo && lastUserFromHistory && lastUserFromHistory.content) {
+      const retry = parseJarvisIntent(`${lastUserFromHistory.content} ${message}`);
+      if (retry && !retry.needsInfo) parsed = retry;
     }
 
-    res.json({ reply: finalText || 'Done.', actions: actionsTaken });
+    if (!parsed) {
+      return res.json({ reply: JARVIS_FALLBACK_TEXT, actions: [] });
+    }
+    if (parsed.needsInfo) {
+      return res.json({ reply: parsed.needsInfo, actions: [] });
+    }
+
+    const result = await executeJarvisTool(parsed.tool, parsed.input);
+    const reply = formatJarvisReply(parsed.tool, parsed.input, result);
+    res.json({ reply, actions: [{ tool: parsed.tool, input: parsed.input, result }] });
   } catch (err) {
     console.error('Jarvis error:', err);
     res.status(500).json({ error: err.message });
