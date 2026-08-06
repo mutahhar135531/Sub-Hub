@@ -2564,6 +2564,119 @@ app.get('/api/health', (req, res) => {
 // Jarvis pick the request back up without repeating everything.
 // ═══════════════════════════════════════════════════════════════
 
+// This portal has one admin — hardcoding their name here (rather than
+// wiring up a whole "who's logged in" identity system just for small talk)
+// is what lets Jarvis greet them personally and refer to them by name.
+const ADMIN_FULL_NAME = 'Mutahhar Ali';
+const ADMIN_FIRST_NAME = 'Mutahhar';
+
+// ── Typo tolerance ──────────────────────────────────────────────
+// Jarvis runs entirely on pattern-matching (no AI model behind it), so a
+// misspelled command word ("creidt", "subscribtion", "watiing") would
+// normally just fail to match anything. This fixes that: every command
+// word Jarvis actually listens for is a "vocabulary", and before parsing,
+// each word in what the admin typed gets checked against it — close
+// enough (by edit distance) and clearly not already a real word gets
+// silently corrected. Quoted text (titles, FAQ answers) and anything with
+// a digit or @ in it (usernames, emails, amounts) is left completely
+// alone, so this can't mangle actual data, only the command words around it.
+const JARVIS_VOCAB = [
+  'add','added','adding','deduct','deducted','subtract','remove','removed','give','grant','granted',
+  'credit','credits','user','users','customer','customers','account','accounts','password','passwords',
+  'reset','change','changed','update','updated','create','created','new','delete','deleted','find','found',
+  'look','search','list','show','showing','subscription','subscriptions','deal','deals','promotion',
+  'promotions','promo','banner','banners','platform','platforms','service','services','waiting','faq',
+  'faqs','notice','notices','announcement','summary','overview','business','custom','social','media',
+  'instagram','tiktok','youtube','facebook','snapchat','followers','likes','views','comments','whatsapp',
+  'name','named','called','email','login','price','cost','selling','active','inactive','activate',
+  'deactivate','enable','disable','resolve','fulfill','fulfilled','revoke','question','answer','message',
+  'months','signup','register','description','hello','thanks','please'
+];
+
+function jarvisLevenshtein(a, b) {
+  const m = a.length, n = b.length;
+  if (m === 0) return n;
+  if (n === 0) return m;
+  const dp = Array.from({ length: m + 1 }, () => new Array(n + 1).fill(0));
+  for (let i = 0; i <= m; i++) dp[i][0] = i;
+  for (let j = 0; j <= n; j++) dp[0][j] = j;
+  for (let i = 1; i <= m; i++) {
+    for (let j = 1; j <= n; j++) {
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+      dp[i][j] = Math.min(dp[i - 1][j] + 1, dp[i][j - 1] + 1, dp[i - 1][j - 1] + cost);
+    }
+  }
+  return dp[m][n];
+}
+
+function jarvisClosestVocabWord(word) {
+  if (word.length < 4) return null; // too short to safely correct without false positives
+  let best = null, bestDist = Infinity;
+  for (const v of JARVIS_VOCAB) {
+    if (Math.abs(v.length - word.length) > 2) continue; // cheap prune
+    const d = jarvisLevenshtein(word, v);
+    if (d < bestDist) { bestDist = d; best = v; }
+  }
+  const threshold = word.length <= 5 ? 1 : 2; // stricter tolerance for short words
+  return (best && bestDist > 0 && bestDist <= threshold) ? best : null;
+}
+
+function jarvisCorrectTypos(text) {
+  const quotedSpans = [];
+  const placeholder = text.replace(/["'“”‘’][^"'“”‘’]*["'“”‘’]/g, (m) => {
+    quotedSpans.push(m);
+    return `__QUOTE${quotedSpans.length - 1}__`;
+  });
+  const corrected = placeholder.split(/(\s+)/).map(tok => {
+    if (/^\s*$/.test(tok) || /^__QUOTE\d+__$/.test(tok)) return tok;
+    const m = tok.match(/^([a-zA-Z]+)([.,!?]*)$/); // pure-letters only — skips usernames/emails/numbers
+    if (!m) return tok;
+    const [, word, punct] = m;
+    if (JARVIS_VOCAB.includes(word.toLowerCase())) return tok;
+    const fix = jarvisClosestVocabWord(word.toLowerCase());
+    return fix ? fix + punct : tok;
+  }).join('');
+  return corrected.replace(/__QUOTE(\d+)__/g, (_, i) => quotedSpans[Number(i)]);
+}
+
+// ── Small talk ───────────────────────────────────────────────────
+// Handled completely separately from the task-parsing below — a "hi" or
+// "thanks" should never fall through to "I didn't catch that". Returns a
+// plain reply string, or null if this isn't small talk at all.
+function jarvisSmallTalk(rawText) {
+  const t = rawText.trim().toLowerCase().replace(/[!.?]+$/, '');
+  const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
+
+  if (/^(hi+|hello+|hey+|yo|salam|assalamu?\s*alaikum|asalam.*alaikum|aoa)(\s*,?\s*jarvis)?$/.test(t)) {
+    return pick([
+      `Hey ${ADMIN_FIRST_NAME}! What can I take care of for you?`,
+      `Hi ${ADMIN_FIRST_NAME} — good to see you. What do you need?`,
+      `Hello! I'm here and ready — what should I do?`
+    ]);
+  }
+  if (/^(jarvis)$/.test(t)) return `Yes ${ADMIN_FIRST_NAME}, I'm listening — go ahead.`;
+  if (/how are you|how('?s| is) it going|how('?s| have) you been/.test(t)) {
+    return `I'm doing great, thanks for asking! Everything's running smoothly on the portal. What can I help with?`;
+  }
+  if (/^(thanks|thank you|thankyou|thnx|ty|shukriya)\b/.test(t)) {
+    return pick([`Anytime, ${ADMIN_FIRST_NAME}!`, `You're welcome — let me know if there's anything else.`, `Happy to help!`]);
+  }
+  if (/^(bye|goodbye|see you|see ya|later|good night)\b/.test(t)) {
+    return `See you later, ${ADMIN_FIRST_NAME}! I'll be right here whenever you need me.`;
+  }
+  if (/who are you|what('?s| is) your name|what are you called/.test(t)) {
+    return `I'm Jarvis — your assistant for this admin portal. I can handle credits, customers, subscriptions, deals, promotions, and pretty much everything else in here. Just tell me what you need, in plain language.`;
+  }
+  if (/^(ok|okay|alright|cool|nice|great|good)\.?$/.test(t)) {
+    return pick([`👍`, `Sounds good.`, `Got it.`]);
+  }
+  if (/^(sorry|my bad|oops)\b/.test(t)) {
+    return `No worries at all — what would you like me to do?`;
+  }
+  return null;
+}
+
+
 // Common words that should never be mistaken for a username, name, or
 // title when scanning a sentence for "the token that must be the thing
 // the admin means".
@@ -2686,14 +2799,20 @@ const JARVIS_CAPABILITIES = [
   'list, create, or delete FAQs, and post a customer notice', 'give a quick business summary'
 ];
 
-const JARVIS_FALLBACK_TEXT = "I didn't catch a specific action there. I can " + JARVIS_CAPABILITIES.join('; ') + ". Try something like \"add 100 credits to john123\" or \"list waiting customers\".";
+// Note: the "I didn't understand" reply now lives inline in the /api/jarvis
+// route as a small rotating set, so it doesn't sound identical every time.
 
 // Tries to turn one sentence into { tool, input }. Returns null if nothing
 // matched at all, or { needsInfo: '...question...' } if the intent was
 // clear but a required detail is missing.
 function parseJarvisIntent(rawText) {
-  const text = (rawText || '').trim();
-  if (!text) return null;
+  const rawTrimmed = (rawText || '').trim();
+  if (!rawTrimmed) return null;
+
+  const smallTalk = jarvisSmallTalk(rawTrimmed);
+  if (smallTalk) return { smallTalk };
+
+  const text = jarvisCorrectTypos(rawTrimmed);
   const lower = text.toLowerCase();
   const has = (...words) => words.some(w => lower.includes(w));
 
@@ -2930,7 +3049,7 @@ function parseJarvisIntent(rawText) {
   }
 
   if (has('help', 'what can you do', 'what do you do')) {
-    return { needsInfo: "I can " + JARVIS_CAPABILITIES.join('; ') + ". Just tell me plainly, like \"add 100 credits to john123\" or \"deactivate the summer deal\"." };
+    return { needsInfo: `Happy to explain, ${ADMIN_FIRST_NAME}! I can ` + JARVIS_CAPABILITIES.join('; ') + ". Just tell me plainly, like \"add 100 credits to john123\" or \"deactivate the summer deal\" — typos are fine, I'll figure it out." };
   }
 
   return null;
@@ -3248,8 +3367,16 @@ app.post('/api/jarvis', requireAdmin, async (req, res) => {
       if (retry && !retry.needsInfo) parsed = retry;
     }
 
+    if (parsed && parsed.smallTalk) {
+      return res.json({ reply: parsed.smallTalk, actions: [] });
+    }
     if (!parsed) {
-      return res.json({ reply: JARVIS_FALLBACK_TEXT, actions: [] });
+      const fallbacks = [
+        `Hmm, I didn't quite catch what you'd like me to do there — could you say it a bit differently? For example: "add 100 credits to john123" or "list waiting customers".`,
+        `Sorry, I'm not sure what you mean by that — mind rephrasing? I can ${JARVIS_CAPABILITIES.join('; ')}.`,
+        `I want to get this right — could you tell me again, maybe more directly? Something like "reset john123's password" works well.`
+      ];
+      return res.json({ reply: fallbacks[Math.floor(Math.random() * fallbacks.length)], actions: [] });
     }
     if (parsed.needsInfo) {
       return res.json({ reply: parsed.needsInfo, actions: [] });

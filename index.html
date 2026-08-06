@@ -6463,7 +6463,7 @@
     function JarvisAssistant() {
       const [open, setOpen] = useState(false);
       const [messages, setMessages] = useState([
-        { role: 'assistant', text: "Hi, I'm Jarvis. I can see and act on pretty much everything in this admin portal — credits, users, subscriptions, deals, promotions, social media services, waiting customers, custom grants, FAQs, notices. Just tell me what you need, typed or spoken." }
+        { role: 'assistant', text: "Hey Mutahhar! I'm Jarvis — I can see and act on pretty much everything in this portal: credits, customers, subscriptions, deals, promotions, social media services, waiting customers, custom grants, FAQs, notices, all of it. Just talk to me normally, typed or spoken — don't worry about typos or getting the wording exact, I'll ask if I'm not sure what you mean. What can I do for you?" }
       ]);
       const [input, setInput] = useState('');
       const [thinking, setThinking] = useState(false);
@@ -6599,7 +6599,7 @@
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
                   onKeyDown={(e) => { if (e.key === 'Enter') sendMessage(); }}
-                  placeholder={listening ? 'Listening...' : 'Ask Jarvis to do something...'}
+                  placeholder={listening ? 'Listening...' : 'Talk to Jarvis, typos are fine...'}
                   disabled={thinking}
                 />
                 <button onClick={() => sendMessage()} disabled={thinking || !input.trim()} className="jarvis-icon-btn send" title="Send">
