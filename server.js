@@ -5,6 +5,11 @@ const { MongoClient } = require('mongodb');
 
 const app = express();
 
+// Render (and most hosts) inject the port to listen on via process.env.PORT
+// — this was missing entirely, which is why the server crashed on startup
+// with "PORT is not defined" the moment it reached app.listen below.
+const PORT = process.env.PORT || 3000;
+
 // ─── CORS CONFIGURATION ──────────────────────────────────────
 app.use(cors({
   origin: '*',
@@ -43,7 +48,7 @@ let adminSettingsCollection;
 let noticesCollection;
 let socialServicesCollection;
 let socialOrdersCollection;
-let cartCollection;
+let socialCartCollection;
 
 // ─── SUBSCRIPTION COSTS (Monthly) ──────────────────────────
 const SUBSCRIPTION_COSTS = {
@@ -80,7 +85,7 @@ async function connectDB() {
   noticesCollection = db.collection('notices');
   socialServicesCollection = db.collection('socialServices');
   socialOrdersCollection = db.collection('socialOrders');
-  cartCollection = db.collection('cart');
+  socialCartCollection = db.collection('socialCart');
   await ensureAuthSecret(); // load or create the server-only token-signing secret
   await ensureCredKey(); // load or create the server-only customer-password encryption key
   console.log('✅ Connected to MongoDB');
@@ -112,6 +117,40 @@ async function claimIdempotencyKey(key) {
 // browser's localStorage, so changing the admin password from one device
 // takes effect for every device, not just the one that made the change.
 const ADMIN_SETTINGS_ID = 'main';
+
+// ─── Netflix tiered pricing (screens × duration) ────────────
+// Mirrors the identically-named calculation in the client (index.html) —
+// see the comment there for the full explanation of how the two admin-set
+// tables (per screen-count, per duration) combine. This copy is what
+// actually authorizes the charge, so it must stay in sync with the client's
+// version; the client version exists only to show the price before purchase.
+function getNetflixPriceServer(sub, screens, months) {
+  const basePrice = Number(sub?.sellingPrice) || 0;
+  const screenCount = Number(screens) || 1;
+  const totalMonths = Number(months) || 1;
+  const screenTable = (sub?.netflixPricing && sub.netflixPricing.screens) || {};
+  const monthTable = (sub?.netflixPricing && sub.netflixPricing.months) || {};
+
+  const screenPrice = screenTable[screenCount] != null
+    ? Number(screenTable[screenCount])
+    : basePrice * screenCount;
+
+  let monthPrice;
+  if (monthTable[totalMonths] != null) {
+    monthPrice = Number(monthTable[totalMonths]);
+  } else if (totalMonths > 12 && Object.keys(monthTable).length) {
+    const enteredMonths = Object.keys(monthTable).map(Number).sort((a, b) => a - b);
+    const last = enteredMonths[enteredMonths.length - 1];
+    const prev = enteredMonths[enteredMonths.length - 2];
+    const step = prev != null ? (Number(monthTable[last]) - Number(monthTable[prev])) / (last - prev) : basePrice;
+    monthPrice = Number(monthTable[last]) + step * (totalMonths - last);
+  } else {
+    monthPrice = basePrice * totalMonths;
+  }
+
+  if (!basePrice) return Math.round(screenPrice + monthPrice - basePrice);
+  return Math.round((screenPrice * monthPrice) / basePrice);
+}
 
 // Remove sensitive fields before sending a user document to the browser.
 // The password must never leave the server in a response — the client has
@@ -401,7 +440,7 @@ app.put('/api/admin/settings', async (req, res) => {
     if (recoveryNumber !== undefined) update.recoveryNumber = recoveryNumber;
     // Only ever store a theme id we actually ship — an unrecognized value
     // here would otherwise silently break every visitor's page.
-    const VALID_THEMES = ['classic', 'spiderman'];
+    const VALID_THEMES = ['classic', 'spiderman', 'pakistan'];
     if (theme !== undefined) {
       if (!VALID_THEMES.includes(theme)) {
         return res.status(400).json({ error: 'Unknown theme' });
@@ -1199,25 +1238,29 @@ app.get('/api/users/:username/credit-history', async (req, res) => {
 // balance.
 app.post('/api/users/:username/deductCredits', async (req, res) => {
   try {
-    let { amount, purchaseId, reason, subscriptionId, months, dealId } = req.body;
+    let { amount, purchaseId, reason, subscriptionId, months, screens, dealId } = req.body;
 
     // For a real purchase, never trust the credit amount the browser sends —
     // always recompute it here from the subscription's (or deal's) actual
     // current price in the database. The client only sends subscriptionId/
-    // months (or dealId) to identify WHAT was bought; the server decides
-    // WHAT IT COSTS. This closes two problems at once: a customer's browser
-    // showing a stale/out-of-date price (e.g. after the admin changes it)
-    // can no longer result in under-charging, and nobody can tamper with
-    // the request to pay less than the real price.
+    // months/screens (or dealId) to identify WHAT was bought; the server
+    // decides WHAT IT COSTS. This closes two problems at once: a customer's
+    // browser showing a stale/out-of-date price (e.g. after the admin
+    // changes it) can no longer result in under-charging, and nobody can
+    // tamper with the request to pay less than the real price.
     // Admin's manual credit adjustments (add/deduct from the Users tab)
     // pass neither subscriptionId nor dealId, so they keep using the raw
     // `amount` exactly as before.
     if (subscriptionId) {
       const sub = await subscriptionsCollection.findOne({ id: subscriptionId });
       if (!sub) return res.status(404).json({ error: 'Subscription not found' });
-      const perMonth = Number(sub.sellingPrice) || 0;
       const totalMonths = Number(months) || 1;
-      amount = Math.round(perMonth * totalMonths);
+      if (sub.type === 'netflix' && screens != null) {
+        amount = getNetflixPriceServer(sub, screens, totalMonths);
+      } else {
+        const perMonth = Number(sub.sellingPrice) || 0;
+        amount = Math.round(perMonth * totalMonths);
+      }
     } else if (dealId) {
       const deal = await dealsCollection.findOne({ id: dealId });
       if (!deal) return res.status(404).json({ error: 'Deal not found' });
@@ -1495,7 +1538,7 @@ app.delete('/api/social-services/:id', requireAdmin, async (req, res) => {
 // can send the order.
 app.post('/api/social-services/:id/services', requireAdmin, async (req, res) => {
   try {
-    const { name, costPrice, sellingPrice, requiredFields } = req.body;
+    const { name, costPrice, sellingPrice, requiredFields, variations } = req.body;
     if (!name) return res.status(400).json({ error: 'Service name is required' });
     const platform = await socialServicesCollection.findOne({ id: req.params.id });
     if (!platform) return res.status(404).json({ error: 'Platform not found' });
@@ -1505,6 +1548,17 @@ app.post('/api/social-services/:id/services', requireAdmin, async (req, res) => 
       costPrice: costPrice || 0,
       sellingPrice: sellingPrice || 0,
       requiredFields: Array.isArray(requiredFields) ? requiredFields.filter(f => ['accountLink', 'videoLink'].includes(f)) : [],
+      // Optional sub-types of this service (e.g. Lifetime Warranty, Non-Refill,
+      // 6 Months Warranty), each with its own per-1000 price. Empty = the
+      // service just uses the base cost/selling price above.
+      variations: Array.isArray(variations) ? variations
+        .filter(v => v && String(v.name || '').trim())
+        .map(v => ({
+          id: v.id ? String(v.id) : Date.now().toString() + Math.random().toString(36).slice(2, 7),
+          name: String(v.name).trim(),
+          costPrice: Number(v.costPrice) || 0,
+          sellingPrice: Number(v.sellingPrice) || 0
+        })) : [],
       active: true
     };
     await socialServicesCollection.updateOne({ id: req.params.id }, { $push: { services: service } });
@@ -1517,7 +1571,7 @@ app.post('/api/social-services/:id/services', requireAdmin, async (req, res) => 
 
 app.put('/api/social-services/:id/services/:serviceId', requireAdmin, async (req, res) => {
   try {
-    const { name, costPrice, sellingPrice, requiredFields, active } = req.body;
+    const { name, costPrice, sellingPrice, requiredFields, active, variations } = req.body;
     const platform = await socialServicesCollection.findOne({ id: req.params.id });
     if (!platform) return res.status(404).json({ error: 'Platform not found' });
     const services = (platform.services || []).map(s => {
@@ -1528,6 +1582,14 @@ app.put('/api/social-services/:id/services/:serviceId', requireAdmin, async (req
         costPrice: costPrice !== undefined ? costPrice : s.costPrice,
         sellingPrice: sellingPrice !== undefined ? sellingPrice : s.sellingPrice,
         requiredFields: requiredFields !== undefined ? requiredFields.filter(f => ['accountLink', 'videoLink'].includes(f)) : s.requiredFields,
+        variations: variations !== undefined ? (Array.isArray(variations) ? variations
+          .filter(v => v && String(v.name || '').trim())
+          .map(v => ({
+            id: v.id ? String(v.id) : Date.now().toString() + Math.random().toString(36).slice(2, 7),
+            name: String(v.name).trim(),
+            costPrice: Number(v.costPrice) || 0,
+            sellingPrice: Number(v.sellingPrice) || 0
+          })) : []) : (s.variations || []),
         active: active !== undefined ? active : s.active
       };
     });
@@ -1552,81 +1614,6 @@ app.delete('/api/social-services/:id/services/:serviceId', requireAdmin, async (
   }
 });
 
-// A service can optionally have "variations" — sub-types the customer
-// picks after choosing the service itself (e.g. a Followers service might
-// offer Lifetime Warranty / Non-Refill / 6 Month Warranty variations, each
-// with its own price and required link). Services with no variations keep
-// working exactly as before, priced and ordered directly.
-app.post('/api/social-services/:id/services/:serviceId/variations', requireAdmin, async (req, res) => {
-  try {
-    const { name, costPrice, sellingPrice, requiredFields } = req.body;
-    if (!name) return res.status(400).json({ error: 'Variation name is required' });
-    const platform = await socialServicesCollection.findOne({ id: req.params.id });
-    if (!platform) return res.status(404).json({ error: 'Platform not found' });
-    const service = (platform.services || []).find(s => s.id === req.params.serviceId);
-    if (!service) return res.status(404).json({ error: 'Service not found' });
-    const variation = {
-      id: Date.now().toString(),
-      name,
-      costPrice: costPrice || 0,
-      sellingPrice: sellingPrice || 0,
-      requiredFields: Array.isArray(requiredFields) ? requiredFields.filter(f => ['accountLink', 'videoLink'].includes(f)) : [],
-      active: true
-    };
-    const services = platform.services.map(s => s.id === req.params.serviceId
-      ? { ...s, variations: [...(s.variations || []), variation] }
-      : s);
-    await socialServicesCollection.updateOne({ id: req.params.id }, { $set: { services } });
-    const updated = await socialServicesCollection.findOne({ id: req.params.id });
-    res.json(updated);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-app.put('/api/social-services/:id/services/:serviceId/variations/:variationId', requireAdmin, async (req, res) => {
-  try {
-    const { name, costPrice, sellingPrice, requiredFields, active } = req.body;
-    const platform = await socialServicesCollection.findOne({ id: req.params.id });
-    if (!platform) return res.status(404).json({ error: 'Platform not found' });
-    const services = (platform.services || []).map(s => {
-      if (s.id !== req.params.serviceId) return s;
-      const variations = (s.variations || []).map(v => {
-        if (v.id !== req.params.variationId) return v;
-        return {
-          ...v,
-          name: name !== undefined ? name : v.name,
-          costPrice: costPrice !== undefined ? costPrice : v.costPrice,
-          sellingPrice: sellingPrice !== undefined ? sellingPrice : v.sellingPrice,
-          requiredFields: requiredFields !== undefined ? requiredFields.filter(f => ['accountLink', 'videoLink'].includes(f)) : v.requiredFields,
-          active: active !== undefined ? active : v.active
-        };
-      });
-      return { ...s, variations };
-    });
-    await socialServicesCollection.updateOne({ id: req.params.id }, { $set: { services } });
-    const updated = await socialServicesCollection.findOne({ id: req.params.id });
-    res.json(updated);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-app.delete('/api/social-services/:id/services/:serviceId/variations/:variationId', requireAdmin, async (req, res) => {
-  try {
-    const platform = await socialServicesCollection.findOne({ id: req.params.id });
-    if (!platform) return res.status(404).json({ error: 'Platform not found' });
-    const services = (platform.services || []).map(s => s.id === req.params.serviceId
-      ? { ...s, variations: (s.variations || []).filter(v => v.id !== req.params.variationId) }
-      : s);
-    await socialServicesCollection.updateOne({ id: req.params.id }, { $set: { services } });
-    const updated = await socialServicesCollection.findOne({ id: req.params.id });
-    res.json(updated);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
 // ─── SOCIAL MEDIA ORDERS ──────────────────────────────────────
 // Customers don't need an account to order — same as the rest of the
 // site's WhatsApp-driven flow, this just also keeps a record the admin
@@ -1642,7 +1629,7 @@ app.get('/api/social-orders', requireAdmin, async (req, res) => {
 
 app.post('/api/social-orders', async (req, res) => {
   try {
-    const { platformId, platformName, serviceId, serviceName, quantity, accountLink, videoLink, name, whatsapp, price, dealId, username } = req.body;
+    const { platformId, platformName, serviceId, serviceName, variationId, variationName, quantity, accountLink, videoLink, name, username, whatsapp, price, dealId } = req.body;
     if (!platformName || !serviceName || !quantity || !whatsapp) {
       return res.status(400).json({ error: 'Missing required fields' });
     }
@@ -1652,6 +1639,8 @@ app.post('/api/social-orders', async (req, res) => {
       platformName,
       serviceId: serviceId || '',
       serviceName,
+      variationId: variationId || '',
+      variationName: variationName || '',
       quantity: Number(quantity) || 0,
       accountLink: accountLink || '',
       videoLink: videoLink || '',
@@ -1665,18 +1654,6 @@ app.post('/api/social-orders', async (req, res) => {
     };
     await socialOrdersCollection.insertOne(order);
     res.json(order);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// A logged-in customer's own order history — both "in process" (pending)
-// and "successfully purchased" (completed) social media orders — shown in
-// their Cart / My Orders tab.
-app.get('/api/social-orders/user/:username', async (req, res) => {
-  try {
-    const orders = await socialOrdersCollection.find({ username: req.params.username }).sort({ createdAt: -1 }).toArray();
-    res.json(orders);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -1706,90 +1683,137 @@ app.delete('/api/social-orders/:id', requireAdmin, async (req, res) => {
   }
 });
 
-// ─── SOCIAL MEDIA CART ─────────────────────────────────────────
-// A social media service on its own is often cheaper than our Rs 300
-// minimum order amount, so customers add services to a cart (one or more
-// platforms/services) and only pay once the cart total clears Rs 300.
-const MIN_CART_PURCHASE = 300;
-
-app.get('/api/cart/:username', async (req, res) => {
+// A customer's own order history for their dashboard — scoped to their
+// username, and only they (or the admin) may read it, since orders carry
+// account/video links and WhatsApp numbers.
+app.get('/api/social-orders/user/:username', async (req, res) => {
   try {
-    const items = await cartCollection.find({ username: req.params.username }).sort({ createdAt: 1 }).toArray();
+    const auth = getAuth(req);
+    if (!auth || (auth.r !== 'admin' && auth.u !== req.params.username)) {
+      return res.status(403).json({ error: 'Not authorized to view this account' });
+    }
+    const orders = await socialOrdersCollection.find({ username: req.params.username }).sort({ createdAt: -1 }).toArray();
+    res.json(orders);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ---- Social Media Cart ----
+// Orders under the Rs 300 minimum land here instead of going straight
+// through — a customer keeps adding services until the cart clears that
+// bar, then checks the whole thing out in one go.
+app.get('/api/social-cart/:username', async (req, res) => {
+  try {
+    const auth = getAuth(req);
+    if (!auth || (auth.r !== 'admin' && auth.u !== req.params.username)) {
+      return res.status(403).json({ error: 'Not authorized to view this account' });
+    }
+    const items = await socialCartCollection.find({ username: req.params.username }).sort({ createdAt: 1 }).toArray();
     res.json(items);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
-app.post('/api/cart', async (req, res) => {
+app.post('/api/social-cart', async (req, res) => {
   try {
-    const { username, platformId, platformName, serviceId, serviceName, quantity, accountLink, videoLink, price } = req.body;
-    if (!username || !platformName || !serviceName || !quantity || !price) {
+    const {
+      username, platformId, platformName, serviceId, serviceName,
+      variationId, variationName, quantity, linkType, linkValue, price
+    } = req.body;
+    if (!username || !platformName || !serviceName || !quantity) {
       return res.status(400).json({ error: 'Missing required fields' });
     }
+    const auth = getAuth(req);
+    if (!auth || (auth.r !== 'admin' && auth.u !== username)) {
+      return res.status(403).json({ error: 'Not authorized to add to this cart' });
+    }
     const item = {
-      id: Date.now().toString(),
+      id: Date.now().toString() + Math.random().toString(36).slice(2, 7),
       username,
       platformId: platformId || '',
       platformName,
       serviceId: serviceId || '',
       serviceName,
+      variationId: variationId || '',
+      variationName: variationName || '',
       quantity: Number(quantity) || 0,
-      accountLink: accountLink || '',
-      videoLink: videoLink || '',
+      linkType: linkType || '',
+      linkValue: linkValue || '',
       price: Number(price) || 0,
       createdAt: new Date()
     };
-    await cartCollection.insertOne(item);
-    const items = await cartCollection.find({ username }).sort({ createdAt: 1 }).toArray();
-    res.json(items);
+    await socialCartCollection.insertOne(item);
+    res.json(item);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
-app.delete('/api/cart/:username/:itemId', async (req, res) => {
+app.delete('/api/social-cart/:id', async (req, res) => {
   try {
-    await cartCollection.deleteOne({ id: req.params.itemId, username: req.params.username });
-    const items = await cartCollection.find({ username: req.params.username }).sort({ createdAt: 1 }).toArray();
-    res.json(items);
+    const item = await socialCartCollection.findOne({ id: req.params.id });
+    if (!item) return res.status(404).json({ error: 'Cart item not found' });
+    const auth = getAuth(req);
+    if (!auth || (auth.r !== 'admin' && auth.u !== item.username)) {
+      return res.status(403).json({ error: 'Not authorized to remove this item' });
+    }
+    await socialCartCollection.deleteOne({ id: req.params.id });
+    res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
-// Pay for everything currently in the cart in one go — deducts the combined
-// total from credits, files a waiting/fulfillment entry and an order record
-// per item (same as a direct social order), then empties the cart.
-app.post('/api/cart/:username/checkout', async (req, res) => {
+// Pays for everything currently in a customer's cart in one shot. The price
+// of every line item is recomputed here from the live service/variation
+// data (never trusted from the client) so a stale or tampered cart price
+// can never be charged.
+app.post('/api/social-cart/:username/checkout', async (req, res) => {
   try {
-    const { username } = req.params;
-    const { purchaseId } = req.body;
-    const items = await cartCollection.find({ username }).sort({ createdAt: 1 }).toArray();
-    if (!items.length) return res.status(400).json({ error: 'Your cart is empty' });
+    const username = req.params.username;
+    const auth = getAuth(req);
+    if (!auth || (auth.r !== 'admin' && auth.u !== username)) {
+      return res.status(403).json({ error: 'Not authorized to check out this cart' });
+    }
+    const { name, whatsapp } = req.body;
+    const items = await socialCartCollection.find({ username }).toArray();
+    if (items.length === 0) return res.status(400).json({ error: 'Your cart is empty' });
 
-    const total = items.reduce((sum, it) => sum + (Number(it.price) || 0), 0);
-    if (total < MIN_CART_PURCHASE) {
-      return res.status(400).json({ error: `Minimum purchase amount is Rs ${MIN_CART_PURCHASE} — add more services to your cart to checkout.` });
+    const platforms = await socialServicesCollection.find({}).toArray();
+    let total = 0;
+    const priced = items.map(item => {
+      const platform = platforms.find(p => p.id === item.platformId);
+      const service = platform ? (platform.services || []).find(s => s.id === item.serviceId) : null;
+      let unitPrice = item.price;
+      if (service) {
+        if (item.variationId) {
+          const variation = (service.variations || []).find(v => v.id === item.variationId);
+          if (variation) unitPrice = Math.round(((variation.sellingPrice || 0) / 1000) * item.quantity);
+        } else {
+          unitPrice = Math.round(((service.sellingPrice || 0) / 1000) * item.quantity);
+        }
+      }
+      total += unitPrice;
+      return { ...item, price: unitPrice };
+    });
+
+    if (total < 300) {
+      return res.status(400).json({ error: `Minimum purchase amount is Rs 300. Your cart total is Rs ${total} — add more services to reach it.` });
     }
 
-    const key = purchaseId ? `cart-checkout:${purchaseId}` : null;
-    const claimed = await claimIdempotencyKey(key);
-    if (!claimed) {
-      const existing = await usersCollection.findOne({ username });
-      if (!existing) return res.status(404).json({ error: 'User not found' });
-      return res.json(sanitizeUser(existing));
-    }
+    const purchaseId = 'cart_' + Date.now().toString();
+    const claimed = await claimIdempotencyKey(`cartcheckout:${purchaseId}`);
+    if (!claimed) return res.status(400).json({ error: 'Checkout already processed' });
 
     const result = await usersCollection.findOneAndUpdate(
       { username, credits: { $gte: total } },
       { $inc: { credits: -total } },
       { returnDocument: 'after' }
     );
-    const updated = result && result.value !== undefined ? result.value : result;
-    if (!updated) {
-      const user = await usersCollection.findOne({ username });
-      if (!user) return res.status(404).json({ error: 'User not found' });
+    const updatedUser = result && result.value !== undefined ? result.value : result;
+    if (!updatedUser) {
       return res.status(400).json({ error: 'Insufficient credits' });
     }
 
@@ -1798,62 +1822,64 @@ app.post('/api/cart/:username/checkout', async (req, res) => {
       username,
       type: 'debit',
       amount: total,
-      reason: 'Social media cart checkout',
-      purchaseId: purchaseId || null,
-      balanceAfter: updated.credits,
+      reason: `Social media cart checkout (${priced.length} item${priced.length !== 1 ? 's' : ''})`,
+      purchaseId,
+      balanceAfter: updatedUser.credits,
       createdAt: new Date()
     });
 
-    const now = new Date();
-    const waitingEntries = items.map(it => ({
-      id: `${Date.now().toString()}${Math.random().toString(36).slice(2, 6)}`,
-      subscriptionId: null,
-      subscriptionName: `${it.platformName} - ${it.serviceName}`,
-      isCustomRequest: false,
-      name: updated.name || updated.username,
-      username,
-      whatsapp: updated.whatsapp || '',
-      months: 1,
-      email: '',
-      paidWithCredits: true,
-      creditsAmount: it.price,
-      isSocialOrder: true,
-      platformId: it.platformId || null,
-      platformName: it.platformName,
-      serviceId: it.serviceId || null,
-      serviceName: it.serviceName,
-      quantity: it.quantity,
-      linkType: it.accountLink ? 'accountLink' : (it.videoLink ? 'videoLink' : ''),
-      linkValue: it.accountLink || it.videoLink || '',
-      price: it.price,
-      fulfilled: false,
-      purchasedAt: now.toISOString(),
-      createdAt: now
-    }));
-    if (waitingEntries.length) await waitingCollection.insertMany(waitingEntries);
+    for (const item of priced) {
+      const orderId = Date.now().toString() + Math.random().toString(36).slice(2, 7);
+      const label = `${item.platformName} - ${item.serviceName}${item.variationName ? ' - ' + item.variationName : ''}`;
+      await socialOrdersCollection.insertOne({
+        id: orderId,
+        platformId: item.platformId,
+        platformName: item.platformName,
+        serviceId: item.serviceId,
+        serviceName: item.serviceName,
+        variationId: item.variationId,
+        variationName: item.variationName,
+        quantity: item.quantity,
+        accountLink: item.linkType === 'accountLink' ? item.linkValue : '',
+        videoLink: item.linkType === 'videoLink' ? item.linkValue : '',
+        name: name || username,
+        username,
+        whatsapp: whatsapp || '',
+        price: item.price,
+        dealId: '',
+        status: 'pending',
+        createdAt: new Date()
+      });
+      await waitingCollection.insertOne({
+        id: orderId + 'w',
+        subscriptionId: null,
+        subscriptionName: label,
+        isCustomRequest: false,
+        name: name || username,
+        username,
+        whatsapp: whatsapp || '',
+        months: 1,
+        email: '',
+        paidWithCredits: true,
+        creditsAmount: item.price,
+        isSocialOrder: true,
+        platformId: item.platformId,
+        platformName: item.platformName,
+        serviceId: item.serviceId,
+        serviceName: item.serviceName,
+        quantity: item.quantity,
+        linkType: item.linkType || '',
+        linkValue: item.linkValue || '',
+        price: item.price,
+        fulfilled: false,
+        purchasedAt: new Date().toISOString(),
+        createdAt: new Date()
+      });
+    }
 
-    const orders = items.map(it => ({
-      id: `${Date.now().toString()}${Math.random().toString(36).slice(2, 6)}`,
-      platformId: it.platformId || '',
-      platformName: it.platformName,
-      serviceId: it.serviceId || '',
-      serviceName: it.serviceName,
-      quantity: it.quantity,
-      accountLink: it.accountLink || '',
-      videoLink: it.videoLink || '',
-      name: updated.name || updated.username,
-      username,
-      whatsapp: updated.whatsapp || '',
-      price: it.price,
-      dealId: '',
-      status: 'pending',
-      createdAt: now
-    }));
-    if (orders.length) await socialOrdersCollection.insertMany(orders);
+    await socialCartCollection.deleteMany({ username });
 
-    await cartCollection.deleteMany({ username });
-
-    res.json({ user: sanitizeUser(updated), orders });
+    res.json({ success: true, total, itemCount: priced.length, user: sanitizeUser(updatedUser) });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -2527,6 +2553,718 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', database: db ? 'connected' : 'disconnected' });
 });
 
+// ═══════════════════════════════════════════════════════════════
+// JARVIS — local admin assistant (no external API of any kind)
+// The admin types or speaks a request, this file pattern-matches it
+// against a broad list of known intents below, pulls out the details
+// (username, amount, price, etc.) with plain text parsing, and calls
+// the matching tool in executeJarvisTool() directly — the same real,
+// narrow, server-side actions as before. If something required is
+// missing, it asks one short follow-up question; answering it lets
+// Jarvis pick the request back up without repeating everything.
+// ═══════════════════════════════════════════════════════════════
+
+// Common words that should never be mistaken for a username, name, or
+// title when scanning a sentence for "the token that must be the thing
+// the admin means".
+const JARVIS_STOPWORDS = new Set([
+  'a','an','the','to','from','for','of','with','and','or','please','pls','plz',
+  'add','adds','added','adding','deduct','deducts','deducted','remove','removes','removed',
+  'subtract','minus','give','gives','giving','grant','grants','granting','credit','credits',
+  'user','users','username','usernames','customer','customers','account','accounts',
+  'password','passwords','reset','resets','change','changes','changed','update','updates','updated',
+  'create','creates','creating','new','delete','deletes','deleting','find','finds','finding',
+  'look','looks','looking','up','show','shows','showing','list','lists','listing',
+  'subscription','subscriptions','sub','deal','deals','promotion','promotions','promo','promos',
+  'banner','banners','platform','platforms','service','service','waiting','faq','faqs',
+  'notice','notices','announcement','summary','overview','business','how','many','much',
+  'is','are','was','were','it','that','this','their','his','her','them','they',
+  'set','name','named','called','titled','into','onto','on','at','by','as','my','me',
+  'i','want','need','can','you','please','make','set','worth','currently','currently,'
+]);
+
+function jarvisExtractNumber(text) {
+  const m = text.match(/(\d[\d,]*\.?\d*)/);
+  if (!m) return null;
+  const n = parseFloat(m[1].replace(/,/g, ''));
+  return isNaN(n) ? null : n;
+}
+
+function jarvisExtractAllNumbers(text) {
+  const matches = text.match(/\d[\d,]*\.?\d*/g) || [];
+  return matches.map(s => parseFloat(s.replace(/,/g, ''))).filter(n => !isNaN(n));
+}
+
+function jarvisExtractQuoted(text) {
+  const m = text.match(/["'“”‘’]([^"'“”‘’]+)["'“”‘’]/);
+  return m ? m[1].trim() : null;
+}
+
+// Finds the token right after any of the given keywords ("to", "user",
+// "from"...), skipping an optional filler word ("is"/"to"/"as") in
+// between, and stripping trailing punctuation/possessive.
+function jarvisExtractAfterKeyword(text, keywords) {
+  for (const kw of keywords) {
+    const re = new RegExp(`\\b${kw}\\b\\s*(?:is|to|as|:|=)?\\s+([a-zA-Z0-9_.@+-]+)`, 'i');
+    const m = text.match(re);
+    if (m) return m[1].replace(/[.,!?]+$/, '').replace(/['’]s$/, '');
+  }
+  return null;
+}
+
+// Same idea, but grabs everything to the end of the sentence rather than
+// one token — for fields that are a whole phrase (a notice's message, an
+// FAQ's answer), not a single value.
+function jarvisExtractRestAfter(text, keywords) {
+  for (const kw of keywords) {
+    const re = new RegExp(`\\b${kw}\\b\\s*(?:is|to|as|:)?\\s+(.+)$`, 'i');
+    const m = text.match(re);
+    if (m) return m[1].replace(/^["'“”‘’]+|["'“”‘’]+$/g, '').trim();
+  }
+  return null;
+}
+
+function jarvisExtractWhatsapp(text) {
+  const m = text.match(/(\+?\d[\d\s-]{7,}\d)/);
+  return m ? m[1].replace(/[\s-]/g, '') : null;
+}
+
+// A username usually shows up either right after a keyword ("to john123",
+// "user john123") or as a bare token containing a digit somewhere in the
+// sentence ("give john123 100 credits"). Tries the reliable path first.
+function jarvisExtractUsername(text) {
+  const kw = jarvisExtractAfterKeyword(text, ['username', 'user', 'customer', 'account', 'to', 'from', 'for']);
+  if (kw && !JARVIS_STOPWORDS.has(kw.toLowerCase())) return kw;
+  const tokens = text.split(/\s+/).map(t => t.replace(/^[.,!?'"]+|[.,!?'"]+$/g, ''));
+  const withDigit = tokens.find(t => /\d/.test(t) && /^[a-zA-Z][a-zA-Z0-9_.]*$/.test(t) && !JARVIS_STOPWORDS.has(t.toLowerCase()));
+  return withDigit || null;
+}
+
+// Best-effort human name: "named John Smith" / "name is John Smith", or
+// two consecutive capitalized words that aren't at the very start of the
+// sentence (to dodge "Add 100 credits...").
+function jarvisExtractPersonName(text) {
+  let m = text.match(/\b(?:named|name is|call(?:ed)? them|full name)\s+([A-Z][a-zA-Z'-]+(?:\s+[A-Z][a-zA-Z'-]+)?)/);
+  if (m) return m[1].trim();
+  m = text.match(/[a-z]\s+([A-Z][a-zA-Z'-]+\s+[A-Z][a-zA-Z'-]+)\b/);
+  if (m) return m[1].trim();
+  return null;
+}
+
+function jarvisExtractPassword(text) {
+  if (/\bpassword\b/i.test(text)) {
+    const toMatch = text.match(/\bto\b\s+(\S+)\s*$/i);
+    if (toMatch && toMatch[1].length >= 4) return toMatch[1];
+  }
+  const m = text.match(/\b(?:password|pass|pwd)\b\s*(?:is|to|as|:|=)?\s+(\S+)/i);
+  if (m && m[1].length >= 4 && !/^(for|to|is|as|of|the|a)$/i.test(m[1])) return m[1];
+  const quoted = jarvisExtractQuoted(text);
+  if (quoted && /[A-Z]/.test(quoted) && /\d/.test(quoted)) return quoted;
+  return null;
+}
+
+// Anything the admin wrapped in quotes is almost always the title/name of
+// the thing they mean (a subscription, deal, FAQ question, platform...).
+// Falls back to whatever's left after stripping known command words.
+function jarvisExtractTitle(text, stripWords) {
+  const quoted = jarvisExtractQuoted(text);
+  if (quoted) return quoted;
+  const called = text.match(/\b(?:called|titled|named)\s+(.+)/i);
+  if (called) return called[1].replace(/[.!?]+$/, '').trim();
+  let cleaned = text;
+  stripWords.forEach(w => { cleaned = cleaned.replace(new RegExp(`\\b${w}\\b`, 'ig'), ''); });
+  cleaned = cleaned.replace(/\s+/g, ' ').trim();
+  return cleaned || null;
+}
+
+const JARVIS_CAPABILITIES = [
+  'add or deduct a customer\'s credits', 'look up or list customers', 'create, delete, or reset the password on a customer account',
+  'list, create, update, or delete subscriptions, and add a new login/account to one',
+  'list, create, activate/deactivate, or delete deals', 'list, activate/deactivate, or delete promotion banners',
+  'list social-media platforms/services or add a new service under a platform',
+  'list waiting customers or resolve one', 'list, grant, or remove a custom subscription grant',
+  'list, create, or delete FAQs, and post a customer notice', 'give a quick business summary'
+];
+
+const JARVIS_FALLBACK_TEXT = "I didn't catch a specific action there. I can " + JARVIS_CAPABILITIES.join('; ') + ". Try something like \"add 100 credits to john123\" or \"list waiting customers\".";
+
+// Tries to turn one sentence into { tool, input }. Returns null if nothing
+// matched at all, or { needsInfo: '...question...' } if the intent was
+// clear but a required detail is missing.
+function parseJarvisIntent(rawText) {
+  const text = (rawText || '').trim();
+  if (!text) return null;
+  const lower = text.toLowerCase();
+  const has = (...words) => words.some(w => lower.includes(w));
+
+  // ── Business summary ──────────────────────────────────────
+  if (has('business summary', 'overview', 'how is business', "how's business", 'dashboard stats', 'quick stats', 'business stats')) {
+    return { tool: 'get_business_summary', input: {} };
+  }
+
+  // ── Credits ────────────────────────────────────────────────
+  if (has('credit')) {
+    const amount = jarvisExtractNumber(text);
+    const username = jarvisExtractUsername(text);
+    const isDeduct = has('deduct', 'subtract', 'remove', 'take away', 'minus');
+    const tool = isDeduct ? 'deduct_credits' : 'add_credits';
+    if (!username) return { needsInfo: `Sure — whose account should I ${isDeduct ? 'deduct' : 'add'} credits ${isDeduct ? 'from' : 'to'}?` };
+    if (!amount) return { needsInfo: `How many credits should I ${isDeduct ? 'deduct from' : 'add to'} ${username}?` };
+    return { tool, input: { username, amount } };
+  }
+
+  // ── Password reset ────────────────────────────────────────
+  if (has('password') && (has('reset', 'change', 'update', 'new password', 'forgot') || /\bset\b.*\bpassword\b/.test(lower)) && !has('create', 'new user', 'sign up', 'signup', 'register', 'grant')) {
+    const beforePassword = text.split(/\bpassword\b/i)[0];
+    const afterPassword = text.split(/\bpassword\b/i)[1] || '';
+    const username = jarvisExtractAfterKeyword(text, ['for', 'of']) || jarvisExtractUsername(beforePassword) || jarvisExtractUsername(afterPassword);
+    const newPassword = jarvisExtractPassword(text);
+    if (!username) return { needsInfo: "Whose password should I reset?" };
+    if (!newPassword) return { needsInfo: `What should ${username}'s new password be?` };
+    return { tool: 'reset_user_password', input: { username, newPassword } };
+  }
+
+  // ── Waiting list ───────────────────────────────────────────
+  if (has('waiting')) {
+    if (has('resolve', 'fulfill', 'fulfilled', 'clear', 'done with', 'sorted')) {
+      const username = jarvisExtractUsername(text);
+      if (!username) return { needsInfo: 'Which customer\'s waiting entry should I resolve?' };
+      return { tool: 'resolve_waiting', input: { username } };
+    }
+    return { tool: 'list_waiting', input: {} };
+  }
+
+  // ── Add a login to a subscription ───────────────────────────
+  // Checked before the generic user/customer branch below since both use
+  // the word "account" — this one's the login-with-an-email-and-password
+  // flavor, so an email address in the sentence is the tell.
+  {
+    const emailMatch = text.match(/[\w.+-]+@[\w-]+\.[\w.-]+/);
+    if (emailMatch && has('add', 'new') && has('account', 'login')) {
+      const idOrName = jarvisExtractQuoted(text) || jarvisExtractAfterKeyword(text, ['to', 'subscription']);
+      const password = jarvisExtractPassword(text);
+      if (!idOrName) return { needsInfo: 'Which subscription should I add this account to?' };
+      if (!password) return { needsInfo: `I need the login password for the new ${idOrName} account.` };
+      return { tool: 'add_account', input: { idOrName, email: emailMatch[0], password } };
+    }
+  }
+
+  // ── Users / customers ─────────────────────────────────────
+  if (has('user', 'customer', 'account') && !has('subscription', 'deal', 'promo', 'faq', 'notice', 'social', 'platform', 'waiting')) {
+    if (has('list', 'recent', 'show me', 'who signed up')) {
+      return { tool: 'list_users', input: { limit: jarvisExtractNumber(text) || 20 } };
+    }
+    if (has('find', 'look up', 'lookup', 'search', 'who is', 'check')) {
+      const username = jarvisExtractUsername(text);
+      if (!username) return { needsInfo: 'Which username should I look up?' };
+      return { tool: 'find_user', input: { username } };
+    }
+    if (has('delete', 'remove')) {
+      const username = jarvisExtractUsername(text);
+      if (!username) return { needsInfo: 'Which username should I delete?' };
+      return { tool: 'delete_user', input: { username } };
+    }
+    if (has('create', 'new', 'register', 'sign up', 'signup')) {
+      const username = jarvisExtractUsername(text);
+      const name = jarvisExtractPersonName(text) || username;
+      const password = jarvisExtractPassword(text);
+      const whatsapp = jarvisExtractWhatsapp(text);
+      const missing = [];
+      if (!username) missing.push('a username');
+      if (!password) missing.push('a password');
+      if (!whatsapp) missing.push('a WhatsApp number');
+      if (missing.length) return { needsInfo: `To create that account I still need ${missing.join(', ')}.` };
+      return { tool: 'create_user', input: { name, username, password, whatsapp } };
+    }
+    // Bare lookup: "john123" mentioned with "user"/"customer" but no clear verb
+    const username = jarvisExtractUsername(text);
+    if (username) return { tool: 'find_user', input: { username } };
+  }
+
+  // ── Custom grants ──────────────────────────────────────────
+  if (has('grant')) {
+    if (has('list', 'show')) return { tool: 'list_custom_grants', input: {} };
+    if (has('delete', 'remove', 'revoke')) {
+      const username = jarvisExtractUsername(text);
+      const subscriptionName = jarvisExtractTitle(text, ['delete', 'remove', 'revoke', 'grant', 'custom', 'from', username || '']);
+      if (!username) return { needsInfo: 'Whose custom grant should I remove, and which subscription?' };
+      if (!subscriptionName) return { needsInfo: `Which subscription grant should I remove from ${username}?` };
+      return { tool: 'delete_custom_grant', input: { username, subscriptionName } };
+    }
+    const textNoMonths = text.replace(/\bfor\s+\d+\s*months?\b/i, '');
+    const username = jarvisExtractAfterKeyword(text, ['grant']) || jarvisExtractUsername(textNoMonths);
+    const subscriptionName = jarvisExtractQuoted(text);
+    const email = jarvisExtractAfterKeyword(text, ['email']);
+    const password = jarvisExtractPassword(text);
+    const monthsMatch = text.match(/(\d+)\s*months?\b/i);
+    const months = monthsMatch ? parseInt(monthsMatch[1], 10) : 1;
+    const missing = [];
+    if (!username) missing.push('who it\'s for');
+    if (!subscriptionName) missing.push('the subscription name (in quotes is safest)');
+    if (!email) missing.push('the login email');
+    if (!password) missing.push('the login password');
+    if (missing.length) return { needsInfo: `To grant that I still need: ${missing.join(', ')}.` };
+    return { tool: 'grant_subscription', input: { username, subscriptionName, email, password, months: months || 1 } };
+  }
+
+  // ── FAQs ────────────────────────────────────────────────────
+  if (has('faq')) {
+    if (has('delete', 'remove')) {
+      const question = jarvisExtractQuoted(text) || jarvisExtractTitle(text, ['delete', 'remove', 'faq']);
+      if (!question) return { needsInfo: 'Which FAQ (by its question) should I delete?' };
+      return { tool: 'delete_faq', input: { question } };
+    }
+    if (has('create', 'add', 'new')) {
+      const question = jarvisExtractQuoted(text);
+      if (!question) return { needsInfo: 'What should the FAQ question say (put it in quotes), and what\'s the answer?' };
+      const rest = text.replace(`"${question}"`, '').replace(`'${question}'`, '');
+      const answer = jarvisExtractQuoted(rest) || jarvisExtractRestAfter(rest, ['answer']);
+      if (!answer) return { needsInfo: `Got the question — what's the answer?` };
+      return { tool: 'create_faq', input: { question, answer } };
+    }
+    return { tool: 'list_faqs', input: {} };
+  }
+
+  // ── Notices ─────────────────────────────────────────────────
+  if (has('notice', 'announcement', 'broadcast', 'post a message')) {
+    const message = jarvisExtractQuoted(text) || jarvisExtractRestAfter(text, ['saying', 'that says', 'that']);
+    if (!message) return { needsInfo: 'What should the notice say?' };
+    return { tool: 'create_notice', input: { message } };
+  }
+
+  // ── Social media services ──────────────────────────────────
+  if (has('social', 'instagram', 'tiktok', 'youtube', 'facebook', 'snapchat', 'followers', 'likes')) {
+    if (has('add', 'create', 'new') && has('service')) {
+      const platformName = jarvisExtractAfterKeyword(text, ['platform', 'to', 'under', 'on']);
+      const serviceName = jarvisExtractQuoted(text);
+      const numbers = jarvisExtractAllNumbers(text);
+      if (!platformName) return { needsInfo: 'Which platform is this service under?' };
+      if (!serviceName) return { needsInfo: `What's the service called (e.g. "Followers")?` };
+      if (numbers.length < 2) return { needsInfo: `What's the cost price and selling price (per 1000) for ${serviceName}?` };
+      return { tool: 'add_social_service', input: { platformName, serviceName, costPrice: numbers[0], sellingPrice: numbers[1] } };
+    }
+    return { tool: 'list_social_services', input: {} };
+  }
+
+  // ── Deals ───────────────────────────────────────────────────
+  if (has('deal')) {
+    const dealTurnOff = has('deactivate', 'disable', 'turn off');
+    const dealTurnOn = !dealTurnOff && has('activate', 'enable', 'turn on');
+    if (dealTurnOff || dealTurnOn) {
+      const title = jarvisExtractQuoted(text) || jarvisExtractTitle(text, ['activate', 'enable', 'turn', 'on', 'deactivate', 'disable', 'off', 'deal', 'the']);
+      const active = dealTurnOn;
+      if (!title) return { needsInfo: `Which deal should I ${active ? 'activate' : 'deactivate'}?` };
+      return { tool: 'toggle_deal', input: { title, active } };
+    }
+    if (has('delete', 'remove')) {
+      const title = jarvisExtractQuoted(text) || jarvisExtractTitle(text, ['delete', 'remove', 'deal', 'the']);
+      if (!title) return { needsInfo: 'Which deal should I delete?' };
+      return { tool: 'delete_deal', input: { title } };
+    }
+    if (has('create', 'new', 'add')) {
+      const title = jarvisExtractQuoted(text);
+      const numbers = jarvisExtractAllNumbers(text);
+      if (!title) return { needsInfo: 'What should the deal be called (put the title in quotes)?' };
+      if (numbers.length < 2) return { needsInfo: `What's the original price and the discounted price for "${title}"?` };
+      return { needsInfo: `Got "${title}" at RS ${numbers[1]} (was RS ${numbers[0]}) — which subscriptions should it bundle? Name them and I'll set it up.` };
+    }
+    return { tool: 'list_deals', input: {} };
+  }
+
+  // ── Promotions ──────────────────────────────────────────────
+  if (has('promotion', 'promo', 'banner')) {
+    const promoTurnOff = has('deactivate', 'disable', 'turn off');
+    const promoTurnOn = !promoTurnOff && has('activate', 'enable', 'turn on');
+    if (promoTurnOff || promoTurnOn) {
+      const heading = jarvisExtractQuoted(text) || jarvisExtractTitle(text, ['activate', 'enable', 'turn', 'on', 'deactivate', 'disable', 'off', 'promotion', 'promo', 'banner', 'the']);
+      const active = promoTurnOn;
+      if (!heading) return { needsInfo: `Which promotion should I ${active ? 'activate' : 'deactivate'}?` };
+      return { tool: 'toggle_promotion', input: { heading, active } };
+    }
+    if (has('delete', 'remove')) {
+      const heading = jarvisExtractQuoted(text) || jarvisExtractTitle(text, ['delete', 'remove', 'promotion', 'promo', 'banner', 'the']);
+      if (!heading) return { needsInfo: 'Which promotion should I delete?' };
+      return { tool: 'delete_promotion', input: { heading } };
+    }
+    return { tool: 'list_promotions', input: {} };
+  }
+
+  // ── Subscriptions / accounts ────────────────────────────────
+  if (has('subscription', 'sub ') || lower.startsWith('sub ')) {
+    if (has('add') && has('account', 'login')) {
+      const idOrName = jarvisExtractQuoted(text) || jarvisExtractAfterKeyword(text, ['to', 'subscription']);
+      const email = jarvisExtractAfterKeyword(text, ['email']) || (text.match(/[\w.+-]+@[\w-]+\.[\w.-]+/) || [])[0];
+      const password = jarvisExtractPassword(text);
+      if (!idOrName) return { needsInfo: 'Which subscription should I add this account to?' };
+      if (!email || !password) return { needsInfo: `I need both the login email and password for the new ${idOrName} account.` };
+      return { tool: 'add_account', input: { idOrName, email, password } };
+    }
+    if (has('delete', 'remove')) {
+      const idOrName = jarvisExtractQuoted(text) || jarvisExtractTitle(text, ['delete', 'remove', 'subscription', 'the']);
+      if (!idOrName) return { needsInfo: 'Which subscription should I delete?' };
+      return { tool: 'delete_subscription', input: { idOrName } };
+    }
+    if (has('create', 'new') && !has('deal')) {
+      const name = jarvisExtractQuoted(text);
+      const numbers = jarvisExtractAllNumbers(text);
+      if (!name) return { needsInfo: 'What should the subscription be called (put the name in quotes)?' };
+      if (!numbers.length) return { needsInfo: `What's the selling price for "${name}"?` };
+      const type = (jarvisExtractAfterKeyword(text, ['type']) || name).toLowerCase().replace(/[^a-z]/g, '') || 'other';
+      return { tool: 'create_subscription', input: { name, type, sellingPrice: numbers[numbers.length - 1], costPerMonth: numbers.length > 1 ? numbers[0] : 0 } };
+    }
+    if (has('update', 'change', 'edit') && has('price', 'cost', 'name', 'description')) {
+      const idOrName = jarvisExtractQuoted(text) || jarvisExtractAfterKeyword(text, ['for', 'to', 'of']);
+      const numbers = jarvisExtractAllNumbers(text);
+      if (!idOrName) return { needsInfo: 'Which subscription should I update?' };
+      const update = {};
+      if (has('selling price') && numbers.length) update.sellingPrice = numbers[0];
+      else if (has('cost') && numbers.length) update.costPerMonth = numbers[0];
+      else if (numbers.length) update.sellingPrice = numbers[0];
+      if (!Object.keys(update).length) return { needsInfo: `What should change on ${idOrName}, and to what?` };
+      return { tool: 'update_subscription', input: { idOrName, ...update } };
+    }
+    if (has('list', 'show', 'what')) return { tool: 'list_subscriptions', input: {} };
+    const idOrName = jarvisExtractQuoted(text) || jarvisExtractAfterKeyword(text, ['about', 'on']);
+    if (idOrName) return { tool: 'get_subscription', input: { idOrName } };
+    return { tool: 'list_subscriptions', input: {} };
+  }
+
+  if (has('help', 'what can you do', 'what do you do')) {
+    return { needsInfo: "I can " + JARVIS_CAPABILITIES.join('; ') + ". Just tell me plainly, like \"add 100 credits to john123\" or \"deactivate the summer deal\"." };
+  }
+
+  return null;
+}
+
+function formatJarvisReply(tool, input, r) {
+  if (r && r.error) return r.error;
+  switch (tool) {
+    case 'add_credits': return `Done — added ${input.amount} credits to ${r.username}. New balance: ${r.newBalance}.`;
+    case 'deduct_credits': return `Done — deducted ${input.amount} credits from ${r.username}. New balance: ${r.newBalance}.`;
+    case 'find_user': return `${r.name || r.username} (@${r.username}) — WhatsApp ${r.whatsapp || 'N/A'}, ${r.credits} credits, signed up ${r.signedUpAt ? new Date(r.signedUpAt).toLocaleDateString() : 'N/A'}.`;
+    case 'list_users': return r.count === 0 ? 'No users yet.' : `${r.count} most recent user${r.count > 1 ? 's' : ''}: ` + r.users.map(u => `${u.name || u.username} (@${u.username}, ${u.credits} credits)`).join('; ') + '.';
+    case 'create_user': return `Created the account for ${r.name} (@${r.username}).`;
+    case 'delete_user': return `Deleted the account "${r.deleted}".`;
+    case 'reset_user_password': return `Password reset for @${r.username}.`;
+    case 'list_subscriptions': return r.count === 0 ? 'No subscriptions yet.' : `${r.count} subscription${r.count > 1 ? 's' : ''}: ` + r.subscriptions.map(s => `${s.name} (RS ${s.sellingPrice}, ${s.accounts} account${s.accounts !== 1 ? 's' : ''})`).join('; ') + '.';
+    case 'get_subscription': return `${r.name} (${r.type}) — RS ${r.sellingPrice}/screen, cost RS ${r.costPerMonth}/month. ${(r.accounts || []).length} account(s).`;
+    case 'create_subscription': return `Created the subscription "${r.name}".`;
+    case 'update_subscription': return `Updated subscription — ${Object.keys(r.updated).join(', ')}.`;
+    case 'delete_subscription': return `Deleted the subscription "${r.deleted}".`;
+    case 'add_account': return `Added a new account (${r.addedAccount}) to ${r.subscription}.`;
+    case 'list_deals': return r.count === 0 ? 'No deals yet.' : `${r.count} deal${r.count > 1 ? 's' : ''}: ` + r.deals.map(d => `${d.title} (RS ${d.discountPrice}, was RS ${d.actualPrice}) — ${d.active ? 'active' : 'inactive'}`).join('; ') + '.';
+    case 'toggle_deal': return `"${r.title}" is now ${r.active ? 'active' : 'inactive'}.`;
+    case 'delete_deal': return `Deleted the deal "${r.deleted}".`;
+    case 'list_promotions': return r.count === 0 ? 'No promotions yet.' : `${r.count} promotion${r.count > 1 ? 's' : ''}: ` + r.promotions.map(p => `${p.heading} — ${p.active ? 'active' : 'inactive'}`).join('; ') + '.';
+    case 'toggle_promotion': return `"${r.heading}" is now ${r.active ? 'active' : 'inactive'}.`;
+    case 'delete_promotion': return `Deleted the promotion "${r.deleted}".`;
+    case 'list_social_services': return (!r.platforms || r.platforms.length === 0) ? 'No social platforms yet.' : r.platforms.map(p => `${p.name}: ` + (p.services.length ? p.services.map(s => `${s.name} (RS ${s.sellingPrice})`).join(', ') : 'no services yet')).join(' | ');
+    case 'add_social_service': return `Added "${r.addedService}" under ${r.platform}.`;
+    case 'list_waiting': return r.count === 0 ? 'Nobody is waiting right now.' : `${r.count} waiting: ` + r.waiting.map(w => `${w.username} (${w.subscriptionName})`).join('; ') + '.';
+    case 'resolve_waiting': return `Marked ${r.resolved}'s waiting entry as resolved.`;
+    case 'list_custom_grants': return r.count === 0 ? 'No custom grants yet.' : `${r.count} custom grant${r.count > 1 ? 's' : ''}: ` + r.grants.map(g => `${g.username} → ${g.subscriptionName} (expires ${g.expiryDate})`).join('; ') + '.';
+    case 'grant_subscription': return `Granted "${r.subscriptionName}" to ${r.username}, expiring ${r.expiryDate}.`;
+    case 'delete_custom_grant': return `Removed "${r.removed}" from ${r.from}.`;
+    case 'list_faqs': return r.count === 0 ? 'No FAQs yet.' : `${r.count} FAQ${r.count > 1 ? 's' : ''}: ` + r.faqs.map(f => f.question).join('; ') + '.';
+    case 'create_faq': return `Added the FAQ "${r.question}".`;
+    case 'delete_faq': return `Deleted the FAQ "${r.deleted}".`;
+    case 'create_notice': return `Posted the notice: "${r.posted}".`;
+    case 'get_business_summary': return `Right now: ${r.totalUsers} users, ${r.totalSubscriptions} subscriptions, ${r.activeDeals} active deals, ${r.pendingWaiting} people waiting, ${r.activeCustomGrants} active custom grants.`;
+    default: return 'Done.';
+  }
+}
+
+// Small helper: resolve a subscription by its exact id, or fall back to a
+// case-insensitive name match — lets the admin say "netflix family plan"
+// instead of needing to know its internal id.
+async function findSubscriptionByIdOrName(idOrName) {
+  if (!idOrName) return null;
+  let sub = await subscriptionsCollection.findOne({ id: idOrName });
+  if (sub) return sub;
+  const all = await subscriptionsCollection.find({}).toArray();
+  const lower = idOrName.trim().toLowerCase();
+  return all.find(s => (s.name || '').toLowerCase() === lower)
+    || all.find(s => (s.name || '').toLowerCase().includes(lower))
+    || null;
+}
+
+async function executeJarvisTool(name, input) {
+  switch (name) {
+    case 'add_credits': {
+      const { username, amount, reason } = input;
+      if (!username || !amount || amount <= 0) return { error: 'A valid username and positive amount are required.' };
+      const result = await usersCollection.findOneAndUpdate({ username }, { $inc: { credits: amount } }, { returnDocument: 'after' });
+      const updated = result && result.value !== undefined ? result.value : result;
+      if (!updated) return { error: `No user found with username "${username}".` };
+      await creditHistoryCollection.insertOne({ id: crypto.randomUUID(), username, type: 'credit', amount, reason: reason || 'Added by Jarvis (AI assistant)', balanceAfter: updated.credits, createdAt: new Date() });
+      return { success: true, username, added: amount, newBalance: updated.credits };
+    }
+    case 'deduct_credits': {
+      const { username, amount, reason } = input;
+      if (!username || !amount || amount <= 0) return { error: 'A valid username and positive amount are required.' };
+      const result = await usersCollection.findOneAndUpdate({ username, credits: { $gte: amount } }, { $inc: { credits: -amount } }, { returnDocument: 'after' });
+      const updated = result && result.value !== undefined ? result.value : result;
+      if (!updated) {
+        const exists = await usersCollection.findOne({ username });
+        if (!exists) return { error: `No user found with username "${username}".` };
+        return { error: `Insufficient credits — ${username} only has ${exists.credits}.` };
+      }
+      await creditHistoryCollection.insertOne({ id: crypto.randomUUID(), username, type: 'debit', amount, reason: reason || 'Deducted by Jarvis (AI assistant)', balanceAfter: updated.credits, createdAt: new Date() });
+      return { success: true, username, deducted: amount, newBalance: updated.credits };
+    }
+    case 'find_user': {
+      const u = await usersCollection.findOne({ username: input.username });
+      if (!u) return { error: `No user found with username "${input.username}".` };
+      return { found: true, name: u.name, username: u.username, whatsapp: u.whatsapp, credits: u.credits, signedUpAt: u.createdAt };
+    }
+    case 'list_users': {
+      const limit = Math.min(Number(input.limit) || 20, 50);
+      const list = await usersCollection.find({}).sort({ createdAt: -1 }).limit(limit).toArray();
+      return { count: list.length, users: list.map(u => ({ name: u.name, username: u.username, credits: u.credits, signedUpAt: u.createdAt })) };
+    }
+    case 'create_user': {
+      const { name, username, password, whatsapp } = input;
+      if (!name || !username || !password || !whatsapp) return { error: 'Name, username, password, and whatsapp are all required.' };
+      if (/\s/.test(username) || !/^[A-Za-z0-9]+$/.test(username)) return { error: 'Username must not contain spaces or special characters.' };
+      if (!/[A-Za-z]/.test(username)) return { error: "Username must include at least one letter." };
+      if (password.length < 8) return { error: 'Password must be at least 8 characters.' };
+      if (!/^[A-Z]/.test(password)) return { error: 'Password must start with a capital letter.' };
+      if (!/[0-9]/.test(password)) return { error: 'Password must contain at least 1 number.' };
+      if (!/[^A-Za-z0-9]/.test(password)) return { error: 'Password must contain at least 1 special character.' };
+      if (password === username) return { error: 'Password must be different from the username.' };
+      if (await usersCollection.findOne({ username })) return { error: `Username "${username}" is already taken.` };
+      if (await usersCollection.findOne({ whatsapp })) return { error: 'An account with this WhatsApp number already exists.' };
+      await usersCollection.insertOne({ name, username, password: encryptCustomerPassword(password), whatsapp, purchaseCount: 0, credits: 0, createdAt: new Date() });
+      return { success: true, username, name };
+    }
+    case 'delete_user': {
+      const result = await usersCollection.deleteOne({ username: input.username });
+      if (result.deletedCount === 0) return { error: `No user found with username "${input.username}".` };
+      return { success: true, deleted: input.username };
+    }
+    case 'reset_user_password': {
+      const { username, newPassword } = input;
+      if (!newPassword || newPassword.length < 8) return { error: 'New password must be at least 8 characters.' };
+      const result = await usersCollection.updateOne({ username }, { $set: { password: encryptCustomerPassword(newPassword) } });
+      if (result.matchedCount === 0) return { error: `No user found with username "${username}".` };
+      return { success: true, username, newPassword };
+    }
+
+    case 'list_subscriptions': {
+      const subs = await subscriptionsCollection.find({}).toArray();
+      return { count: subs.length, subscriptions: subs.map(s => ({ id: s.id, name: s.name, type: s.type, sellingPrice: s.sellingPrice, costPerMonth: s.costPerMonth, accounts: (s.accounts || []).length })) };
+    }
+    case 'get_subscription': {
+      const sub = await findSubscriptionByIdOrName(input.idOrName);
+      if (!sub) return { error: `No subscription matching "${input.idOrName}".` };
+      return {
+        id: sub.id, name: sub.name, type: sub.type, sellingPrice: sub.sellingPrice, costPerMonth: sub.costPerMonth,
+        description: sub.description,
+        accounts: (sub.accounts || []).map(a => ({ email: a.email, screens: (a.screens || []).length, customers: (a.screens || []).reduce((n, s) => n + (s.customers || []).length, 0) }))
+      };
+    }
+    case 'create_subscription': {
+      const { name, type, costPerMonth, sellingPrice, slots, description } = input;
+      if (!name || !type || sellingPrice == null) return { error: 'name, type, and sellingPrice are required.' };
+      const id = crypto.randomUUID();
+      const newSub = { id, name, type, accounts: [], costPerMonth: costPerMonth || 0, sellingPrice, slots: slots || 0, askFor: ['name', 'number'], description: description || '', importantNote: '', logo: '', createdAt: new Date() };
+      await subscriptionsCollection.insertOne(newSub);
+      return { success: true, id, name };
+    }
+    case 'update_subscription': {
+      const sub = await findSubscriptionByIdOrName(input.idOrName);
+      if (!sub) return { error: `No subscription matching "${input.idOrName}".` };
+      const update = {};
+      ['name', 'costPerMonth', 'sellingPrice', 'description'].forEach(k => { if (input[k] !== undefined) update[k] = input[k]; });
+      if (Object.keys(update).length === 0) return { error: 'Nothing to update — specify what should change.' };
+      await subscriptionsCollection.updateOne({ id: sub.id }, { $set: update });
+      return { success: true, id: sub.id, updated: update };
+    }
+    case 'delete_subscription': {
+      const sub = await findSubscriptionByIdOrName(input.idOrName);
+      if (!sub) return { error: `No subscription matching "${input.idOrName}".` };
+      await subscriptionsCollection.deleteOne({ id: sub.id });
+      return { success: true, deleted: sub.name };
+    }
+    case 'add_account': {
+      const sub = await findSubscriptionByIdOrName(input.idOrName);
+      if (!sub) return { error: `No subscription matching "${input.idOrName}".` };
+      if (!input.email || !input.password) return { error: 'email and password are required.' };
+      const account = { id: crypto.randomUUID(), email: input.email, password: input.password, screens: [{ id: crypto.randomUUID(), name: 'Screen 1', pin: '', customers: [] }], createdAt: new Date() };
+      await subscriptionsCollection.updateOne({ id: sub.id }, { $push: { accounts: account } });
+      return { success: true, subscription: sub.name, addedAccount: input.email };
+    }
+
+    case 'list_deals': {
+      const deals = await dealsCollection.find({}).toArray();
+      return { count: deals.length, deals: deals.map(d => ({ title: d.title, actualPrice: d.actualPrice, discountPrice: d.discountPrice, active: d.active })) };
+    }
+    case 'create_deal': {
+      const { title, subscriptionNames, actualPrice, discountPrice, description } = input;
+      if (!title || !subscriptionNames?.length || actualPrice == null || discountPrice == null) return { error: 'title, subscriptionNames, actualPrice, and discountPrice are required.' };
+      const subs = await subscriptionsCollection.find({}).toArray();
+      const ids = [];
+      for (const nm of subscriptionNames) {
+        const match = subs.find(s => s.name.toLowerCase() === nm.toLowerCase()) || subs.find(s => s.name.toLowerCase().includes(nm.toLowerCase()));
+        if (!match) return { error: `Couldn't find a subscription named "${nm}".` };
+        ids.push(match.id);
+      }
+      const id = crypto.randomUUID();
+      const newDeal = { id, subscriptionIds: ids, title, description: description || '', actualPrice, discountPrice, active: true, socialPlatformId: '', socialPlatformName: '', socialServiceId: '', socialServiceName: '', socialQuantity: 0, createdAt: new Date() };
+      await dealsCollection.insertOne(newDeal);
+      return { success: true, title, id };
+    }
+    case 'toggle_deal': {
+      const deal = await dealsCollection.findOne({ title: { $regex: `^${input.title}$`, $options: 'i' } }) || await dealsCollection.findOne({ title: { $regex: input.title, $options: 'i' } });
+      if (!deal) return { error: `No deal matching "${input.title}".` };
+      await dealsCollection.updateOne({ id: deal.id }, { $set: { active: !!input.active } });
+      return { success: true, title: deal.title, active: !!input.active };
+    }
+    case 'delete_deal': {
+      const deal = await dealsCollection.findOne({ title: { $regex: input.title, $options: 'i' } });
+      if (!deal) return { error: `No deal matching "${input.title}".` };
+      await dealsCollection.deleteOne({ id: deal.id });
+      return { success: true, deleted: deal.title };
+    }
+
+    case 'list_promotions': {
+      const promos = await promotionsCollection.find({}).toArray();
+      return { count: promos.length, promotions: promos.map(p => ({ heading: p.heading, active: p.active })) };
+    }
+    case 'toggle_promotion': {
+      const promo = await promotionsCollection.findOne({ heading: { $regex: input.heading, $options: 'i' } });
+      if (!promo) return { error: `No promotion matching "${input.heading}".` };
+      await promotionsCollection.updateOne({ id: promo.id }, { $set: { active: !!input.active } });
+      return { success: true, heading: promo.heading, active: !!input.active };
+    }
+    case 'delete_promotion': {
+      const promo = await promotionsCollection.findOne({ heading: { $regex: input.heading, $options: 'i' } });
+      if (!promo) return { error: `No promotion matching "${input.heading}".` };
+      await promotionsCollection.deleteOne({ id: promo.id });
+      return { success: true, deleted: promo.heading };
+    }
+
+    case 'list_social_services': {
+      const platforms = await socialServicesCollection.find({}).toArray();
+      return { platforms: platforms.map(p => ({ name: p.name, services: (p.services || []).map(s => ({ name: s.name, costPrice: s.costPrice, sellingPrice: s.sellingPrice })) })) };
+    }
+    case 'add_social_service': {
+      const { platformName, serviceName, costPrice, sellingPrice } = input;
+      const platform = await socialServicesCollection.findOne({ name: { $regex: platformName, $options: 'i' } });
+      if (!platform) return { error: `No social-media platform matching "${platformName}". Create the platform in the admin panel first — Jarvis can only add services under an existing platform.` };
+      const service = { id: crypto.randomUUID(), name: serviceName, costPrice: Number(costPrice), sellingPrice: Number(sellingPrice), requiredFields: ['accountLink'], variations: [], createdAt: new Date() };
+      await socialServicesCollection.updateOne({ id: platform.id }, { $push: { services: service } });
+      return { success: true, platform: platform.name, addedService: serviceName };
+    }
+
+    case 'list_waiting': {
+      const list = await waitingCollection.find({}).sort({ createdAt: -1 }).toArray();
+      return { count: list.length, waiting: list.map(w => ({ username: w.username, subscriptionName: w.subscriptionName })) };
+    }
+    case 'resolve_waiting': {
+      const result = await waitingCollection.deleteOne({ username: input.username });
+      if (result.deletedCount === 0) return { error: `No waiting-list entry found for "${input.username}".` };
+      return { success: true, resolved: input.username };
+    }
+    case 'list_custom_grants': {
+      const list = await customGrantsCollection.find({}).sort({ createdAt: -1 }).toArray();
+      return { count: list.length, grants: list.map(g => ({ username: g.username, subscriptionName: g.subscriptionName, expiryDate: g.expiryDate })) };
+    }
+    case 'grant_subscription': {
+      const { username, subscriptionName, email, password, months, notes, costPerMonth, sellingPrice } = input;
+      if (!username || !subscriptionName || !email || !password) return { error: 'username, subscriptionName, email, and password are required.' };
+      const user = await usersCollection.findOne({ username });
+      if (!user) return { error: `No user found with username "${username}".` };
+      if (costPerMonth === undefined || sellingPrice === undefined) return { error: "costPerMonth and sellingPrice are both needed for profit tracking — ask the admin for these." };
+      const now = new Date();
+      const totalDays = (Number(months) || 1) * 30;
+      const expiry = new Date(now);
+      expiry.setDate(expiry.getDate() + totalDays);
+      const entry = { id: crypto.randomUUID(), username, name: user.name || '', whatsapp: user.whatsapp || '', subscriptionName: subscriptionName.trim(), email, password, notes: notes || '', months: Number(months) || 1, days: totalDays, expiryDate: expiry.toISOString().split('T')[0], matchedSubscriptionId: null, costPerMonth: Number(costPerMonth) || 0, sellingPrice: Number(sellingPrice) || 0, purchasedAt: now.toISOString(), createdAt: now };
+      await customGrantsCollection.insertOne(entry);
+      return { success: true, username, subscriptionName, expiryDate: entry.expiryDate };
+    }
+    case 'delete_custom_grant': {
+      const result = await customGrantsCollection.deleteOne({ username: input.username, subscriptionName: { $regex: input.subscriptionName, $options: 'i' } });
+      if (result.deletedCount === 0) return { error: `No custom grant found for "${input.username}" matching "${input.subscriptionName}".` };
+      return { success: true, removed: input.subscriptionName, from: input.username };
+    }
+
+    case 'list_faqs': {
+      const list = await faqsCollection.find({}).toArray();
+      return { count: list.length, faqs: list.map(f => ({ question: f.question, category: f.category })) };
+    }
+    case 'create_faq': {
+      const { question, answer, category } = input;
+      if (!question || !answer) return { error: 'question and answer are required.' };
+      await faqsCollection.insertOne({ id: Date.now().toString(), question, answer, category: category || 'General', createdAt: new Date() });
+      return { success: true, question };
+    }
+    case 'delete_faq': {
+      const faq = await faqsCollection.findOne({ question: { $regex: input.question, $options: 'i' } });
+      if (!faq) return { error: `No FAQ matching "${input.question}".` };
+      await faqsCollection.deleteOne({ id: faq.id });
+      return { success: true, deleted: faq.question };
+    }
+    case 'create_notice': {
+      if (!input.message) return { error: 'message is required.' };
+      await noticesCollection.insertOne({ id: Date.now().toString(), message: input.message, createdAt: new Date() });
+      return { success: true, posted: input.message };
+    }
+
+    case 'get_business_summary': {
+      const [userCount, subCount, activeDealCount, waitingCount, grantCount] = await Promise.all([
+        usersCollection.countDocuments({}),
+        subscriptionsCollection.countDocuments({}),
+        dealsCollection.countDocuments({ active: true }),
+        waitingCollection.countDocuments({}),
+        customGrantsCollection.countDocuments({})
+      ]);
+      return { totalUsers: userCount, totalSubscriptions: subCount, activeDeals: activeDealCount, pendingWaiting: waitingCount, activeCustomGrants: grantCount };
+    }
+
+    default:
+      return { error: `Unknown tool "${name}".` };
+  }
+}
+
+app.post('/api/jarvis', requireAdmin, async (req, res) => {
+  try {
+    const { message, history } = req.body;
+    if (!message || !message.trim()) {
+      return res.status(400).json({ error: 'Message is required.' });
+    }
+
+    // If the previous turn ended in a clarifying question, the admin's
+    // reply here is often just the missing piece ("100", or "john123") —
+    // re-parsing it combined with their own last message usually resolves
+    // the whole request in one go, without needing any real conversation
+    // state to be tracked.
+    const lastUserFromHistory = Array.isArray(history) ? [...history].reverse().find(h => h.role === 'user') : null;
+
+    let parsed = parseJarvisIntent(message);
+    if (parsed && parsed.needsInfo && lastUserFromHistory && lastUserFromHistory.content) {
+      const retry = parseJarvisIntent(`${lastUserFromHistory.content} ${message}`);
+      if (retry && !retry.needsInfo) parsed = retry;
+    }
+
+    if (!parsed) {
+      return res.json({ reply: JARVIS_FALLBACK_TEXT, actions: [] });
+    }
+    if (parsed.needsInfo) {
+      return res.json({ reply: parsed.needsInfo, actions: [] });
+    }
+
+    const result = await executeJarvisTool(parsed.tool, parsed.input);
+    const reply = formatJarvisReply(parsed.tool, parsed.input, result);
+    res.json({ reply, actions: [{ tool: parsed.tool, input: parsed.input, result }] });
+  } catch (err) {
+    console.error('Jarvis error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+
 // ─── Start server ──────────────────────────────────────────
 
 // Automatically and permanently remove subscription entries that have expired.
@@ -2553,7 +3291,7 @@ async function cleanupExpiredCustomers() {
   }
 }
 
-const PORT = process.env.PORT || 5000;
+
 
 connectDB()
   .then(() => seedData())
