@@ -5,6 +5,11 @@ const { MongoClient } = require('mongodb');
 
 const app = express();
 
+// Render (and most hosts) inject the port to listen on via process.env.PORT
+// — this was missing entirely, which is why the server crashed on startup
+// with "PORT is not defined" the moment it reached app.listen below.
+const PORT = process.env.PORT || 3000;
+
 // ─── CORS CONFIGURATION ──────────────────────────────────────
 app.use(cors({
   origin: '*',
