@@ -2783,15 +2783,36 @@ async function executeJarvisTool(name, input) {
   }
 }
 
+// Quick way to confirm (a) this deploy actually includes Jarvis and (b) the
+// API key is configured, without spending a real Claude call to find out.
+// Visit /api/jarvis/health directly in a browser after deploying.
+app.get('/api/jarvis/health', requireAdmin, (req, res) => {
+  res.json({
+    deployed: true,
+    apiKeyConfigured: !!process.env.ANTHROPIC_API_KEY,
+    model: JARVIS_MODEL,
+  });
+});
+
 app.post('/api/jarvis', requireAdmin, async (req, res) => {
   try {
     const apiKey = process.env.ANTHROPIC_API_KEY;
     if (!apiKey) {
       return res.status(500).json({ error: 'Jarvis is not configured yet — ANTHROPIC_API_KEY is missing on the server.' });
     }
-    const { message, history } = req.body;
+    const { message, history, context } = req.body;
     if (!message || !message.trim()) {
       return res.status(400).json({ error: 'Message is required.' });
+    }
+
+    // Light "where the admin currently is" context, so Jarvis can react
+    // naturally to short/contextual asks like "add 500 credits to him"
+    // right after they were just looking at that customer, instead of
+    // always needing the full username spelled out.
+    let systemPrompt = JARVIS_SYSTEM_PROMPT;
+    if (context && context.currentSection) {
+      const sectionLabel = String(context.currentSection).replace(/-/g, ' ').trim();
+      systemPrompt += `\n\nRight now the admin is looking at the "${sectionLabel}" section of the dashboard. Use that only as light context for ambiguous requests — never assume specific details (like a username) that weren't actually said or shown to you.`;
     }
 
     // `history` is the prior turns of this conversation as sent by the
@@ -2816,7 +2837,7 @@ app.post('/api/jarvis', requireAdmin, async (req, res) => {
         body: JSON.stringify({
           model: JARVIS_MODEL,
           max_tokens: 1024,
-          system: JARVIS_SYSTEM_PROMPT,
+          system: systemPrompt,
           tools: JARVIS_TOOLS,
           messages
         })
@@ -2854,9 +2875,14 @@ app.post('/api/jarvis', requireAdmin, async (req, res) => {
     res.json({ reply: finalText || "Done.", actions: actionsTaken });
   } catch (err) {
     console.error('Jarvis error:', err);
-    res.status(500).json({ error: err.message });
+    // Always send back a real, non-empty error string — a bare `err.message`
+    // can be undefined for non-Error throws, which used to silently become
+    // `{}` on the wire and show up client-side as the same unhelpful
+    // generic message no matter what actually broke.
+    res.status(500).json({ error: (err && err.message) ? err.message : 'Jarvis hit an unexpected server error — check the server logs.' });
   }
 });
+
 
 
 

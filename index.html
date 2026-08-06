@@ -6456,7 +6456,7 @@
     // someone up). Conversation history is kept client-side only, as
     // plain {role, text} turns, and replayed to the server on each new
     // message so Jarvis has context — nothing is stored server-side.
-    function JarvisAssistant() {
+    function JarvisAssistant({ currentSection }) {
       const [open, setOpen] = useState(false);
       const [messages, setMessages] = useState([
         { role: 'assistant', text: "Hi, I'm Jarvis. Tell me what you need — add credits, create a user, grant a subscription, look someone up — typed or spoken, whatever's easier." }
@@ -6496,11 +6496,19 @@
           const res = await fetch(`${API_BASE}/api/jarvis`, {
             method: 'POST',
             headers: authHeaders({ 'Content-Type': 'application/json' }),
-            body: JSON.stringify({ message: text, history })
+            body: JSON.stringify({ message: text, history, context: { currentSection } })
           });
-          const data = await res.json().catch(() => ({}));
+          // Read as text first, then try to parse — this lets us tell the
+          // difference between "server sent a real JSON error" and "server
+          // sent something else entirely" (an HTML 404/502 page, an empty
+          // body, etc), which used to both collapse into the same unhelpful
+          // generic message with no way to tell what actually went wrong.
+          const raw = await res.text();
+          let data = {};
+          try { data = raw ? JSON.parse(raw) : {}; } catch (e) { /* not JSON — status below explains why */ }
           if (!res.ok || data.error) {
-            const errText = data.error || "Something went wrong on my end — try that again?";
+            const errText = data.error
+              || `Something went wrong on my end (HTTP ${res.status}) — the /api/jarvis route may not be deployed on the server yet.`;
             setMessages(prev => [...prev, { role: 'assistant', text: errText }]);
             speak(errText);
           } else {
@@ -8436,7 +8444,7 @@
       // ─── RENDER ADMIN DASHBOARD ──────────────────────────────
       return (
         <div className="space-y-6">
-          <JarvisAssistant />
+          <JarvisAssistant currentSection={activeTab} />
           <div className="flex flex-wrap justify-between items-center gap-4">
             <div>
               <h2 className="text-2xl font-bold text-white"><span className="brand-z brand-z-sm">Z</span> Admin Dashboard</h2>
