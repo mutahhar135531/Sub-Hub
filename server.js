@@ -46,6 +46,7 @@ let processedPurchasesCollection;
 let creditHistoryCollection;
 let adminSettingsCollection;
 let noticesCollection;
+let jarvisMemoryCollection;
 let socialServicesCollection;
 let socialOrdersCollection;
 let socialCartCollection;
@@ -83,6 +84,7 @@ async function connectDB() {
   creditHistoryCollection = db.collection('creditHistory');
   adminSettingsCollection = db.collection('adminSettings');
   noticesCollection = db.collection('notices');
+  jarvisMemoryCollection = db.collection('jarvisMemory');
   socialServicesCollection = db.collection('socialServices');
   socialOrdersCollection = db.collection('socialOrders');
   socialCartCollection = db.collection('socialCart');
@@ -2643,6 +2645,30 @@ function jarvisCorrectTypos(text) {
 // Handled completely separately from the task-parsing below — a "hi" or
 // "thanks" should never fall through to "I didn't catch that". Returns a
 // plain reply string, or null if this isn't small talk at all.
+//
+// Worth being upfront about (this comment, not what Jarvis says out loud):
+// there's no language model behind any of this — it's pattern matching
+// against phrases we thought to anticipate. It can hold a decent bit of
+// casual conversation and give canned advice on running this business, but
+// it will never truly understand an arbitrary sentence the way a real AI
+// model would. That's the tradeoff for not calling an external API.
+const JARVIS_ADVICE = [
+  "If credits are sitting unused for a while, a small 'use them or lose a bonus' nudge in a notice tends to bring people back.",
+  "Waiting customers piling up is usually a pricing or stock problem, not a marketing one — worth checking if a popular subscription's out of accounts before running a promo for it.",
+  "Deals convert best when the discount is obvious at a glance — RS off and a strikethrough price beats a vague '% off' most of the time.",
+  "If the same customer keeps needing a password reset, it's worth just asking them on WhatsApp what's going wrong — usually a small confusion, not a real problem.",
+  "For social media services, keeping 2–3 well-priced options per platform beats offering everything — too many choices slows people down.",
+  "A short, honest notice ('running a bit behind on orders today') keeps customers calmer than silence when things are slow.",
+  "Custom grants are great for one-offs, but if you're granting the same subscription manually a lot, it might be worth adding it to the catalog properly."
+];
+
+const JARVIS_JOKES = [
+  "Why did the customer's account get suspended? It had too many trust issues with its password.",
+  "I'd tell you a joke about credits, but you'd probably want a refund.",
+  "Why don't subscriptions ever get lonely? They're always bundled with someone.",
+  "I asked a customer for their account link. They sent me their LinkedIn. Close, but no."
+];
+
 function jarvisSmallTalk(rawText) {
   const t = rawText.trim().toLowerCase().replace(/[!.?]+$/, '');
   const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
@@ -2655,9 +2681,24 @@ function jarvisSmallTalk(rawText) {
     ]);
   }
   if (/^(jarvis)$/.test(t)) return `Yes ${ADMIN_FIRST_NAME}, I'm listening — go ahead.`;
-  if (/how are you|how('?s| is) it going|how('?s| have) you been/.test(t)) {
-    return `I'm doing great, thanks for asking! Everything's running smoothly on the portal. What can I help with?`;
+
+  if (/how are you|how('?s| is) it going|how('?s| have) you been|what'?s up|whats up|sup\b/.test(t)) {
+    return pick([
+      `I'm doing great, thanks for asking! Everything's running smoothly on the portal. What can I help with?`,
+      `All good on my end — quiet day so far on the portal. How about you, how's it going?`,
+      `Can't complain — no fires to put out right now. What's on your mind?`
+    ]);
   }
+  if (/^i'?m (tired|exhausted|stressed|overwhelmed|busy|struggling)\b/.test(t)) {
+    return pick([
+      `Sounds like a lot — take a breather if you can. I've got things covered here whenever you're ready.`,
+      `That's rough, ${ADMIN_FIRST_NAME}. No rush on anything — let me know if there's something I can take off your plate.`
+    ]);
+  }
+  if (/^i'?m (good|great|happy|excited|doing well|fine)\b/.test(t)) {
+    return pick([`Glad to hear it! What can I help with?`, `Nice — let's make it a productive one. What do you need?`]);
+  }
+
   if (/^(thanks|thank you|thankyou|thnx|ty|shukriya)\b/.test(t)) {
     return pick([`Anytime, ${ADMIN_FIRST_NAME}!`, `You're welcome — let me know if there's anything else.`, `Happy to help!`]);
   }
@@ -2665,7 +2706,7 @@ function jarvisSmallTalk(rawText) {
     return `See you later, ${ADMIN_FIRST_NAME}! I'll be right here whenever you need me.`;
   }
   if (/who are you|what('?s| is) your name|what are you called/.test(t)) {
-    return `I'm Jarvis — your assistant for this admin portal. I can handle credits, customers, subscriptions, deals, promotions, and pretty much everything else in here. Just tell me what you need, in plain language.`;
+    return `I'm Jarvis — your assistant for this admin portal. I can handle the day-to-day tasks in here, but I'm also happy to just talk things through, brainstorm, or give you my honest take on something. What's up?`;
   }
   if (/^(ok|okay|alright|cool|nice|great|good)\.?$/.test(t)) {
     return pick([`👍`, `Sounds good.`, `Got it.`]);
@@ -2673,9 +2714,47 @@ function jarvisSmallTalk(rawText) {
   if (/^(sorry|my bad|oops)\b/.test(t)) {
     return `No worries at all — what would you like me to do?`;
   }
+
+  // Advice / opinion-seeking — genuinely useful within the business this
+  // portal runs, since that's the one domain Jarvis actually has real,
+  // current data about.
+  if (/\b(any advice|got advice|advice on|what should i do|any suggestions?|any tips?|what do you (think|suggest|recommend)|your (opinion|take))\b/.test(t)) {
+    return pick(JARVIS_ADVICE) + ` (Ask me for another if that's not quite what you needed.)`;
+  }
+  if (/\btell me a joke\b|\bmake me laugh\b/.test(t)) {
+    return pick(JARVIS_JOKES);
+  }
+  if (/what time is it|current time/.test(t)) {
+    return `It's ${new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })} on the server right now.`;
+  }
+  if (/what'?s the date|today'?s date|what day is it/.test(t)) {
+    return `Today's ${new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}.`;
+  }
+  if (/you'?re (the best|great|awesome|amazing)|good (job|work)\b/.test(t)) {
+    return pick([`That means a lot — thank you!`, `Ha, thanks! Just doing my job.`]);
+  }
+  if (/^i love you\b/.test(t)) {
+    return `That's sweet of you to say! I'm just an assistant, but I do genuinely enjoy helping run this place.`;
+  }
+
   return null;
 }
 
+// A last-resort, honest reply for something that's clearly a real question
+// (starts with what/who/why/how/when/where/is/does/can, or ends with "?")
+// but matched nothing above and nothing in the task parser below either.
+// Rather than the same capability dump every time, this is upfront about
+// the actual limitation and still tries to be useful.
+function jarvisHonestUnknown(rawText) {
+  const t = rawText.trim();
+  const looksLikeQuestion = /\?\s*$/.test(t) || /^(what|who|why|how|when|where|is|does|can|could|should|would)\b/i.test(t);
+  if (!looksLikeQuestion) return null;
+  const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
+  return pick([
+    `Good question — but honestly, that's outside what I can reliably answer. I'm not connected to a general AI model, so I'm best with things about this portal (credits, customers, subscriptions, deals...) or quick chat. What can I actually help with?`,
+    `I'd love to answer that properly, but I don't have real general knowledge built in — no AI model behind me, just pattern-matching for portal tasks and casual conversation. Is there something about the business I can help with instead?`
+  ]);
+}
 
 // Common words that should never be mistaken for a username, name, or
 // title when scanning a sentence for "the token that must be the thing
@@ -2796,7 +2875,8 @@ const JARVIS_CAPABILITIES = [
   'list, create, activate/deactivate, or delete deals', 'list, activate/deactivate, or delete promotion banners',
   'list social-media platforms/services or add a new service under a platform',
   'list waiting customers or resolve one', 'list, grant, or remove a custom subscription grant',
-  'list, create, or delete FAQs, and post a customer notice', 'give a quick business summary'
+  'list, create, or delete FAQs, and post a customer notice', 'give a quick business summary',
+  'remember something for later ("remember that...") and recall it whenever you ask'
 ];
 
 // Note: the "I didn't understand" reply now lives inline in the /api/jarvis
@@ -2805,6 +2885,21 @@ const JARVIS_CAPABILITIES = [
 // Tries to turn one sentence into { tool, input }. Returns null if nothing
 // matched at all, or { needsInfo: '...question...' } if the intent was
 // clear but a required detail is missing.
+// "give him 50 more credits" right after talking about a specific
+// customer — rather than asking "whose account?" again, this finds who
+// was last mentioned in the conversation and substitutes them in.
+const JARVIS_PRONOUN_RE = /\b(him|her|them|that customer|that user|same person|same user|this customer|this user)\b/i;
+function jarvisFindLastMentionedUsername(history) {
+  if (!Array.isArray(history)) return null;
+  for (let i = history.length - 1; i >= 0; i--) {
+    const h = history[i];
+    if (!h || !h.content) continue;
+    const u = jarvisExtractUsername(h.content);
+    if (u) return u;
+  }
+  return null;
+}
+
 function parseJarvisIntent(rawText) {
   const rawTrimmed = (rawText || '').trim();
   if (!rawTrimmed) return null;
@@ -2815,6 +2910,29 @@ function parseJarvisIntent(rawText) {
   const text = jarvisCorrectTypos(rawTrimmed);
   const lower = text.toLowerCase();
   const has = (...words) => words.some(w => lower.includes(w));
+
+  // ── Memory (explicit "remember this" facts, separate from normal
+  // conversation context) — a simple persisted note store. Real learning
+  // this is not; it's Jarvis keeping exactly what it's told to, verbatim,
+  // and giving it back when asked. Checked before typo-correction messes
+  // with the word "remember" itself (it's already in the vocab, so it's
+  // safe either way, but checked here so it always takes priority).
+  if (/\bforget\b/i.test(lower) && (has('everything', 'all', 'clear your memory', 'clear my memory', 'clear memory'))) {
+    return { tool: 'forget_all_facts', input: {} };
+  }
+  if (/\bforget\b/i.test(lower)) {
+    const fact = jarvisExtractRestAfter(text, ['forget that', 'forget']);
+    if (!fact) return { needsInfo: 'What should I forget?' };
+    return { tool: 'forget_fact', input: { fact } };
+  }
+  if (has('what do you remember', 'what have i told you', 'what did i tell you', 'recall everything', 'list what you remember', "what's in your memory", 'whats in your memory')) {
+    return { tool: 'recall_facts', input: {} };
+  }
+  if (/\bremember\b/i.test(lower) && !has('password', 'my login', 'reset')) {
+    const fact = jarvisExtractRestAfter(text, ['remember that', 'remember to', 'remember']);
+    if (!fact) return { needsInfo: 'Sure — what should I remember?' };
+    return { tool: 'remember_fact', input: { fact } };
+  }
 
   // ── Business summary ──────────────────────────────────────
   if (has('business summary', 'overview', 'how is business', "how's business", 'dashboard stats', 'quick stats', 'business stats')) {
@@ -3089,6 +3207,10 @@ function formatJarvisReply(tool, input, r) {
     case 'delete_faq': return `Deleted the FAQ "${r.deleted}".`;
     case 'create_notice': return `Posted the notice: "${r.posted}".`;
     case 'get_business_summary': return `Right now: ${r.totalUsers} users, ${r.totalSubscriptions} subscriptions, ${r.activeDeals} active deals, ${r.pendingWaiting} people waiting, ${r.activeCustomGrants} active custom grants.`;
+    case 'remember_fact': return `Got it — I'll remember that ${r.remembered}`;
+    case 'recall_facts': return r.count === 0 ? "I don't have anything saved yet — tell me something to remember, like \"remember that Friday is payout day\"." : `Here's what I remember: ` + r.facts.map((f, i) => `${i + 1}. ${f}`).join('  ');
+    case 'forget_fact': return r.forgot ? `Done — I've forgotten that.` : `I couldn't find anything matching that in my memory.`;
+    case 'forget_all_facts': return `Cleared everything I had saved — starting fresh.`;
     default: return 'Done.';
   }
 }
@@ -3342,6 +3464,24 @@ async function executeJarvisTool(name, input) {
       return { totalUsers: userCount, totalSubscriptions: subCount, activeDeals: activeDealCount, pendingWaiting: waitingCount, activeCustomGrants: grantCount };
     }
 
+    case 'remember_fact': {
+      const entry = { id: crypto.randomUUID(), text: input.fact, createdAt: new Date() };
+      await jarvisMemoryCollection.insertOne(entry);
+      return { remembered: input.fact };
+    }
+    case 'recall_facts': {
+      const items = await jarvisMemoryCollection.find({}).sort({ createdAt: -1 }).limit(25).toArray();
+      return { count: items.length, facts: items.map(i => i.text) };
+    }
+    case 'forget_fact': {
+      const result = await jarvisMemoryCollection.deleteOne({ text: { $regex: input.fact.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), $options: 'i' } });
+      return { forgot: result.deletedCount > 0, requested: input.fact };
+    }
+    case 'forget_all_facts': {
+      await jarvisMemoryCollection.deleteMany({});
+      return { clearedAll: true };
+    }
+
     default:
       return { error: `Unknown tool "${name}".` };
   }
@@ -3366,11 +3506,24 @@ app.post('/api/jarvis', requireAdmin, async (req, res) => {
       const retry = parseJarvisIntent(`${lastUserFromHistory.content} ${message}`);
       if (retry && !retry.needsInfo) parsed = retry;
     }
+    // "give him 50 more credits" / "reset her password" after a customer
+    // was mentioned earlier in this chat — swap the pronoun for whoever
+    // that was and try again, instead of asking who "him" is.
+    if (parsed && parsed.needsInfo && JARVIS_PRONOUN_RE.test(message)) {
+      const lastUsername = jarvisFindLastMentionedUsername(history);
+      if (lastUsername) {
+        const substituted = message.replace(JARVIS_PRONOUN_RE, lastUsername);
+        const retry2 = parseJarvisIntent(substituted);
+        if (retry2 && !retry2.needsInfo && !retry2.smallTalk) parsed = retry2;
+      }
+    }
 
     if (parsed && parsed.smallTalk) {
       return res.json({ reply: parsed.smallTalk, actions: [] });
     }
     if (!parsed) {
+      const honest = jarvisHonestUnknown(message);
+      if (honest) return res.json({ reply: honest, actions: [] });
       const fallbacks = [
         `Hmm, I didn't quite catch what you'd like me to do there — could you say it a bit differently? For example: "add 100 credits to john123" or "list waiting customers".`,
         `Sorry, I'm not sure what you mean by that — mind rephrasing? I can ${JARVIS_CAPABILITIES.join('; ')}.`,

@@ -6500,6 +6500,7 @@
       const sendMessage = async (textOverride) => {
         const text = (textOverride !== undefined ? textOverride : input).trim();
         if (!text || thinking) return;
+        if (window.speechSynthesis) window.speechSynthesis.cancel();
         const history = messages.map(m => ({ role: m.role, content: m.text }));
         setMessages(prev => [...prev, { role: 'user', text }]);
         setInput('');
@@ -6539,6 +6540,10 @@
           setListening(false);
           return;
         }
+        // Starting to listen again means the admin wants to talk — cut off
+        // whatever Jarvis might still be saying rather than talking over
+        // them.
+        if (window.speechSynthesis) window.speechSynthesis.cancel();
         const recognition = new SR();
         recognition.lang = 'en-US';
         recognition.interimResults = false;
@@ -6557,7 +6562,7 @@
       return (
         <>
           <button
-            onClick={() => setOpen(o => !o)}
+            onClick={() => { if (window.speechSynthesis) window.speechSynthesis.cancel(); setOpen(o => !o); }}
             className={`jarvis-float ${listening ? 'listening' : ''}`}
             aria-label={open ? 'Close Jarvis' : 'Open Jarvis'}
             title="Jarvis — AI Assistant"
