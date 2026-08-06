@@ -2553,6 +2553,415 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', database: db ? 'connected' : 'disconnected' });
 });
 
+// ═══════════════════════════════════════════════════════════════
+// JARVIS — AI admin assistant
+// Full natural-language access to the admin surface: the admin types or
+// speaks whatever they want done, Claude figures out the intent and calls
+// the matching tool(s) below — each one a real, narrow, server-side
+// action. Jarvis can only ever do exactly what these tools allow.
+// ═══════════════════════════════════════════════════════════════
+
+const JARVIS_MODEL = 'claude-sonnet-4-6';
+
+const JARVIS_SYSTEM_PROMPT = `You are Jarvis, the AI assistant built into the admin portal of a subscription-reselling business. You act on the admin's behalf using the tools available to you — when they ask you to do something, actually call the tool and do it; don't just describe how they'd do it themselves.
+
+WHAT THIS BUSINESS IS: it resells shared logins to streaming/subscription services (Netflix, Amazon Prime, etc.) — each "subscription" listing has one or more "accounts" (a real login), and each account has "screens" (slots), and each screen can have one or more "customers" (people currently using that slot) with their own expiry date. It also sells "deals" (bundled/discounted combos of subscriptions), runs "promotions" (banner images shown to customers), and separately sells social media services (Instagram/TikTok/YouTube followers, likes, views, etc. sold per platform) which customers add to a cart and check out. Customers have a wallet of "credits" they can spend instead of paying per-purchase. "Custom grants" are one-off subscriptions the admin manually hands a specific customer outside the normal account/screen inventory (e.g. something out of stock). "Waiting" customers are people who tried to buy something that had no account/screen available. FAQs and notices are customer-facing help content.
+
+Style: warm, human, and conversational — like a sharp, unflappable assistant, never robotic or overly formal. Keep replies short and natural, since they may be read aloud with text-to-speech. After taking an action, confirm plainly what you did and the result. If something fails, explain what went wrong in plain language and suggest a fix rather than repeating a raw error.
+
+If a request is ambiguous or you're missing required info, ask ONE short clarifying question instead of guessing or inventing values — this handles real money and real accounts, so don't improvise details that matter (usernames, amounts, passwords, prices). Destructive actions (delete_user, delete_subscription, delete_deal, delete_custom_grant, delete_faq) should only be called once the admin has clearly confirmed that specific target.
+
+If the admin asks something no tool covers, say so plainly and suggest the closest thing you *can* do instead of pretending to do it.`;
+
+const JARVIS_TOOLS = [
+  // ── Users / credits ──────────────────────────────────────────
+  { name: 'add_credits', description: "Add credits to a customer's wallet balance.",
+    input_schema: { type: 'object', properties: { username: { type: 'string' }, amount: { type: 'number' }, reason: { type: 'string' } }, required: ['username', 'amount'] } },
+  { name: 'deduct_credits', description: "Deduct credits from a customer's wallet balance.",
+    input_schema: { type: 'object', properties: { username: { type: 'string' }, amount: { type: 'number' }, reason: { type: 'string' } }, required: ['username', 'amount'] } },
+  { name: 'find_user', description: 'Look up a customer by username — name, whatsapp, credit balance, signup date.',
+    input_schema: { type: 'object', properties: { username: { type: 'string' } }, required: ['username'] } },
+  { name: 'list_users', description: 'List recent customers, most recently signed up first.',
+    input_schema: { type: 'object', properties: { limit: { type: 'number', description: 'default 20, max 50' } } } },
+  { name: 'create_user', description: 'Create a brand-new customer account. Never invent a password or whatsapp — ask if not given.',
+    input_schema: { type: 'object', properties: {
+      name: { type: 'string' }, username: { type: 'string', description: 'No spaces/special chars, must include a letter.' },
+      password: { type: 'string', description: '8+ chars, starts capital, has a number and a special char, differs from username.' },
+      whatsapp: { type: 'string' } }, required: ['name', 'username', 'password', 'whatsapp'] } },
+  { name: 'delete_user', description: 'Permanently delete a customer account. Only after the admin clearly confirms.',
+    input_schema: { type: 'object', properties: { username: { type: 'string' } }, required: ['username'] } },
+  { name: 'reset_user_password', description: "Set a new password on an existing customer's account.",
+    input_schema: { type: 'object', properties: { username: { type: 'string' }, newPassword: { type: 'string' } }, required: ['username', 'newPassword'] } },
+
+  // ── Subscriptions / accounts ─────────────────────────────────
+  { name: 'list_subscriptions', description: 'List all subscription listings with id, name, type, price, account/screen counts.', input_schema: { type: 'object', properties: {} } },
+  { name: 'get_subscription', description: 'Full detail on one subscription by id or name.',
+    input_schema: { type: 'object', properties: { idOrName: { type: 'string' } }, required: ['idOrName'] } },
+  { name: 'create_subscription', description: 'Create a brand-new subscription listing.',
+    input_schema: { type: 'object', properties: {
+      name: { type: 'string' }, type: { type: 'string', description: 'e.g. netflix, amazon, spotify, other' },
+      costPerMonth: { type: 'number', description: "Admin's own cost per account, per month." },
+      sellingPrice: { type: 'number', description: 'Price charged per screen/slot per month.' },
+      slots: { type: 'number', description: 'Screens per account.' }, description: { type: 'string' } },
+      required: ['name', 'type', 'sellingPrice'] } },
+  { name: 'update_subscription', description: "Change a subscription's price, cost, name, or description.",
+    input_schema: { type: 'object', properties: { idOrName: { type: 'string' }, name: { type: 'string' }, costPerMonth: { type: 'number' }, sellingPrice: { type: 'number' }, description: { type: 'string' } }, required: ['idOrName'] } },
+  { name: 'delete_subscription', description: 'Delete a subscription listing entirely, including its accounts. Only after clear confirmation.',
+    input_schema: { type: 'object', properties: { idOrName: { type: 'string' } }, required: ['idOrName'] } },
+  { name: 'add_account', description: 'Add a new login (account) with one screen/slot to an existing subscription.',
+    input_schema: { type: 'object', properties: { idOrName: { type: 'string' }, email: { type: 'string' }, password: { type: 'string' } }, required: ['idOrName', 'email', 'password'] } },
+
+  // ── Deals ─────────────────────────────────────────────────────
+  { name: 'list_deals', description: 'List all deals with price and active/inactive status.', input_schema: { type: 'object', properties: {} } },
+  { name: 'create_deal', description: 'Create a bundled-subscription deal (not a social-media deal).',
+    input_schema: { type: 'object', properties: { title: { type: 'string' }, subscriptionNames: { type: 'array', items: { type: 'string' }, description: 'Names of subscriptions to bundle.' }, actualPrice: { type: 'number' }, discountPrice: { type: 'number' }, description: { type: 'string' } }, required: ['title', 'subscriptionNames', 'actualPrice', 'discountPrice'] } },
+  { name: 'toggle_deal', description: 'Activate or deactivate a deal by title.',
+    input_schema: { type: 'object', properties: { title: { type: 'string' }, active: { type: 'boolean' } }, required: ['title', 'active'] } },
+  { name: 'delete_deal', description: 'Delete a deal by title. Only after clear confirmation.',
+    input_schema: { type: 'object', properties: { title: { type: 'string' } }, required: ['title'] } },
+
+  // ── Promotions ────────────────────────────────────────────────
+  { name: 'list_promotions', description: 'List promotional banners and whether each is active.', input_schema: { type: 'object', properties: {} } },
+  { name: 'toggle_promotion', description: 'Activate or deactivate a promotion banner by its heading text.',
+    input_schema: { type: 'object', properties: { heading: { type: 'string' }, active: { type: 'boolean' } }, required: ['heading', 'active'] } },
+  { name: 'delete_promotion', description: 'Delete a promotion banner by heading text.',
+    input_schema: { type: 'object', properties: { heading: { type: 'string' } }, required: ['heading'] } },
+
+  // ── Social media services ────────────────────────────────────
+  { name: 'list_social_services', description: 'List social-media platforms and the services/prices under each.', input_schema: { type: 'object', properties: {} } },
+  { name: 'add_social_service', description: 'Add a new sellable service under an existing social-media platform.',
+    input_schema: { type: 'object', properties: { platformName: { type: 'string' }, serviceName: { type: 'string' }, costPrice: { type: 'number' }, sellingPrice: { type: 'number' } }, required: ['platformName', 'serviceName', 'costPrice', 'sellingPrice'] } },
+
+  // ── Waiting customers / custom grants ────────────────────────
+  { name: 'list_waiting', description: 'List customers waiting on a subscription that had no account/screen available.', input_schema: { type: 'object', properties: {} } },
+  { name: 'resolve_waiting', description: 'Mark a waiting-list entry as fulfilled/resolved and remove it, by the customer\'s username.',
+    input_schema: { type: 'object', properties: { username: { type: 'string' } }, required: ['username'] } },
+  { name: 'list_custom_grants', description: 'List manually-granted, out-of-catalog subscriptions.', input_schema: { type: 'object', properties: {} } },
+  { name: 'grant_subscription', description: "Manually grant a subscription to a customer's portal outside the normal inventory. Cost/sellingPrice are for the admin's own profit tracking only, never shown to the customer.",
+    input_schema: { type: 'object', properties: { username: { type: 'string' }, subscriptionName: { type: 'string' }, email: { type: 'string' }, password: { type: 'string' }, months: { type: 'number' }, notes: { type: 'string' }, costPerMonth: { type: 'number' }, sellingPrice: { type: 'number' } }, required: ['username', 'subscriptionName', 'email', 'password'] } },
+  { name: 'delete_custom_grant', description: "Remove a custom grant from a customer's portal, by their username and the subscription name.",
+    input_schema: { type: 'object', properties: { username: { type: 'string' }, subscriptionName: { type: 'string' } }, required: ['username', 'subscriptionName'] } },
+
+  // ── FAQs / notices ────────────────────────────────────────────
+  { name: 'list_faqs', description: 'List customer-facing FAQ entries.', input_schema: { type: 'object', properties: {} } },
+  { name: 'create_faq', description: 'Add a new FAQ entry.',
+    input_schema: { type: 'object', properties: { question: { type: 'string' }, answer: { type: 'string' }, category: { type: 'string' } }, required: ['question', 'answer'] } },
+  { name: 'delete_faq', description: 'Delete an FAQ by its question text.',
+    input_schema: { type: 'object', properties: { question: { type: 'string' } }, required: ['question'] } },
+  { name: 'create_notice', description: 'Post a site-wide notice/announcement banner for customers.',
+    input_schema: { type: 'object', properties: { message: { type: 'string' } }, required: ['message'] } },
+
+  // ── Business overview ─────────────────────────────────────────
+  { name: 'get_business_summary', description: 'Quick counts: total users, subscriptions, active deals, pending waiting-list entries, active custom grants.', input_schema: { type: 'object', properties: {} } }
+];
+
+// Small helper: resolve a subscription by its exact id, or fall back to a
+// case-insensitive name match — lets the admin say "netflix family plan"
+// instead of needing to know its internal id.
+async function findSubscriptionByIdOrName(idOrName) {
+  if (!idOrName) return null;
+  let sub = await subscriptionsCollection.findOne({ id: idOrName });
+  if (sub) return sub;
+  const all = await subscriptionsCollection.find({}).toArray();
+  const lower = idOrName.trim().toLowerCase();
+  return all.find(s => (s.name || '').toLowerCase() === lower)
+    || all.find(s => (s.name || '').toLowerCase().includes(lower))
+    || null;
+}
+
+async function executeJarvisTool(name, input) {
+  switch (name) {
+    case 'add_credits': {
+      const { username, amount, reason } = input;
+      if (!username || !amount || amount <= 0) return { error: 'A valid username and positive amount are required.' };
+      const result = await usersCollection.findOneAndUpdate({ username }, { $inc: { credits: amount } }, { returnDocument: 'after' });
+      const updated = result && result.value !== undefined ? result.value : result;
+      if (!updated) return { error: `No user found with username "${username}".` };
+      await creditHistoryCollection.insertOne({ id: crypto.randomUUID(), username, type: 'credit', amount, reason: reason || 'Added by Jarvis (AI assistant)', balanceAfter: updated.credits, createdAt: new Date() });
+      return { success: true, username, added: amount, newBalance: updated.credits };
+    }
+    case 'deduct_credits': {
+      const { username, amount, reason } = input;
+      if (!username || !amount || amount <= 0) return { error: 'A valid username and positive amount are required.' };
+      const result = await usersCollection.findOneAndUpdate({ username, credits: { $gte: amount } }, { $inc: { credits: -amount } }, { returnDocument: 'after' });
+      const updated = result && result.value !== undefined ? result.value : result;
+      if (!updated) {
+        const exists = await usersCollection.findOne({ username });
+        if (!exists) return { error: `No user found with username "${username}".` };
+        return { error: `Insufficient credits — ${username} only has ${exists.credits}.` };
+      }
+      await creditHistoryCollection.insertOne({ id: crypto.randomUUID(), username, type: 'debit', amount, reason: reason || 'Deducted by Jarvis (AI assistant)', balanceAfter: updated.credits, createdAt: new Date() });
+      return { success: true, username, deducted: amount, newBalance: updated.credits };
+    }
+    case 'find_user': {
+      const u = await usersCollection.findOne({ username: input.username });
+      if (!u) return { error: `No user found with username "${input.username}".` };
+      return { found: true, name: u.name, username: u.username, whatsapp: u.whatsapp, credits: u.credits, signedUpAt: u.createdAt };
+    }
+    case 'list_users': {
+      const limit = Math.min(Number(input.limit) || 20, 50);
+      const list = await usersCollection.find({}).sort({ createdAt: -1 }).limit(limit).toArray();
+      return { count: list.length, users: list.map(u => ({ name: u.name, username: u.username, credits: u.credits, signedUpAt: u.createdAt })) };
+    }
+    case 'create_user': {
+      const { name, username, password, whatsapp } = input;
+      if (!name || !username || !password || !whatsapp) return { error: 'Name, username, password, and whatsapp are all required.' };
+      if (/\s/.test(username) || !/^[A-Za-z0-9]+$/.test(username)) return { error: 'Username must not contain spaces or special characters.' };
+      if (!/[A-Za-z]/.test(username)) return { error: "Username must include at least one letter." };
+      if (password.length < 8) return { error: 'Password must be at least 8 characters.' };
+      if (!/^[A-Z]/.test(password)) return { error: 'Password must start with a capital letter.' };
+      if (!/[0-9]/.test(password)) return { error: 'Password must contain at least 1 number.' };
+      if (!/[^A-Za-z0-9]/.test(password)) return { error: 'Password must contain at least 1 special character.' };
+      if (password === username) return { error: 'Password must be different from the username.' };
+      if (await usersCollection.findOne({ username })) return { error: `Username "${username}" is already taken.` };
+      if (await usersCollection.findOne({ whatsapp })) return { error: 'An account with this WhatsApp number already exists.' };
+      await usersCollection.insertOne({ name, username, password: encryptCustomerPassword(password), whatsapp, purchaseCount: 0, credits: 0, createdAt: new Date() });
+      return { success: true, username, name };
+    }
+    case 'delete_user': {
+      const result = await usersCollection.deleteOne({ username: input.username });
+      if (result.deletedCount === 0) return { error: `No user found with username "${input.username}".` };
+      return { success: true, deleted: input.username };
+    }
+    case 'reset_user_password': {
+      const { username, newPassword } = input;
+      if (!newPassword || newPassword.length < 8) return { error: 'New password must be at least 8 characters.' };
+      const result = await usersCollection.updateOne({ username }, { $set: { password: encryptCustomerPassword(newPassword) } });
+      if (result.matchedCount === 0) return { error: `No user found with username "${username}".` };
+      return { success: true, username, newPassword };
+    }
+
+    case 'list_subscriptions': {
+      const subs = await subscriptionsCollection.find({}).toArray();
+      return { count: subs.length, subscriptions: subs.map(s => ({ id: s.id, name: s.name, type: s.type, sellingPrice: s.sellingPrice, costPerMonth: s.costPerMonth, accounts: (s.accounts || []).length })) };
+    }
+    case 'get_subscription': {
+      const sub = await findSubscriptionByIdOrName(input.idOrName);
+      if (!sub) return { error: `No subscription matching "${input.idOrName}".` };
+      return {
+        id: sub.id, name: sub.name, type: sub.type, sellingPrice: sub.sellingPrice, costPerMonth: sub.costPerMonth,
+        description: sub.description,
+        accounts: (sub.accounts || []).map(a => ({ email: a.email, screens: (a.screens || []).length, customers: (a.screens || []).reduce((n, s) => n + (s.customers || []).length, 0) }))
+      };
+    }
+    case 'create_subscription': {
+      const { name, type, costPerMonth, sellingPrice, slots, description } = input;
+      if (!name || !type || sellingPrice == null) return { error: 'name, type, and sellingPrice are required.' };
+      const id = crypto.randomUUID();
+      const newSub = { id, name, type, accounts: [], costPerMonth: costPerMonth || 0, sellingPrice, slots: slots || 0, askFor: ['name', 'number'], description: description || '', importantNote: '', logo: '', createdAt: new Date() };
+      await subscriptionsCollection.insertOne(newSub);
+      return { success: true, id, name };
+    }
+    case 'update_subscription': {
+      const sub = await findSubscriptionByIdOrName(input.idOrName);
+      if (!sub) return { error: `No subscription matching "${input.idOrName}".` };
+      const update = {};
+      ['name', 'costPerMonth', 'sellingPrice', 'description'].forEach(k => { if (input[k] !== undefined) update[k] = input[k]; });
+      if (Object.keys(update).length === 0) return { error: 'Nothing to update — specify what should change.' };
+      await subscriptionsCollection.updateOne({ id: sub.id }, { $set: update });
+      return { success: true, id: sub.id, updated: update };
+    }
+    case 'delete_subscription': {
+      const sub = await findSubscriptionByIdOrName(input.idOrName);
+      if (!sub) return { error: `No subscription matching "${input.idOrName}".` };
+      await subscriptionsCollection.deleteOne({ id: sub.id });
+      return { success: true, deleted: sub.name };
+    }
+    case 'add_account': {
+      const sub = await findSubscriptionByIdOrName(input.idOrName);
+      if (!sub) return { error: `No subscription matching "${input.idOrName}".` };
+      if (!input.email || !input.password) return { error: 'email and password are required.' };
+      const account = { id: crypto.randomUUID(), email: input.email, password: input.password, screens: [{ id: crypto.randomUUID(), name: 'Screen 1', pin: '', customers: [] }], createdAt: new Date() };
+      await subscriptionsCollection.updateOne({ id: sub.id }, { $push: { accounts: account } });
+      return { success: true, subscription: sub.name, addedAccount: input.email };
+    }
+
+    case 'list_deals': {
+      const deals = await dealsCollection.find({}).toArray();
+      return { count: deals.length, deals: deals.map(d => ({ title: d.title, actualPrice: d.actualPrice, discountPrice: d.discountPrice, active: d.active })) };
+    }
+    case 'create_deal': {
+      const { title, subscriptionNames, actualPrice, discountPrice, description } = input;
+      if (!title || !subscriptionNames?.length || actualPrice == null || discountPrice == null) return { error: 'title, subscriptionNames, actualPrice, and discountPrice are required.' };
+      const subs = await subscriptionsCollection.find({}).toArray();
+      const ids = [];
+      for (const nm of subscriptionNames) {
+        const match = subs.find(s => s.name.toLowerCase() === nm.toLowerCase()) || subs.find(s => s.name.toLowerCase().includes(nm.toLowerCase()));
+        if (!match) return { error: `Couldn't find a subscription named "${nm}".` };
+        ids.push(match.id);
+      }
+      const id = crypto.randomUUID();
+      const newDeal = { id, subscriptionIds: ids, title, description: description || '', actualPrice, discountPrice, active: true, socialPlatformId: '', socialPlatformName: '', socialServiceId: '', socialServiceName: '', socialQuantity: 0, createdAt: new Date() };
+      await dealsCollection.insertOne(newDeal);
+      return { success: true, title, id };
+    }
+    case 'toggle_deal': {
+      const deal = await dealsCollection.findOne({ title: { $regex: `^${input.title}$`, $options: 'i' } }) || await dealsCollection.findOne({ title: { $regex: input.title, $options: 'i' } });
+      if (!deal) return { error: `No deal matching "${input.title}".` };
+      await dealsCollection.updateOne({ id: deal.id }, { $set: { active: !!input.active } });
+      return { success: true, title: deal.title, active: !!input.active };
+    }
+    case 'delete_deal': {
+      const deal = await dealsCollection.findOne({ title: { $regex: input.title, $options: 'i' } });
+      if (!deal) return { error: `No deal matching "${input.title}".` };
+      await dealsCollection.deleteOne({ id: deal.id });
+      return { success: true, deleted: deal.title };
+    }
+
+    case 'list_promotions': {
+      const promos = await promotionsCollection.find({}).toArray();
+      return { count: promos.length, promotions: promos.map(p => ({ heading: p.heading, active: p.active })) };
+    }
+    case 'toggle_promotion': {
+      const promo = await promotionsCollection.findOne({ heading: { $regex: input.heading, $options: 'i' } });
+      if (!promo) return { error: `No promotion matching "${input.heading}".` };
+      await promotionsCollection.updateOne({ id: promo.id }, { $set: { active: !!input.active } });
+      return { success: true, heading: promo.heading, active: !!input.active };
+    }
+    case 'delete_promotion': {
+      const promo = await promotionsCollection.findOne({ heading: { $regex: input.heading, $options: 'i' } });
+      if (!promo) return { error: `No promotion matching "${input.heading}".` };
+      await promotionsCollection.deleteOne({ id: promo.id });
+      return { success: true, deleted: promo.heading };
+    }
+
+    case 'list_social_services': {
+      const platforms = await socialServicesCollection.find({}).toArray();
+      return { platforms: platforms.map(p => ({ name: p.name, services: (p.services || []).map(s => ({ name: s.name, costPrice: s.costPrice, sellingPrice: s.sellingPrice })) })) };
+    }
+    case 'add_social_service': {
+      const { platformName, serviceName, costPrice, sellingPrice } = input;
+      const platform = await socialServicesCollection.findOne({ name: { $regex: platformName, $options: 'i' } });
+      if (!platform) return { error: `No social-media platform matching "${platformName}". Create the platform in the admin panel first — Jarvis can only add services under an existing platform.` };
+      const service = { id: crypto.randomUUID(), name: serviceName, costPrice: Number(costPrice), sellingPrice: Number(sellingPrice), requiredFields: ['accountLink'], variations: [], createdAt: new Date() };
+      await socialServicesCollection.updateOne({ id: platform.id }, { $push: { services: service } });
+      return { success: true, platform: platform.name, addedService: serviceName };
+    }
+
+    case 'list_waiting': {
+      const list = await waitingCollection.find({}).sort({ createdAt: -1 }).toArray();
+      return { count: list.length, waiting: list.map(w => ({ username: w.username, subscriptionName: w.subscriptionName })) };
+    }
+    case 'resolve_waiting': {
+      const result = await waitingCollection.deleteOne({ username: input.username });
+      if (result.deletedCount === 0) return { error: `No waiting-list entry found for "${input.username}".` };
+      return { success: true, resolved: input.username };
+    }
+    case 'list_custom_grants': {
+      const list = await customGrantsCollection.find({}).sort({ createdAt: -1 }).toArray();
+      return { count: list.length, grants: list.map(g => ({ username: g.username, subscriptionName: g.subscriptionName, expiryDate: g.expiryDate })) };
+    }
+    case 'grant_subscription': {
+      const { username, subscriptionName, email, password, months, notes, costPerMonth, sellingPrice } = input;
+      if (!username || !subscriptionName || !email || !password) return { error: 'username, subscriptionName, email, and password are required.' };
+      const user = await usersCollection.findOne({ username });
+      if (!user) return { error: `No user found with username "${username}".` };
+      if (costPerMonth === undefined || sellingPrice === undefined) return { error: "costPerMonth and sellingPrice are both needed for profit tracking — ask the admin for these." };
+      const now = new Date();
+      const totalDays = (Number(months) || 1) * 30;
+      const expiry = new Date(now);
+      expiry.setDate(expiry.getDate() + totalDays);
+      const entry = { id: crypto.randomUUID(), username, name: user.name || '', whatsapp: user.whatsapp || '', subscriptionName: subscriptionName.trim(), email, password, notes: notes || '', months: Number(months) || 1, days: totalDays, expiryDate: expiry.toISOString().split('T')[0], matchedSubscriptionId: null, costPerMonth: Number(costPerMonth) || 0, sellingPrice: Number(sellingPrice) || 0, purchasedAt: now.toISOString(), createdAt: now };
+      await customGrantsCollection.insertOne(entry);
+      return { success: true, username, subscriptionName, expiryDate: entry.expiryDate };
+    }
+    case 'delete_custom_grant': {
+      const result = await customGrantsCollection.deleteOne({ username: input.username, subscriptionName: { $regex: input.subscriptionName, $options: 'i' } });
+      if (result.deletedCount === 0) return { error: `No custom grant found for "${input.username}" matching "${input.subscriptionName}".` };
+      return { success: true, removed: input.subscriptionName, from: input.username };
+    }
+
+    case 'list_faqs': {
+      const list = await faqsCollection.find({}).toArray();
+      return { count: list.length, faqs: list.map(f => ({ question: f.question, category: f.category })) };
+    }
+    case 'create_faq': {
+      const { question, answer, category } = input;
+      if (!question || !answer) return { error: 'question and answer are required.' };
+      await faqsCollection.insertOne({ id: Date.now().toString(), question, answer, category: category || 'General', createdAt: new Date() });
+      return { success: true, question };
+    }
+    case 'delete_faq': {
+      const faq = await faqsCollection.findOne({ question: { $regex: input.question, $options: 'i' } });
+      if (!faq) return { error: `No FAQ matching "${input.question}".` };
+      await faqsCollection.deleteOne({ id: faq.id });
+      return { success: true, deleted: faq.question };
+    }
+    case 'create_notice': {
+      if (!input.message) return { error: 'message is required.' };
+      await noticesCollection.insertOne({ id: Date.now().toString(), message: input.message, createdAt: new Date() });
+      return { success: true, posted: input.message };
+    }
+
+    case 'get_business_summary': {
+      const [userCount, subCount, activeDealCount, waitingCount, grantCount] = await Promise.all([
+        usersCollection.countDocuments({}),
+        subscriptionsCollection.countDocuments({}),
+        dealsCollection.countDocuments({ active: true }),
+        waitingCollection.countDocuments({}),
+        customGrantsCollection.countDocuments({})
+      ]);
+      return { totalUsers: userCount, totalSubscriptions: subCount, activeDeals: activeDealCount, pendingWaiting: waitingCount, activeCustomGrants: grantCount };
+    }
+
+    default:
+      return { error: `Unknown tool "${name}".` };
+  }
+}
+
+app.post('/api/jarvis', requireAdmin, async (req, res) => {
+  try {
+    const apiKey = process.env.ANTHROPIC_API_KEY;
+    if (!apiKey) {
+      return res.status(500).json({ error: 'Jarvis needs an ANTHROPIC_API_KEY environment variable set on the server — ask whoever manages hosting to add it, then Jarvis will work immediately with no other changes needed.' });
+    }
+    const { message, history } = req.body;
+    if (!message || !message.trim()) {
+      return res.status(400).json({ error: 'Message is required.' });
+    }
+
+    const messages = [...(Array.isArray(history) ? history : []), { role: 'user', content: message }];
+    const actionsTaken = [];
+    let finalText = '';
+
+    for (let turn = 0; turn < 8; turn++) {
+      const response = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
+        body: JSON.stringify({ model: JARVIS_MODEL, max_tokens: 1024, system: JARVIS_SYSTEM_PROMPT, tools: JARVIS_TOOLS, messages })
+      });
+
+      if (!response.ok) {
+        const errBody = await response.json().catch(() => ({}));
+        return res.status(502).json({ error: errBody?.error?.message || `Jarvis's brain is unreachable right now (${response.status}).` });
+      }
+
+      const data = await response.json();
+      const toolUses = (data.content || []).filter(b => b.type === 'tool_use');
+      const textBlocks = (data.content || []).filter(b => b.type === 'text');
+      finalText = textBlocks.map(b => b.text).join('\n').trim();
+
+      messages.push({ role: 'assistant', content: data.content });
+
+      if (data.stop_reason !== 'tool_use' || toolUses.length === 0) break;
+
+      const toolResults = [];
+      for (const call of toolUses) {
+        const result = await executeJarvisTool(call.name, call.input || {});
+        actionsTaken.push({ tool: call.name, input: call.input, result });
+        toolResults.push({ type: 'tool_result', tool_use_id: call.id, content: JSON.stringify(result) });
+      }
+      messages.push({ role: 'user', content: toolResults });
+    }
+
+    res.json({ reply: finalText || 'Done.', actions: actionsTaken });
+  } catch (err) {
+    console.error('Jarvis error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+
 // ─── Start server ──────────────────────────────────────────
 
 // Automatically and permanently remove subscription entries that have expired.

@@ -6460,10 +6460,10 @@
     // updateUserAPI) directly. If something needed is missing — which
     // user, how many credits — it asks one short follow-up question
     // instead of guessing.
-    function JarvisAssistant({ currentSection, usersList, loadUsers }) {
+    function JarvisAssistant() {
       const [open, setOpen] = useState(false);
       const [messages, setMessages] = useState([
-        { role: 'assistant', text: "Hi, I'm Jarvis. Tell me what you need — add credits, create a user, delete a user, reset a password, look someone up — typed or spoken, whatever's easier." }
+        { role: 'assistant', text: "Hi, I'm Jarvis. I can see and act on pretty much everything in this admin portal — credits, users, subscriptions, deals, promotions, social media services, waiting customers, custom grants, FAQs, notices. Just tell me what you need, typed or spoken." }
       ]);
       const [input, setInput] = useState('');
       const [thinking, setThinking] = useState(false);
@@ -6472,9 +6472,6 @@
       const recognitionRef = useRef(null);
       const msgsEndRef = useRef(null);
       const { addToast } = useContext(AppContext);
-      // Holds a half-finished action while Jarvis waits on a follow-up
-      // answer, e.g. { type: 'add_credits', slots: { amount: 100 }, need: 'user' }.
-      const pendingRef = useRef(null);
 
       useEffect(() => {
         if (msgsEndRef.current) msgsEndRef.current.scrollIntoView({ behavior: 'smooth' });
@@ -6492,264 +6489,38 @@
         } catch (e) { /* speech synthesis unavailable — silently skip */ }
       };
 
-      const reply = (text) => {
-        setMessages(prev => [...prev, { role: 'assistant', text }]);
-        speak(text);
-      };
-
-      // Same fixed-format generator the admin dashboard's own
-      // "regenerate password" buttons use, so Jarvis-created credentials
-      // look and behave the same as ones made through the normal UI.
-      const genPassword = () => {
-        const upper = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
-        const letters = upper + upper.toLowerCase();
-        const specials = '!@#$%&';
-        const digits = '0123456789';
-        const pick = (str) => str.charAt(Math.floor(Math.random() * str.length));
-        let pass = pick(upper);
-        for (let i = 0; i < 4; i++) pass += pick(letters);
-        pass += pick(specials);
-        for (let i = 0; i < 3; i++) pass += pick(digits);
-        pass += pick(specials);
-        for (let i = 0; i < 3; i++) pass += pick(digits);
-        return pass;
-      };
-
-      // ── local NLU: no network call, just tokens + fuzzy matching ──
-      // (reuses the levenshtein/fuzzyWordMatch helpers defined above,
-      // the same ones the customer-facing chatbot uses)
-      const STOPWORDS = new Set(['the','a','an','to','for','of','please','pls','plz','can','you','with','and','is','are','this','that','some','add','give','grant','top','up','deduct','remove','subtract','minus','cut','take','away','create','new','delete','ban','kick','change','reset','update','find','search','look','looking','lookup','check','show','who','user','users','account','accounts','customer','credit','credits','balance','password','passwords','from','into','on','him','her','them','it','me','my','please']);
-
-      const tokenize = (text) => text.toLowerCase().replace(/[^\w\s]/g, ' ').split(/\s+/).filter(Boolean);
-      const hasAny = (tokens, words) => words.some(w => tokens.some(t => t === w || fuzzyWordMatch(t, w)));
-
-      // Finds the customer(s) a sentence is talking about: exact WhatsApp
-      // number first, then exact username substring, then fuzzy
-      // username/name matching. Returns an array so callers can tell
-      // "not found" (empty) apart from "ambiguous" (2+).
-      const findUsers = (text) => {
-        const list = usersList || [];
-        const numMatch = text.match(/\d{7,}/);
-        if (numMatch) {
-          const byWhatsapp = list.filter(u => u.whatsapp && u.whatsapp.replace(/\D/g, '').includes(numMatch[0]));
-          if (byWhatsapp.length) return byWhatsapp;
-        }
-        const lower = text.toLowerCase();
-        const exact = list.filter(u => u.username && lower.includes(u.username.toLowerCase()));
-        if (exact.length) return exact.sort((a, b) => b.username.length - a.username.length).slice(0, 1);
-        const tokens = tokenize(text).filter(t => !STOPWORDS.has(t) && !/^\d+$/.test(t) && t.length >= 3);
-        if (!tokens.length) return [];
-        const scored = [];
-        list.forEach(u => {
-          [u.username, u.name].filter(Boolean).forEach(field => {
-            const f = field.toLowerCase();
-            tokens.forEach(t => {
-              if (f.includes(t) || t.includes(f) || fuzzyWordMatch(f, t)) {
-                scored.push({ user: u, score: levenshtein(f, t) - Math.min(f.length, t.length) * 0.1 });
-              }
-            });
-          });
-        });
-        if (!scored.length) return [];
-        scored.sort((a, b) => a.score - b.score);
-        const best = scored[0].score;
-        const top = scored.filter(s => s.score <= best + 1);
-        return [...new Map(top.map(s => [s.user.username, s.user])).values()];
-      };
-
-      const findAmount = (text) => {
-        const m = text.match(/(\d+(\.\d+)?)/);
-        return m ? Math.round(parseFloat(m[1])) : null;
-      };
-
-      const detectIntent = (text) => {
-        const tokens = tokenize(text);
-        if (hasAny(tokens, ['password']) && hasAny(tokens, ['change', 'reset', 'update', 'new', 'forgot'])) return 'change_password';
-        if (hasAny(tokens, ['credit', 'credits', 'balance'])) {
-          if (hasAny(tokens, ['add', 'give', 'grant', 'top', 'increase', 'topup'])) return 'add_credits';
-          if (hasAny(tokens, ['deduct', 'remove', 'subtract', 'minus', 'cut', 'decrease', 'take'])) return 'deduct_credits';
-        }
-        if (hasAny(tokens, ['user', 'account', 'customer', 'signup'])) {
-          if (hasAny(tokens, ['create', 'new', 'add', 'register', 'signup', 'sign'])) return 'create_user';
-          if (hasAny(tokens, ['delete', 'remove', 'ban', 'kick'])) return 'delete_user';
-          if (hasAny(tokens, ['find', 'search', 'look', 'lookup', 'check', 'show', 'who'])) return 'lookup_user';
-        }
-        if (hasAny(tokens, ['find', 'search', 'lookup', 'who']) && !hasAny(tokens, ['credit', 'password'])) return 'lookup_user';
-        return null;
-      };
-
-      const NEEDED = {
-        add_credits: ['user', 'amount'],
-        deduct_credits: ['user', 'amount'],
-        create_user: ['username', 'whatsapp'],
-        delete_user: ['user', 'confirm'],
-        lookup_user: ['user'],
-        change_password: ['user'],
-      };
-      const ASK = {
-        user: 'Who is this for? Give me a username, name, or WhatsApp number.',
-        amount: 'How many credits?',
-        username: 'What username should the new account have?',
-        whatsapp: "What's their WhatsApp number?",
-        confirm: (slots) => `Delete "${slots.user.username}"? This only removes their login, not any subscriptions already granted. Reply yes to confirm.`,
-      };
-
-      const execute = async (type, slots) => {
-        try {
-          if (type === 'add_credits') {
-            await addCredits(slots.user.username, slots.amount, 'Added by admin via Jarvis');
-            await loadUsers();
-            reply(`Done — added ${slots.amount} credits to ${slots.user.username}.`);
-          } else if (type === 'deduct_credits') {
-            await deductCredits(slots.user.username, slots.amount, null, 'Deducted by admin via Jarvis');
-            await loadUsers();
-            reply(`Done — deducted ${slots.amount} credits from ${slots.user.username}.`);
-          } else if (type === 'delete_user') {
-            await deleteUserAPI(slots.user.username);
-            await loadUsers();
-            reply(`Deleted "${slots.user.username}". Any subscriptions already granted to them stay untouched.`);
-          } else if (type === 'lookup_user') {
-            const u = slots.user;
-            reply(`${u.name || u.username} (@${u.username}) — RS ${u.credits || 0} credits, WhatsApp ${u.whatsapp || 'none on file'}.`);
-          } else if (type === 'change_password') {
-            const newPass = genPassword();
-            await updateUserAPI(slots.user.username, { username: slots.user.username, password: newPass });
-            await loadUsers();
-            reply(`New password for ${slots.user.username}: ${newPass}`);
-          } else if (type === 'create_user') {
-            const pass = genPassword();
-            const result = await signUpUser(slots.username, slots.username, pass, slots.whatsapp);
-            if (result && result.error) {
-              reply(`Couldn't create that account: ${result.error}`);
-            } else {
-              await loadUsers();
-              reply(`Created "${slots.username}" with password ${pass}. They're starting on the default 50 credits — tell me to add more if needed.`);
-            }
-          }
-        } catch (err) {
-          reply((err && (err.error || err.message)) || 'Something went wrong doing that — try again.');
-        }
-      };
-
-      const proceed = async (type, slots) => {
-        const needed = NEEDED[type];
-        const missing = needed.find(k => slots[k] === undefined || slots[k] === null || slots[k] === '');
-        if (missing) {
-          pendingRef.current = { type, slots, need: missing };
-          reply(typeof ASK[missing] === 'function' ? ASK[missing](slots) : ASK[missing]);
-          return;
-        }
-        await execute(type, slots);
-      };
-
-      const startAction = async (text) => {
-        const intent = detectIntent(text);
-        if (!intent) {
-          reply('I didn\'t catch an action there. I can add or deduct credits, create or delete a user, reset a password, or look someone up — try "add 100 credits to john123".');
-          return;
-        }
-        const slots = {};
-        if (intent === 'add_credits' || intent === 'deduct_credits') {
-          const amt = findAmount(text);
-          if (amt) slots.amount = amt;
-        }
-        if (intent === 'create_user') {
-          const m = text.match(/\d{7,}/);
-          if (m) slots.whatsapp = m[0];
-          const unameMatch = text.match(/(?:user(?:name)?|call(?:ed)?|named)\s+["']?([a-zA-Z0-9_.]{3,})["']?/i) || text.match(/["']([a-zA-Z0-9_.]{3,})["']/);
-          if (unameMatch) slots.username = unameMatch[1];
-        } else {
-          const matches = findUsers(text);
-          if (matches.length === 1) {
-            slots.user = matches[0];
-          } else if (matches.length > 1) {
-            pendingRef.current = { type: intent, slots, need: 'disambiguate', candidates: matches };
-            reply(`A few matches: ${matches.slice(0, 5).map(u => u.username).join(', ')}. Which one?`);
-            return;
-          }
-        }
-        await proceed(intent, slots);
-      };
-
-      const continuePending = async (text) => {
-        const p = pendingRef.current;
-        const lower = text.trim().toLowerCase();
-        if (p.need === 'disambiguate') {
-          const pick = (p.candidates || []).find(u => u.username.toLowerCase() === lower || lower.includes(u.username.toLowerCase()) || fuzzyWordMatch(u.username.toLowerCase(), lower));
-          if (!pick) {
-            reply(`I still couldn't tell which one — try typing the exact username (one of: ${(p.candidates || []).map(u => u.username).join(', ')}).`);
-            return;
-          }
-          pendingRef.current = null;
-          await proceed(p.type, { ...p.slots, user: pick });
-          return;
-        }
-        if (p.need === 'user') {
-          const matches = findUsers(text);
-          if (!matches.length) { reply("I couldn't find anyone matching that — try their exact username."); return; }
-          if (matches.length > 1) {
-            pendingRef.current = { type: p.type, slots: p.slots, need: 'disambiguate', candidates: matches };
-            reply(`A few matches: ${matches.slice(0, 5).map(u => u.username).join(', ')}. Which one?`);
-            return;
-          }
-          pendingRef.current = null;
-          await proceed(p.type, { ...p.slots, user: matches[0] });
-          return;
-        }
-        if (p.need === 'amount') {
-          const amt = findAmount(text);
-          if (!amt) { reply('Just the number of credits, please.'); return; }
-          pendingRef.current = null;
-          await proceed(p.type, { ...p.slots, amount: amt });
-          return;
-        }
-        if (p.need === 'username') {
-          const uname = text.trim().split(/\s+/)[0].replace(/[^\w.-]/g, '');
-          if (!uname) { reply('That username looks empty — try again.'); return; }
-          if ((usersList || []).some(u => u.username && u.username.toLowerCase() === uname.toLowerCase())) {
-            reply(`"${uname}" is already taken — try a different username.`);
-            return;
-          }
-          pendingRef.current = null;
-          await proceed(p.type, { ...p.slots, username: uname });
-          return;
-        }
-        if (p.need === 'whatsapp') {
-          const m = text.match(/\d{7,}/);
-          if (!m) { reply('I need a WhatsApp number (digits only) for this account.'); return; }
-          pendingRef.current = null;
-          await proceed(p.type, { ...p.slots, whatsapp: m[0] });
-          return;
-        }
-        if (p.need === 'confirm') {
-          pendingRef.current = null;
-          if (/^(y|yes|yeah|yep|confirm|do it|sure)/.test(lower)) {
-            await execute(p.type, p.slots);
-          } else {
-            reply('Okay, left that account alone.');
-          }
-          return;
-        }
-      };
-
+      // Full natural-language turn: sent to /api/jarvis, which runs Claude
+      // with tool-use against the real admin API (credits, users,
+      // subscriptions, deals, promotions, social services, waiting,
+      // custom grants, FAQs, notices — see server.js for the exact list).
+      // Conversation history is kept client-side only, as plain
+      // {role, text} turns, and replayed on each new message for context.
       const sendMessage = async (textOverride) => {
         const text = (textOverride !== undefined ? textOverride : input).trim();
         if (!text || thinking) return;
+        const history = messages.map(m => ({ role: m.role, content: m.text }));
         setMessages(prev => [...prev, { role: 'user', text }]);
         setInput('');
         setThinking(true);
         try {
-          if (/^(cancel|nevermind|never mind|stop|abort)$/i.test(text)) {
-            const wasPending = !!pendingRef.current;
-            pendingRef.current = null;
-            reply(wasPending ? 'Okay, cancelled.' : "Nothing pending to cancel — what do you need?");
-            return;
-          }
-          if (pendingRef.current) {
-            await continuePending(text);
+          const res = await fetch(`${API_BASE}/api/jarvis`, {
+            method: 'POST',
+            headers: authHeaders({ 'Content-Type': 'application/json' }),
+            body: JSON.stringify({ message: text, history })
+          });
+          const data = await res.json().catch(() => ({}));
+          if (!res.ok || data.error) {
+            const errText = data.error || `Something went wrong on my end (${res.status}) — try that again?`;
+            setMessages(prev => [...prev, { role: 'assistant', text: errText }]);
+            speak(errText);
           } else {
-            await startAction(text);
+            const reply = data.reply || 'Done.';
+            setMessages(prev => [...prev, { role: 'assistant', text: reply }]);
+            speak(reply);
           }
+        } catch (err) {
+          const errText = "I couldn't reach the server just now — check your connection and try again.";
+          setMessages(prev => [...prev, { role: 'assistant', text: errText }]);
         } finally {
           setThinking(false);
         }
@@ -6838,6 +6609,7 @@
         </>
       );
     }
+
 
     function AdminDashboard({ subscriptions, setSubscriptions, onLogout, onBack, deals, setDeals, promotions, setPromotions, socialServices, setSocialServices }) {
       const [activeTab, setActiveTab] = useState('overview');
@@ -8675,7 +8447,7 @@
       // ─── RENDER ADMIN DASHBOARD ──────────────────────────────
       return (
         <div className="space-y-6">
-          <JarvisAssistant currentSection={activeTab} usersList={usersList} loadUsers={loadUsers} />
+          <JarvisAssistant />
           <div className="flex flex-wrap justify-between items-center gap-4">
             <div>
               <h2 className="text-2xl font-bold text-white"><span className="brand-z brand-z-sm">Z</span> Admin Dashboard</h2>
